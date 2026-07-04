@@ -1,0 +1,434 @@
+import React, { useState, useEffect } from 'react';
+import { db, handleFirestoreError, OperationType } from '../firebase';
+import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { Product } from '../types';
+import { Plus, Download, Edit2, Trash2, Filter, AlertTriangle, Eye, ArrowLeft } from 'lucide-react';
+import ProductFormModal from './ProductFormModal';
+
+interface ProductsViewProps {
+  searchQuery: string;
+}
+
+export default function ProductsView({ searchQuery }: ProductsViewProps) {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [activeTab, setActiveTab] = useState<string>('ทั้งหมด');
+  const [selectedCategory, setSelectedCategory] = useState<string>('หมวดหมู่ทั้งหมด');
+  
+  // Modal states
+  const [modalOpen, setModalOpen] = useState<boolean>(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const itemsPerPage = 8;
+
+  // Listen to Firestore products
+  useEffect(() => {
+    const productsCol = collection(db, 'products');
+    const unsubscribe = onSnapshot(productsCol, (snapshot) => {
+      const prods: Product[] = [];
+      snapshot.forEach((docSnap) => {
+        prods.push({ id: docSnap.id, ...docSnap.data() } as Product);
+      });
+      setProducts(prods);
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'products');
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Filter products
+  const filteredProducts = products.filter((p) => {
+    // 1. Filter by search query
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.id.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // 2. Filter by category dropdown
+    const matchesCategory = selectedCategory === 'หมวดหมู่ทั้งหมด' || p.category === selectedCategory;
+
+    // 3. Filter by tabs (stock status)
+    let matchesTab = true;
+    if (activeTab === 'สินค้าพร้อมขาย') {
+      matchesTab = p.stock > 15;
+    } else if (activeTab === 'สินค้าใกล้หมด') {
+      matchesTab = p.stock > 0 && p.stock <= 15;
+    } else if (activeTab === 'หมดสต็อก') {
+      matchesTab = p.stock === 0;
+    }
+
+    return matchesSearch && matchesCategory && matchesTab;
+  });
+
+  // Pagination logic
+  const totalItems = filteredProducts.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
+
+  // Status counters
+  const lowStockCount = products.filter(p => p.stock > 0 && p.stock <= 15).length;
+
+  const handleOpenAddModal = () => {
+    setEditingProduct(null);
+    setModalOpen(true);
+  };
+
+  const handleOpenEditModal = (product: Product) => {
+    setEditingProduct(product);
+    setModalOpen(true);
+  };
+
+  const handleSaveProduct = async (productData: Product) => {
+    try {
+      const prodRef = doc(db, 'products', productData.id);
+      await setDoc(prodRef, productData, { merge: true });
+    } catch (error) {
+      console.error('Error writing product doc:', error);
+      handleFirestoreError(error, OperationType.WRITE, `products/${productData.id}`);
+      throw error;
+    }
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    if (window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบสินค้านี้ออกจากคลัง?')) {
+      try {
+        await deleteDoc(doc(db, 'products', productId));
+      } catch (error) {
+        console.error('Error deleting product:', error);
+        handleFirestoreError(error, OperationType.DELETE, `products/${productId}`);
+        alert('เกิดข้อผิดพลาดในการลบสินค้า');
+      }
+    }
+  };
+
+  const handleExportCSV = () => {
+    // Generates static CSV from products list
+    const headers = ['รหัสสินค้า', 'ชื่อสินค้า', 'หมวดหมู่', 'สต็อก', 'ราคา (บาท)', 'สถานะ'];
+    const rows = products.map(p => [p.id, p.name, p.category, p.stock, p.price, p.status]);
+    
+    const csvContent = "data:text/csv;charset=utf-8,\ufeff" 
+      + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+      
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `shop_inventory_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="flex-1 p-4 lg:p-6 lg:px-8 w-full max-w-7xl mx-auto overflow-x-hidden bg-slate-50 min-h-screen">
+      {/* Header and Actions */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">รายการสินค้า</h2>
+          <p className="text-sm text-slate-500 mt-1 font-medium">จัดการสต็อกสินค้าและราคาทั้งหมดในระบบ</p>
+        </div>
+        <div className="flex flex-wrap gap-2.5 w-full sm:w-auto">
+          <button
+            onClick={handleExportCSV}
+            className="flex-1 sm:flex-none bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
+          >
+            <Download className="w-4 h-4" />
+            <span>นำออก</span>
+          </button>
+          <button
+            onClick={handleOpenAddModal}
+            className="flex-1 sm:flex-none bg-slate-900 hover:bg-slate-850 text-white px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>เพิ่มสินค้า</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Filters & Tabs Section */}
+      <div className="bg-white border border-slate-100 rounded-2xl p-4 mb-6 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
+        {/* Status Pills */}
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          {['ทั้งหมด', 'สินค้าพร้อมขาย', 'สินค้าใกล้หมด', 'หมดสต็อก'].map((tab) => {
+            const isActive = activeTab === tab;
+            let counter: number | null = null;
+            if (tab === 'สินค้าใกล้หมด') counter = lowStockCount;
+            if (tab === 'หมดสต็อก') counter = products.filter(p => p.stock === 0).length;
+
+            return (
+              <button
+                key={tab}
+                onClick={() => {
+                  setActiveTab(tab);
+                  setCurrentPage(1);
+                }}
+                className={`px-4 py-2 rounded-full border text-xs font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                  isActive
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <span>{tab}</span>
+                {counter !== null && counter > 0 && (
+                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-red-100 text-red-600'
+                  }`}>
+                    {counter}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Category Dropdown Selector */}
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <select
+            value={selectedCategory}
+            onChange={(e) => {
+              setSelectedCategory(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full md:w-48 px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all cursor-pointer"
+          >
+            <option value="หมวดหมู่ทั้งหมด">หมวดหมู่ทั้งหมด</option>
+            <option value="เครื่องดื่ม">เครื่องดื่ม</option>
+            <option value="ขนม">ขนม</option>
+            <option value="ของใช้">ของใช้</option>
+          </select>
+          <button className="p-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer shrink-0">
+            <Filter className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Main Table Section (Desktop View) */}
+      <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm hidden md:block">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left border-collapse table-fixed">
+            <thead>
+              <tr className="bg-slate-50 text-slate-500 text-xs font-semibold tracking-wider border-b border-slate-100 uppercase">
+                <th className="p-4 w-12 text-center">
+                  <input
+                    type="checkbox"
+                    className="rounded text-slate-900 border-slate-200 focus:ring-slate-950 bg-white"
+                  />
+                </th>
+                <th className="p-4 w-2/5">ชื่อสินค้า</th>
+                <th className="p-4 w-32">หมวดหมู่</th>
+                <th className="p-4 w-32 text-right">จำนวนสต็อก</th>
+                <th className="p-4 w-32 text-right">ราคา (฿)</th>
+                <th className="p-4 w-32 text-center">สถานะ</th>
+                <th className="p-4 w-28 text-right">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50 text-sm">
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="py-20 text-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-slate-900 mx-auto"></div>
+                  </td>
+                </tr>
+              ) : currentItems.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-16 text-center text-slate-400">
+                    ไม่พบสินค้าตรงตามเงื่อนไขที่ค้นหา
+                  </td>
+                </tr>
+              ) : (
+                currentItems.map((p) => {
+                  const isOutOfStock = p.stock === 0;
+                  const isLowStock = p.stock > 0 && p.stock <= 15;
+
+                  return (
+                    <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-4 text-center">
+                        <input
+                          type="checkbox"
+                          className="rounded text-slate-900 border-slate-200 focus:ring-slate-950 bg-white"
+                        />
+                      </td>
+                      <td className="p-4 font-bold text-slate-900 truncate">
+                        <button
+                          onClick={() => handleOpenEditModal(p)}
+                          className="hover:underline text-left text-slate-900 hover:text-slate-700 transition-colors cursor-pointer font-bold focus:outline-none"
+                        >
+                          {p.name}
+                        </button>
+                      </td>
+                      <td className="p-4 text-slate-600 font-medium">
+                        {p.category}
+                      </td>
+                      <td className={`p-4 text-right font-bold ${
+                        isOutOfStock ? 'text-red-600' : isLowStock ? 'text-amber-500' : 'text-slate-900'
+                      }`}>
+                        {p.stock}
+                      </td>
+                      <td className="p-4 text-right font-extrabold text-slate-900">
+                        {p.price.toFixed(2)}
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                          isOutOfStock
+                            ? 'bg-red-50 text-red-600 border-red-100'
+                            : isLowStock
+                            ? 'bg-amber-50 text-amber-600 border-amber-100'
+                            : 'bg-green-50 text-green-600 border-green-100'
+                        }`}>
+                          {p.status}
+                        </span>
+                      </td>
+                      <td className="p-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => handleOpenEditModal(p)}
+                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProduct(p.id)}
+                            className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Footer */}
+        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-white">
+          <span className="text-xs font-semibold text-slate-500">
+            แสดง {totalItems > 0 ? indexOfFirstItem + 1 : 0} ถึง {Math.min(indexOfLastItem, totalItems)} จาก {totalItems} รายการ
+          </span>
+          
+          <div className="flex gap-1.5">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white cursor-pointer transition-colors"
+            >
+              ย้อนกลับ
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                  currentPage === page
+                    ? 'bg-slate-900 text-white'
+                    : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white cursor-pointer transition-colors"
+            >
+              ถัดไป
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Card List View (Visible on screens < 768px) */}
+      <div className="md:hidden flex flex-col gap-4 pb-24">
+        {loading ? (
+          <div className="py-20 flex justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="py-16 text-center text-slate-400">
+            ไม่พบสินค้าในระบบ
+          </div>
+        ) : (
+          filteredProducts.map((p) => {
+            const isOutOfStock = p.stock === 0;
+            const isLowStock = p.stock > 0 && p.stock <= 15;
+
+            return (
+              <div
+                key={p.id}
+                className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col relative"
+              >
+                {/* Actions Trigger */}
+                <div className="absolute top-4 right-4 flex gap-1">
+                  <button
+                    onClick={() => handleOpenEditModal(p)}
+                    className="p-1 text-slate-400 hover:text-slate-900 rounded-lg"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteProduct(p.id)}
+                    className="p-1 text-slate-400 hover:text-red-600 rounded-lg"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Info block */}
+                <div className="mb-3">
+                  <div className="min-w-0 flex-1 pr-12">
+                    <h3 className="font-bold text-slate-900 leading-snug truncate">
+                      <button
+                        onClick={() => handleOpenEditModal(p)}
+                        className="hover:underline text-left font-bold text-slate-900 hover:text-slate-700 transition-colors cursor-pointer focus:outline-none"
+                      >
+                        {p.name}
+                      </button>
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium mt-1">{p.category}</p>
+                  </div>
+                </div>
+
+                {/* Sub row */}
+                <div className="flex justify-between items-end pt-3 border-t border-slate-100">
+                  <div>
+                    <p className="text-xs text-slate-500 font-semibold">
+                      คงเหลือ:{' '}
+                      <span className={`font-bold ${isOutOfStock ? 'text-red-600' : 'text-slate-900'}`}>
+                        {p.stock}
+                      </span>
+                    </p>
+                    <span className={`inline-flex items-center mt-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold border ${
+                      isOutOfStock
+                        ? 'bg-red-50 text-red-600 border-red-100'
+                        : isLowStock
+                        ? 'bg-amber-50 text-amber-600 border-amber-100'
+                        : 'bg-green-50 text-green-600 border-green-100'
+                    }`}>
+                      {p.status}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-black text-slate-900">฿{p.price.toFixed(2)}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Product Form Modal */}
+      <ProductFormModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        product={editingProduct}
+        onSave={handleSaveProduct}
+      />
+    </div>
+  );
+}

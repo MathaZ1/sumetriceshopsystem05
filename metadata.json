@@ -1,0 +1,8 @@
+{
+  "name": "Remix: ระบบจัดการร้านค้า",
+  "description": "ระบบจัดการร้านค้าที่มีระบบ POS ขายสินค้า, การจัดการสต็อกสินค้า, และรายงานวิเคราะห์ยอดขาย เชื่อมต่อข้อมูลด้วย Firebase",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

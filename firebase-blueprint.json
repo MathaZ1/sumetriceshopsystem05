@@ -1,0 +1,114 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A product available for sale in the shop.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique product SKU/ID (e.g. PRD-001)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the product"
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the product"
+        },
+        "price": {
+          "type": "number",
+          "description": "Price per unit in THB"
+        },
+        "stock": {
+          "type": "number",
+          "description": "Current stock level"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the product image"
+        },
+        "status": {
+          "type": "string",
+          "description": "Availability status: พร้อมขาย, ใกล้หมด, หมดสต็อก"
+        }
+      },
+      "required": ["id", "name", "category", "price", "stock", "status"]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "A completed or cancelled transaction/invoice.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Invoice number (e.g. INV-00124)"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "ISO timestamp or formatted date string"
+        },
+        "employee": {
+          "type": "string",
+          "description": "Name of the employee processing the sale"
+        },
+        "total": {
+          "type": "number",
+          "description": "Total purchase price in THB"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the sale: สำเร็จ, ยกเลิก"
+        },
+        "items": {
+          "type": "array",
+          "description": "List of products purchased in this transaction"
+        }
+      },
+      "required": ["id", "timestamp", "employee", "total", "status", "items"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "A registered member/customer for receiving tax invoices and receipts.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Customer unique ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Customer full name or shop name"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Customer telephone number"
+        },
+        "address": {
+          "type": "string",
+          "description": "Optional billing address"
+        },
+        "taxId": {
+          "type": "string",
+          "description": "Optional 13-digit tax identification number"
+        }
+      },
+      "required": ["id", "name"]
+    }
+  },
+  "firestore": {
+    "products/{productId}": {
+      "schema": "Product",
+      "description": "The collections of products in the inventory"
+    },
+    "sales/{saleId}": {
+      "schema": "Sale",
+      "description": "The collections of sales invoices and records"
+    },
+    "customers/{customerId}": {
+      "schema": "Customer",
+      "description": "The collection of registered customer profiles"
+    }
+  }
+}

@@ -1,0 +1,121 @@
+import { Search, Bell, Settings, Menu, LogOut } from 'lucide-react';
+import { auth } from '../firebase';
+import { signOut } from 'firebase/auth';
+
+interface HeaderProps {
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  activeTab: string;
+}
+
+export default function Header({ searchQuery, setSearchQuery, activeTab }: HeaderProps) {
+  const currentUser = auth.currentUser;
+
+  const handleSignOut = async () => {
+    if (window.confirm('คุณต้องการออกจากระบบใช่หรือไม่?')) {
+      try {
+        await signOut(auth);
+      } catch (err) {
+        console.error('Sign out error:', err);
+      }
+    }
+  };
+  // Get heading title based on active tab
+  const getTitle = () => {
+    switch (activeTab) {
+      case 'pos':
+        return 'หน้าขายสินค้า';
+      case 'products':
+        return 'รายการสินค้า';
+      case 'reports':
+        return 'รายงานสรุปยอดขาย';
+      case 'receipt':
+        return 'ออกใบเสร็จรับเงิน';
+      case 'customers':
+        return 'ระบบจัดการสมาชิกลูกค้า';
+      default:
+        return 'ระบบจัดการร้านค้า';
+    }
+  };
+
+  const getPlaceholder = () => {
+    switch (activeTab) {
+      case 'products':
+        return 'ค้นหาสินค้าด้วยชื่อ หรือรหัส...';
+      case 'reports':
+        return 'ค้นหารายงานล่าสุด...';
+      case 'receipt':
+        return 'ค้นหาสินค้าด้วยชื่อ หรือ รหัส (SKU)...';
+      case 'customers':
+        return 'ค้นหาสมาชิกลูกค้า ด้วยชื่อหรือเบอร์โทร...';
+      default:
+        return 'ค้นหาสินค้า...';
+    }
+  };
+
+  return (
+    <header className="flex justify-between items-center w-full px-6 h-16 sticky top-0 z-40 bg-white border-b border-slate-100">
+      {/* Mobile Menu Button / Header Brand */}
+      <div className="flex items-center gap-3 lg:hidden">
+        <Menu className="w-6 h-6 text-slate-600" />
+        <h1 className="text-lg font-bold text-slate-900 tracking-tight">สุเมธค้าข้าว</h1>
+      </div>
+
+      {/* Search Bar - hidden or customized based on tab */}
+      <div className="hidden md:block flex-1 max-w-md mx-6">
+        <div className="relative">
+          <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-11 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none text-sm text-slate-800 placeholder-slate-400 transition-all duration-200"
+            placeholder={getPlaceholder()}
+          />
+        </div>
+      </div>
+
+      {/* Trailing Actions */}
+      <div className="flex items-center gap-3">
+        
+        <button className="text-slate-500 hover:text-slate-900 hover:bg-slate-50 p-2 rounded-full transition-all duration-200 relative cursor-pointer">
+          <Bell className="w-5 h-5" />
+          <span className="absolute w-2 h-2 bg-red-500 rounded-full top-1.5 right-1.5"></span>
+        </button>
+
+        <button className="text-slate-500 hover:text-slate-900 hover:bg-slate-50 p-2 rounded-full transition-all duration-200 cursor-pointer">
+          <Settings className="w-5 h-5" />
+        </button>
+
+        {/* Dynamic Authenticated User Section */}
+        <div className="flex items-center gap-3 border-l border-slate-100 pl-3 ml-1 shrink-0">
+          <div className="text-right hidden sm:block">
+            <p className="text-xs font-black text-slate-950 leading-tight">
+              {currentUser?.displayName || 'ผู้ใช้งาน Gmail'}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-0.5 font-bold leading-none">
+              {currentUser?.email || ''}
+            </p>
+          </div>
+          
+          <div className="w-9 h-9 rounded-full overflow-hidden border border-slate-200 shadow-inner shrink-0 bg-slate-100">
+            <img
+              alt="User Profile"
+              className="w-full h-full object-cover"
+              src={currentUser?.photoURL || "https://lh3.googleusercontent.com/aida-public/AB6AXuA62gaORdbsmd9L05riXuELDhrm-F5vUV_IzOfOPNioiJA9wnVsNbvpYCzL_w0kS-vv2ImG0aWy-otY3WcScKKNAVnTFbczr-ulvS9rLiRoauF7YdhPxZwc7T6G-gB2biOjIeA5C7DFgk5c_wKLtsbmkP1pdEOhEAXSVTCh_Pk-QrQGWw6TL0r0z4Gn8a8p6mj8vSXWV5LWymgbqCrrtK-KuYjkPPhwK0JW6Yna-Hq0B9yft2UmB2nEc_PWMTzDOa_YQAhrbRW5o5Q"}
+              referrerPolicy="no-referrer"
+            />
+          </div>
+
+          <button
+            onClick={handleSignOut}
+            title="ออกจากระบบ"
+            className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-xl transition-all duration-200 cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
