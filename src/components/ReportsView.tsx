@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, onSnapshot, query, orderBy, limit, doc, updateDoc, runTransaction } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, doc, updateDoc, runTransaction, getDocs, deleteDoc } from 'firebase/firestore';
 import { Sale } from '../types';
-import { TrendingUp, FileText, Calendar, Download, Circle, CheckCircle, XCircle } from 'lucide-react';
+import { TrendingUp, FileText, Calendar, Download, Circle, CheckCircle, XCircle, Trash2, RefreshCw, Database, AlertTriangle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import ConfirmModal from './ConfirmModal';
 
@@ -22,6 +22,7 @@ export default function ReportsView() {
   const [confirmTitle, setConfirmTitle] = useState<string>('');
   const [confirmMessage, setConfirmMessage] = useState<string>('');
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [resetting, setResetting] = useState<boolean>(false);
 
   // Read transactions from Firestore
   useEffect(() => {
@@ -297,6 +298,132 @@ export default function ReportsView() {
         setConfirmMessage(error.message || 'เกิดข้อผิดพลาดในการเปลี่ยนสถานะบิล');
         setPendingAction(null);
         setConfirmOpen(true);
+      }
+    });
+    setConfirmOpen(true);
+  };
+
+  // Deletion logic for sales, products, and customers
+  const triggerClearSales = () => {
+    setConfirmTitle('ยืนยันล้างประวัติรายการขาย');
+    setConfirmMessage('คำเตือน: ยอดขาย สถิติ และประวัติการทำรายการทั้งหมดจะถูกลบอย่างถาวรและไม่สามารถเรียกคืนได้ คุณต้องการล้างข้อมูลนี้ใช่หรือไม่?');
+    setPendingAction(() => async () => {
+      try {
+        setResetting(true);
+        const colRef = collection(db, 'sales');
+        const snap = await getDocs(colRef);
+        const promises = snap.docs.map(docSnap => deleteDoc(doc(db, 'sales', docSnap.id)));
+        await Promise.all(promises);
+        
+        setPendingAction(null);
+        setConfirmTitle('เคลียร์ประวัติสำเร็จ');
+        setConfirmMessage('ระบบได้ล้างข้อมูลและประวัติการทำรายการขายเรียบร้อยแล้ว');
+        setConfirmOpen(true);
+      } catch (err: any) {
+        console.error(err);
+        setPendingAction(null);
+        setConfirmTitle('เกิดข้อผิดพลาด');
+        setConfirmMessage(err.message || 'ไม่สามารถล้างประวัติรายการขายได้');
+        setConfirmOpen(true);
+      } finally {
+        setResetting(false);
+      }
+    });
+    setConfirmOpen(true);
+  };
+
+  const triggerClearProducts = () => {
+    setConfirmTitle('ยืนยันลบรายการสินค้าและสต็อก');
+    setConfirmMessage('คำเตือน: ข้อมูลสินค้า หมวดหมู่ และจำนวนสต็อกทั้งหมดจะถูกลบออกจากระบบอย่างถาวร คุณต้องการลบข้อมูลนี้ใช่หรือไม่?');
+    setPendingAction(() => async () => {
+      try {
+        setResetting(true);
+        const colRef = collection(db, 'products');
+        const snap = await getDocs(colRef);
+        const promises = snap.docs.map(docSnap => deleteDoc(doc(db, 'products', docSnap.id)));
+        await Promise.all(promises);
+        
+        setPendingAction(null);
+        setConfirmTitle('เคลียร์สต็อกสำเร็จ');
+        setConfirmMessage('ระบบได้ลบข้อมูลสินค้าและสต็อกสินค้าทั้งหมดเรียบร้อยแล้ว');
+        setConfirmOpen(true);
+      } catch (err: any) {
+        console.error(err);
+        setPendingAction(null);
+        setConfirmTitle('เกิดข้อผิดพลาด');
+        setConfirmMessage(err.message || 'ไม่สามารถลบรายการสินค้าได้');
+        setConfirmOpen(true);
+      } finally {
+        setResetting(false);
+      }
+    });
+    setConfirmOpen(true);
+  };
+
+  const triggerClearCustomers = () => {
+    setConfirmTitle('ยืนยันลบรายชื่อสมาชิก');
+    setConfirmMessage('คำเตือน: รายชื่อและประวัติสมาชิกสมาชิกลูกค้าทั้งหมดจะถูกลบออกจากระบบอย่างถาวร คุณต้องการลบข้อมูลนี้ใช่หรือไม่?');
+    setPendingAction(() => async () => {
+      try {
+        setResetting(true);
+        const colRef = collection(db, 'customers');
+        const snap = await getDocs(colRef);
+        const promises = snap.docs.map(docSnap => deleteDoc(doc(db, 'customers', docSnap.id)));
+        await Promise.all(promises);
+        
+        setPendingAction(null);
+        setConfirmTitle('เคลียร์รายชื่อสมาชิกสำเร็จ');
+        setConfirmMessage('ระบบได้ลบข้อมูลและรายชื่อสมาชิกทั้งหมดเรียบร้อยแล้ว');
+        setConfirmOpen(true);
+      } catch (err: any) {
+        console.error(err);
+        setPendingAction(null);
+        setConfirmTitle('เกิดข้อผิดพลาด');
+        setConfirmMessage(err.message || 'ไม่สามารถลบรายชื่อสมาชิกได้');
+        setConfirmOpen(true);
+      } finally {
+        setResetting(false);
+      }
+    });
+    setConfirmOpen(true);
+  };
+
+  const triggerClearEverything = () => {
+    setConfirmTitle('ยืนยันรีเซ็ตระบบทั้งหมด');
+    setConfirmMessage('คำเตือนขั้นสูง: ข้อมูลระบบทั้งหมดประกอบด้วย ประวัติการขาย รายการสินค้าในสต็อก และรายชื่อสมาชิกลูกค้า จะถูกลบอย่างถาวรและไม่สามารถกู้คืนได้ คุณแน่ใจอย่างยิ่งที่จะทำรายการล้างข้อมูลทั้งหมดใช่หรือไม่?');
+    setPendingAction(() => async () => {
+      try {
+        setResetting(true);
+        
+        // 1. Clear sales
+        const salesCol = collection(db, 'sales');
+        const salesSnap = await getDocs(salesCol);
+        const salesPromises = salesSnap.docs.map(d => deleteDoc(doc(db, 'sales', d.id)));
+        
+        // 2. Clear products
+        const productsCol = collection(db, 'products');
+        const productsSnap = await getDocs(productsCol);
+        const productsPromises = productsSnap.docs.map(d => deleteDoc(doc(db, 'products', d.id)));
+        
+        // 3. Clear customers
+        const customersCol = collection(db, 'customers');
+        const customersSnap = await getDocs(customersCol);
+        const customersPromises = customersSnap.docs.map(d => deleteDoc(doc(db, 'customers', d.id)));
+        
+        await Promise.all([...salesPromises, ...productsPromises, ...customersPromises]);
+        
+        setPendingAction(null);
+        setConfirmTitle('รีเซ็ตระบบทั้งหมดสำเร็จ');
+        setConfirmMessage('ระบบสุเมธค้าข้าวได้รับการเคลียร์ฐานข้อมูลใหม่ทั้งหมดแล้ว พร้อมเริ่มใช้งานใหม่ทันที');
+        setConfirmOpen(true);
+      } catch (err: any) {
+        console.error(err);
+        setPendingAction(null);
+        setConfirmTitle('เกิดข้อผิดพลาด');
+        setConfirmMessage(err.message || 'ไม่สามารถรีเซ็ตระบบได้');
+        setConfirmOpen(true);
+      } finally {
+        setResetting(false);
       }
     });
     setConfirmOpen(true);
@@ -609,6 +736,99 @@ export default function ReportsView() {
           </div>
         </div>
 
+        {/* System Administration & Data Reset Section */}
+        <div className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm p-6 space-y-6">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Database className="w-4 h-4 text-slate-700" />
+              การจัดการฐานข้อมูลและรีเซ็ตระบบ
+            </h3>
+            <p className="text-xs text-slate-500 mt-1 font-medium">เคลียร์ประวัติและรีเซ็ตข้อมูลในระบบแยกตามส่วน หรือรีเซ็ตทั้งหมดเพื่อให้พร้อมเริ่มต้นใช้งานใหม่</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Clear Sales History Card */}
+            <div className="border border-slate-100 rounded-xl p-4 bg-slate-50/50 flex flex-col justify-between space-y-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
+                  <RefreshCw className="w-4 h-4 text-amber-500 shrink-0" />
+                  ล้างประวัติรายการขาย
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                  เคลียร์ประวัติรายการขาย บิลใบเสร็จทั้งหมด ยอดขายรวม และรายงานสรุปสถิติเพื่อเริ่มต้นระบบใหม่ โดยยังคงรายชื่อสินค้าในคลังและสมาชิกไว้
+                </p>
+              </div>
+              <button
+                disabled={resetting}
+                onClick={triggerClearSales}
+                className="w-full bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-xs py-2 px-3 rounded-lg border border-amber-200/50 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                ล้างประวัติรายการขาย
+              </button>
+            </div>
+
+            {/* Clear Stock Card */}
+            <div className="border border-slate-100 rounded-xl p-4 bg-slate-50/50 flex flex-col justify-between space-y-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
+                  <Trash2 className="w-4 h-4 text-red-500 shrink-0" />
+                  ลบสินค้าและสต็อกทั้งหมด
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                  ลบรายการสินค้าและสต็อกสินค้าทั้งหมดออกจากระบบอย่างถาวร เพื่อให้คุณเพิ่มข้อมูลสินค้าแบรนด์และหมวดหมู่ของคุณเองทั้งหมดตั้งแต่เริ่มต้น
+                </p>
+              </div>
+              <button
+                disabled={resetting}
+                onClick={triggerClearProducts}
+                className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs py-2 px-3 rounded-lg border border-red-200/50 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                ลบสินค้าและสต็อกทั้งหมด
+              </button>
+            </div>
+
+            {/* Clear Customers Card */}
+            <div className="border border-slate-100 rounded-xl p-4 bg-slate-50/50 flex flex-col justify-between space-y-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
+                  <Trash2 className="w-4 h-4 text-rose-500 shrink-0" />
+                  ลบรายชื่อสมาชิกทั้งหมด
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                  ลบรายชื่อสมาชิกของร้านค้า ข้อมูลส่วนตัว เบอร์โทรศัพท์ และรายละเอียดที่อยู่สมาชิกทั้งหมดเพื่อเริ่มเก็บบันทึกประวัติสมาชิกกลุ่มใหม่
+                </p>
+              </div>
+              <button
+                disabled={resetting}
+                onClick={triggerClearCustomers}
+                className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs py-2 px-3 rounded-lg border border-rose-200/50 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                ลบรายชื่อสมาชิกทั้งหมด
+              </button>
+            </div>
+          </div>
+
+          {/* Master Reset Card */}
+          <div className="border border-red-100 bg-red-50/20 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-2">
+            <div className="flex gap-3 items-start">
+              <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-xs font-bold text-red-800">รีเซ็ตข้อมูลทั้งหมดและเริ่มต้นใหม่ (Master System Reset)</h4>
+                <p className="text-[11px] text-red-600 mt-1 leading-relaxed font-semibold">
+                  ลบประวัติรายการขาย สินค้าและคลังสต็อก และสมาชิกลูกค้าทั้งหมดอย่างถาวรพร้อมๆ กัน เพื่อล้างระบบสุเมธค้าข้าวให้พร้อมเริ่มต้นใหม่เอี่ยม
+                </p>
+              </div>
+            </div>
+            <button
+              disabled={resetting}
+              onClick={triggerClearEverything}
+              className="sm:shrink-0 bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-2.5 px-5 rounded-lg transition-all cursor-pointer disabled:opacity-50 shadow-sm"
+            >
+              {resetting ? 'กำลังดำเนินการรีเซ็ต...' : 'ล้างข้อมูลทั้งหมดและรีเซ็ตระบบ'}
+            </button>
+          </div>
+        </div>
+
         {/* Spacer for mobile menu */}
         <div className="h-16 lg:hidden"></div>
       </div>
@@ -623,7 +843,8 @@ export default function ReportsView() {
         message={confirmMessage}
         confirmText="ยืนยัน"
         cancelText="ยกเลิก"
-        isDanger={confirmTitle.includes('ยกเลิก')}
+        isDanger={confirmTitle.includes('ยกเลิก') || confirmTitle.includes('ลบ') || confirmTitle.includes('ล้าง') || confirmTitle.includes('รีเซ็ต')}
+        showCancel={pendingAction !== null}
       />
     </div>
   );
