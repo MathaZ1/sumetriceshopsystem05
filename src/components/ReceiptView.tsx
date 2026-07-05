@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { db, handleFirestoreError, OperationType, auth } from '../firebase';
+import { db, handleFirestoreError, OperationType, auth, getNextInvoiceNumber } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, query, orderBy, updateDoc, runTransaction } from 'firebase/firestore';
 import { Product, CartItem, Customer, Sale, SaleItem } from '../types';
 import { Search, Plus, Minus, Trash2, Printer, CheckCircle2, User, MapPin, FileText, Users, Ban, RefreshCw, Eye, Tag, Receipt } from 'lucide-react';
@@ -167,6 +167,20 @@ export default function ReceiptView({
       setSubTab('create');
     }
   }, [role, subTab]);
+
+  // เมื่อเปิดหน้าออกใบเสร็จรับเงินใหม่ หรือเมื่อเซฟสำเร็จ ให้ดึงเลขที่ถัดไปมาเตรียมไว้เลยเพื่อให้เชื่อมโยงกันทุกเครื่อง
+  useEffect(() => {
+    if (!invoiceId && subTab === 'create') {
+      const fetchNextNum = async () => {
+        const nextNum = await getNextInvoiceNumber();
+        const seq = parseInt(nextNum, 10);
+        if (!isNaN(seq)) {
+          setInvoiceSeq(seq);
+        }
+      };
+      fetchNextNum();
+    }
+  }, [invoiceId, subTab, items.length]);
 
   // Load sales history for cancellation/management (Admin only)
   useEffect(() => {
@@ -513,6 +527,15 @@ export default function ReceiptView({
       setAlertMessage('กรุณาเพิ่มรายการสินค้าก่อนทำรายการ');
       setAlertOpen(true);
       return null;
+    }
+
+    // หากเปิดดูบิลเดิม หรือบิลที่เกิดจากการชำระเงินทางหน้า POS สำเร็จแล้ว (มี invoiceId) ให้ผ่านการบันทึกไปได้เลยเพื่อไม่ให้ตัดสต็อกเบิ้ล
+    if (invoiceId) {
+      const existingId = invoiceId;
+      if (setInvoiceId) {
+        setInvoiceId('');
+      }
+      return existingId;
     }
 
     const finalInvoiceNumber = invoiceNumber;

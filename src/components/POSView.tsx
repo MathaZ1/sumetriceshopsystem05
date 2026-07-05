@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db, handleFirestoreError, OperationType, auth } from '../firebase';
+import { db, handleFirestoreError, OperationType, auth, getNextInvoiceNumber } from '../firebase';
 import { collection, onSnapshot, addDoc, doc, updateDoc, runTransaction } from 'firebase/firestore';
 import { Product, CartItem, Sale, SaleItem, Customer } from '../types';
 import { ShoppingCart, Plus, Minus, Check, Search } from 'lucide-react';
@@ -147,10 +147,8 @@ export default function POSView({
 
     setCheckoutLoading(true);
     try {
-      // Retrieve the current sequence from localStorage
-      const savedSeq = localStorage.getItem('receipt_invoice_seq');
-      const invoiceSeq = savedSeq ? parseInt(savedSeq, 10) : 1;
-      const invoiceNumber = String(invoiceSeq).padStart(6, '0');
+      // ดึงเลขที่ใบเสร็จถัดไปจาก Firestore โดยตรง เพื่อไม่ให้ซ้ำซ้อนกับเครื่องอื่น
+      const invoiceNumber = await getNextInvoiceNumber();
 
       const saleItems: SaleItem[] = cart.map((item) => ({
         productId: item.product.id,
@@ -208,8 +206,11 @@ export default function POSView({
         transaction.set(saleDocRef, newSale);
       });
 
-      // Increment and save sequence ONLY after transaction succeeds
-      localStorage.setItem('receipt_invoice_seq', String(invoiceSeq + 1));
+      // บันทึก sequence ล่าสุดลง localStorage ไว้เป็นก๊อกสอง
+      const seqVal = parseInt(invoiceNumber, 10);
+      if (!isNaN(seqVal)) {
+        localStorage.setItem('receipt_invoice_seq', String(seqVal + 1));
+      }
 
       const itemsInCart = [...cart];
       // Reset cart and callback

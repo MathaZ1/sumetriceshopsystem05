@@ -6,7 +6,10 @@ import {
   getDocs,
   setDoc,
   doc,
-  initializeFirestore
+  initializeFirestore,
+  query,
+  orderBy,
+  limit
 } from 'firebase/firestore';
 
 // Import config directly from the root to ensure proper, dynamically-provisioned IDs are used
@@ -222,5 +225,34 @@ export async function seedInitialData() {
   } catch (error) {
     console.warn('Skipping initial sales seeding write:', error);
     return;
+  }
+}
+
+// ฟังก์ชันหาเลขที่ใบเสร็จถัดไปโดยอิงจาก Firestore เพื่อให้เชื่อมโยงกันทุกเครื่องและพนักงานสามารถออกบิลได้ต่อเนื่อง
+export async function getNextInvoiceNumber(): Promise<string> {
+  try {
+    const salesCol = collection(db, 'sales');
+    // ดึงรายการล่าสุด 100 รายการเพื่อหาเลขสูงสุด (ป้องกันกรณี timestamp ไม่ตรง)
+    const q = query(salesCol, orderBy('timestamp', 'desc'), limit(100));
+    const querySnapshot = await getDocs(q);
+    
+    let maxSeq = 123; // เริ่มต้นที่ 124 เพื่อให้ล้อกับเดโม (เช่น INV-00123)
+    querySnapshot.forEach((docSnap) => {
+      const idStr = docSnap.id; // เช่น "INV-00124" หรือ "000124"
+      // ดึงเฉพาะตัวเลขออกมา
+      const numPart = idStr.replace(/[^0-9]/g, '');
+      const seq = parseInt(numPart, 10);
+      if (!isNaN(seq) && seq > maxSeq) {
+        maxSeq = seq;
+      }
+    });
+    
+    const nextSeq = maxSeq + 1;
+    return String(nextSeq).padStart(6, '0');
+  } catch (err) {
+    console.error('Error getting next invoice number:', err);
+    // หากเกิดข้อผิดพลาด ให้ใช้ timestamp เพื่อไม่ให้ซ้ำกัน
+    const timestampSeq = Math.floor(Date.now() / 1000) % 1000000;
+    return String(timestampSeq).padStart(6, '0');
   }
 }
