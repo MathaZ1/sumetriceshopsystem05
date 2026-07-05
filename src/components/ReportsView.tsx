@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, onSnapshot, query, orderBy, limit, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, doc, updateDoc, runTransaction } from 'firebase/firestore';
 import { Sale } from '../types';
 import { TrendingUp, FileText, Calendar, Download, Circle, CheckCircle, XCircle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -246,13 +246,55 @@ export default function ReportsView() {
     setConfirmMessage(`คุณต้องการเปลี่ยนสถานะของบิล ${invoice.id} เป็น "${newStatus}" ใช่หรือไม่?`);
     setPendingAction(() => async () => {
       try {
-        const docRef = doc(db, 'sales', invoice.id);
-        await updateDoc(docRef, { status: newStatus });
-      } catch (error) {
+        await runTransaction(db, async (transaction) => {
+          const saleRef = doc(db, 'sales', invoice.id);
+          const saleDoc = await transaction.get(saleRef);
+          if (!saleDoc.exists()) {
+            throw new Error('ไม่พบข้อมูลรายการขายนี้');
+          }
+          const saleData = saleDoc.data() as Sale;
+          const currentStatus = saleData.status;
+          const targetStatus = currentStatus === 'สำเร็จ' ? 'ยกเลิก' : 'สำเร็จ';
+
+          const productUpdates: { ref: any; newStock: number; newStatus: string }[] = [];
+
+          for (const item of saleData.items || []) {
+            const prodRef = doc(db, 'products', item.productId);
+            const prodDoc = await transaction.get(prodRef);
+            if (prodDoc.exists()) {
+              const currentStock = prodDoc.data().stock || 0;
+              let newStock = currentStock;
+
+              if (targetStatus === 'ยกเลิก') {
+                // Cancelled: Add back to inventory stock
+                newStock = currentStock + item.quantity;
+              } else {
+                // Restored: Deduct from inventory stock, but check if there's enough stock
+                if (currentStock < item.quantity) {
+                  throw new Error(`ไม่สามารถกู้คืนบิลได้ เนื่องจากสต็อกสินค้า "${item.name}" มีไม่เพียงพอ (ต้องการ ${item.quantity} ชิ้น แต่ในสต็อกเหลือ ${currentStock} ชิ้น)`);
+                }
+                newStock = currentStock - item.quantity;
+              }
+
+              const newStatus = newStock === 0 ? 'หมดสต็อก' : newStock <= 15 ? 'ใกล้หมด' : 'พร้อมขาย';
+              productUpdates.push({ ref: prodRef, newStock, newStatus });
+            }
+          }
+
+          // Apply updates
+          for (const update of productUpdates) {
+            transaction.update(update.ref, {
+              stock: update.newStock,
+              status: update.newStatus
+            });
+          }
+
+          transaction.update(saleRef, { status: targetStatus });
+        });
+      } catch (error: any) {
         console.error('Error updating status:', error);
-        handleFirestoreError(error, OperationType.UPDATE, `sales/${invoice.id}`);
         setConfirmTitle('เกิดข้อผิดพลาด');
-        setConfirmMessage('เกิดข้อผิดพลาดในการเปลี่ยนสถานะบิล');
+        setConfirmMessage(error.message || 'เกิดข้อผิดพลาดในการเปลี่ยนสถานะบิล');
         setPendingAction(null);
         setConfirmOpen(true);
       }

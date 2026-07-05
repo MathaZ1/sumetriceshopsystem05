@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, onSnapshot, doc, setDoc, query, orderBy, updateDoc } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, auth } from '../firebase';
+import { collection, onSnapshot, doc, setDoc, query, orderBy, updateDoc, runTransaction } from 'firebase/firestore';
 import { Product, CartItem, Customer, Sale, SaleItem } from '../types';
 import { Search, Plus, Minus, Trash2, Printer, CheckCircle2, User, MapPin, FileText, Users, Ban, RefreshCw, Eye, Tag, Receipt } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
@@ -331,15 +331,59 @@ export default function ReceiptView({
     setConfirmIsDanger(isSuccess);
     setPendingAction(() => async () => {
       try {
-        const docRef = doc(db, 'sales', sale.id);
-        await updateDoc(docRef, { status: newStatus });
+        await runTransaction(db, async (transaction) => {
+          const saleRef = doc(db, 'sales', sale.id);
+          const saleDoc = await transaction.get(saleRef);
+          if (!saleDoc.exists()) {
+            throw new Error('ไม่พบข้อมูลรายการขายนี้');
+          }
+          const saleData = saleDoc.data() as Sale;
+          const currentStatus = saleData.status;
+          const targetStatus = currentStatus === 'สำเร็จ' ? 'ยกเลิก' : 'สำเร็จ';
+
+          const productUpdates: { ref: any; newStock: number; newStatus: string }[] = [];
+
+          for (const item of saleData.items || []) {
+            const prodRef = doc(db, 'products', item.productId);
+            const prodDoc = await transaction.get(prodRef);
+            if (prodDoc.exists()) {
+              const currentStock = prodDoc.data().stock || 0;
+              let newStock = currentStock;
+
+              if (targetStatus === 'ยกเลิก') {
+                // Cancelled: Add back to inventory stock
+                newStock = currentStock + item.quantity;
+              } else {
+                // Restored: Deduct from inventory stock, but check if there's enough stock
+                if (currentStock < item.quantity) {
+                  throw new Error(`ไม่สามารถกู้คืนบิลได้ เนื่องจากสต็อกสินค้า "${item.name}" มีไม่เพียงพอ (ต้องการ ${item.quantity} ชิ้น แต่ในสต็อกเหลือ ${currentStock} ชิ้น)`);
+                }
+                newStock = currentStock - item.quantity;
+              }
+
+              const newStatus = newStock === 0 ? 'หมดสต็อก' : newStock <= 15 ? 'ใกล้หมด' : 'พร้อมขาย';
+              productUpdates.push({ ref: prodRef, newStock, newStatus });
+            }
+          }
+
+          // Apply updates
+          for (const update of productUpdates) {
+            transaction.update(update.ref, {
+              stock: update.newStock,
+              status: update.newStatus
+            });
+          }
+
+          transaction.update(saleRef, { status: targetStatus });
+        });
+
         setAlertTitle('สำเร็จ');
         setAlertMessage(`เปลี่ยนสถานะบิลเลขที่ ${sale.id} เป็น "${newStatus}" สำเร็จ!`);
         setAlertOpen(true);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error toggling receipt status:', error);
         setAlertTitle('เกิดข้อผิดพลาด');
-        setAlertMessage('เกิดข้อผิดพลาดในการเปลี่ยนสถานะใบเสร็จ');
+        setAlertMessage(error.message || 'เกิดข้อผิดพลาดในการเปลี่ยนสถานะใบเสร็จ');
         setAlertOpen(true);
       }
     });
@@ -448,19 +492,16 @@ export default function ReceiptView({
     day: 'numeric',
   });
 
-  const handlePrint = async () => {
+  const saveSaleToFirestore = async (): Promise<string | null> => {
     if (items.length === 0) {
       setAlertTitle('คำเตือน');
-      setAlertMessage('กรุณาเพิ่มรายการสินค้าก่อนพิมพ์ใบเสร็จ');
+      setAlertMessage('กรุณาเพิ่มรายการสินค้าก่อนทำรายการ');
       setAlertOpen(true);
-      return;
+      return null;
     }
-
-    setIsPrinted(true);
 
     const finalInvoiceNumber = invoiceNumber;
 
-    // Create a sales log record in Firestore
     const saleItems: SaleItem[] = items.map((item) => ({
       productId: item.product.id,
       name: item.product.name,
@@ -472,7 +513,7 @@ export default function ReceiptView({
     const newSale: Sale = {
       id: finalInvoiceNumber,
       timestamp: new Date().toISOString(),
-      employee: 'สมชาย ร.', // Default employee
+      employee: auth.currentUser?.displayName || 'พนักงานหน้าร้าน', // Dynamic employee name from Gmail login
       total: netTotal,
       status: 'สำเร็จ',
       items: saleItems,
@@ -482,15 +523,36 @@ export default function ReceiptView({
     };
 
     try {
-      // Save sale document
-      await setDoc(doc(db, 'sales', finalInvoiceNumber), newSale);
+      await runTransaction(db, async (transaction) => {
+        // 1. Fetch current product stocks and check availability
+        const prodDataList: { ref: any; newStock: number; newStatus: string }[] = [];
+        
+        for (const item of items) {
+          const prodRef = doc(db, 'products', item.product.id);
+          const prodDoc = await transaction.get(prodRef);
+          if (!prodDoc.exists()) {
+            throw new Error(`ไม่พบสินค้า: ${item.product.name}`);
+          }
+          const currentStock = prodDoc.data().stock || 0;
+          if (currentStock < item.quantity) {
+            throw new Error(`สินค้า "${item.product.name}" มีสต็อกไม่เพียงพอ (เหลือ ${currentStock} ชิ้น)`);
+          }
+          const newStock = currentStock - item.quantity;
+          const newStatus = newStock === 0 ? 'หมดสต็อก' : newStock <= 15 ? 'ใกล้หมด' : 'พร้อมขาย';
+          prodDataList.push({ ref: prodRef, newStock, newStatus });
+        }
 
-      // Decrement inventory stock
-      for (const item of items) {
-        const prodRef = doc(db, 'products', item.product.id);
-        const newStock = Math.max(0, item.product.stock - item.quantity);
-        await updateDoc(prodRef, { stock: newStock });
-      }
+        // 2. Perform all updates
+        for (const prod of prodDataList) {
+          transaction.update(prod.ref, {
+            stock: prod.newStock,
+            status: prod.newStatus
+          });
+        }
+
+        // 3. Save Sale document
+        transaction.set(doc(db, 'sales', finalInvoiceNumber), newSale);
+      });
 
       // Increment and save sequential invoice number only if we generated it locally
       if (!invoiceId) {
@@ -502,79 +564,33 @@ export default function ReceiptView({
           setInvoiceId('');
         }
       }
-    } catch (error) {
+
+      return finalInvoiceNumber;
+    } catch (error: any) {
       console.error('Error saving printed receipt:', error);
+      setAlertTitle('การทำรายการล้มเหลว');
+      setAlertMessage(error.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูลใบเสร็จ');
+      setAlertOpen(true);
+      return null;
     }
+  };
 
-    // Open the browser print dialog directly
-    window.print();
-
+  const handlePrint = async () => {
+    setIsPrinted(true);
+    const invoiceNum = await saveSaleToFirestore();
+    if (invoiceNum) {
+      window.print();
+    }
     setIsPrinted(false);
   };
 
   const handleSaveReceipt = async () => {
-    if (items.length === 0) {
-      setAlertTitle('คำเตือน');
-      setAlertMessage('กรุณาเพิ่มรายการสินค้าก่อนบันทึก');
-      setAlertOpen(true);
-      return;
-    }
-
-    const finalInvoiceNumber = invoiceNumber;
-
-    const saleItems: SaleItem[] = items.map((item) => ({
-      productId: item.product.id,
-      name: item.product.name,
-      price: item.product.price,
-      quantity: item.quantity,
-      subtotal: item.product.price * item.quantity,
-    }));
-
-    const newSale: Sale = {
-      id: finalInvoiceNumber,
-      timestamp: new Date().toISOString(),
-      employee: 'สมชาย ร.',
-      total: netTotal,
-      status: 'สำเร็จ',
-      items: saleItems,
-      discount: discount,
-      customerName: custName || 'ลูกค้าทั่วไป',
-      customerPhone: custPhone || '',
-    };
-
-    try {
-      // Save sale document
-      await setDoc(doc(db, 'sales', finalInvoiceNumber), newSale);
-
-      // Decrement inventory stock
-      for (const item of items) {
-        const prodRef = doc(db, 'products', item.product.id);
-        const newStock = Math.max(0, item.product.stock - item.quantity);
-        await updateDoc(prodRef, { stock: newStock });
-      }
-
+    const invoiceNum = await saveSaleToFirestore();
+    if (invoiceNum) {
       setAlertTitle('บันทึกสำเร็จ');
-      setAlertMessage(`บันทึกข้อมูลใบเสร็จรับเงินเลขที่ ${finalInvoiceNumber} สำเร็จและเชื่อมโยงกับหน้ารายงานแล้ว!`);
+      setAlertMessage(`บันทึกข้อมูลใบเสร็จรับเงินเลขที่ ${invoiceNum} สำเร็จและเชื่อมโยงกับหน้ารายงานแล้ว!`);
       setAlertOpen(true);
-
-      // Increment and save sequential invoice number only if we generated it locally
-      if (!invoiceId) {
-        const nextSeq = invoiceSeq + 1;
-        setInvoiceSeq(nextSeq);
-        localStorage.setItem('receipt_invoice_seq', String(nextSeq));
-      } else {
-        if (setInvoiceId) {
-          setInvoiceId('');
-        }
-      }
-      
-      // Clear items
       setItems([]);
-    } catch (error) {
-      console.error('Error saving receipt:', error);
-      setAlertTitle('เกิดข้อผิดพลาด');
-      setAlertMessage('เกิดข้อผิดพลาดในการบันทึกข้อมูลใบเสร็จ');
-      setAlertOpen(true);
     }
   };
 

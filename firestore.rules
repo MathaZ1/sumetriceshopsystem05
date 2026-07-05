@@ -1,8 +1,76 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // 1. Global Safety Net (default-deny catch-all)
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
+    }
+
+    // Reusable, hardened global helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // 2. Products collection rules
+    match /products/{productId} {
+      allow read: if isSignedIn();
+      allow write: if isEmailVerified() && isValidId(productId) && isValidProduct(request.resource.data);
+    }
+
+    function isValidProduct(data) {
+      return data.id is string && data.id.size() <= 100 &&
+             data.name is string && data.name.size() <= 200 &&
+             data.category is string && data.category.size() <= 100 &&
+             data.price is number && data.price >= 0 &&
+             data.stock is number && data.stock >= 0 &&
+             (!data.keys().contains('imageUrl') || (data.imageUrl is string && data.imageUrl.size() <= 1000)) &&
+             data.status is string && data.status.size() <= 50 &&
+             data.keys().hasAll(['id', 'name', 'category', 'price', 'stock', 'status']) &&
+             data.keys().size() >= 6 && data.keys().size() <= 8;
+    }
+
+    // 3. Sales collection rules
+    match /sales/{saleId} {
+      allow read: if isSignedIn();
+      allow write: if isEmailVerified() && isValidId(saleId) && isValidSale(request.resource.data);
+    }
+
+    function isValidSale(data) {
+      return data.id is string && data.id.size() <= 100 &&
+             data.timestamp is string && data.timestamp.size() <= 100 &&
+             data.employee is string && data.employee.size() <= 200 &&
+             data.total is number && data.total >= 0 &&
+             data.status is string && (data.status == 'สำเร็จ' || data.status == 'ยกเลิก') &&
+             data.items is list && data.items.size() <= 100 &&
+             (!data.keys().contains('discount') || (data.discount is number && data.discount >= 0)) &&
+             (!data.keys().contains('customerName') || (data.customerName is string && data.customerName.size() <= 200)) &&
+             (!data.keys().contains('customerPhone') || (data.customerPhone is string && data.customerPhone.size() <= 50)) &&
+             data.keys().hasAll(['id', 'timestamp', 'employee', 'total', 'status', 'items']) &&
+             data.keys().size() >= 6 && data.keys().size() <= 10;
+    }
+
+    // 4. Customers collection rules
+    match /customers/{customerId} {
+      allow read: if isSignedIn();
+      allow write: if isEmailVerified() && isValidId(customerId) && isValidCustomer(request.resource.data);
+    }
+
+    function isValidCustomer(data) {
+      return data.id is string && data.id.size() <= 100 &&
+             data.name is string && data.name.size() <= 200 &&
+             (!data.keys().contains('phone') || (data.phone is string && data.phone.size() <= 50)) &&
+             (!data.keys().contains('address') || (data.address is string && data.address.size() <= 500)) &&
+             (!data.keys().contains('taxId') || (data.taxId is string && data.taxId.size() <= 50)) &&
+             data.keys().hasAll(['id', 'name']) &&
+             data.keys().size() >= 2 && data.keys().size() <= 5;
     }
   }
 }

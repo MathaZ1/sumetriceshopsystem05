@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, handleFirestoreError, OperationType, auth } from '../firebase';
-import { collection, onSnapshot, addDoc, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, updateDoc, runTransaction } from 'firebase/firestore';
 import { Product, CartItem, Sale, SaleItem, Customer } from '../types';
 import { ShoppingCart, Plus, Minus, Check, Search } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
@@ -147,16 +147,11 @@ export default function POSView({
 
     setCheckoutLoading(true);
     try {
-      const batch = writeBatch(db);
-      
       // Retrieve the current sequence from localStorage
       const savedSeq = localStorage.getItem('receipt_invoice_seq');
       const invoiceSeq = savedSeq ? parseInt(savedSeq, 10) : 1;
       const invoiceNumber = String(invoiceSeq).padStart(6, '0');
-      
-      // Increment and save sequence
-      localStorage.setItem('receipt_invoice_seq', String(invoiceSeq + 1));
-      
+
       const saleItems: SaleItem[] = cart.map((item) => ({
         productId: item.product.id,
         name: item.product.name,
@@ -180,33 +175,50 @@ export default function POSView({
         customerPhone: selectedCust ? selectedCust.phone : '',
       };
 
-      // Add to 'sales' collection
-      const salesCol = collection(db, 'sales');
-      const saleDocRef = doc(salesCol, invoiceNumber);
-      batch.set(saleDocRef, newSale);
+      await runTransaction(db, async (transaction) => {
+        // 1. Fetch current product stocks and check availability
+        const prodDataList: { ref: any; newStock: number; newStatus: string }[] = [];
+        
+        for (const item of cart) {
+          const prodRef = doc(db, 'products', item.product.id);
+          const prodDoc = await transaction.get(prodRef);
+          if (!prodDoc.exists()) {
+            throw new Error(`ไม่พบสินค้า: ${item.product.name}`);
+          }
+          const currentStock = prodDoc.data().stock || 0;
+          if (currentStock < item.quantity) {
+            throw new Error(`สินค้า "${item.product.name}" มีสต็อกไม่เพียงพอ (เหลือ ${currentStock} ชิ้น)`);
+          }
+          const newStock = currentStock - item.quantity;
+          const newStatus = newStock === 0 ? 'หมดสต็อก' : newStock <= 15 ? 'ใกล้หมด' : 'พร้อมขาย';
+          prodDataList.push({ ref: prodRef, newStock, newStatus });
+        }
 
-      // Decrement inventory stock
-      for (const item of cart) {
-        const prodRef = doc(db, 'products', item.product.id);
-        const newStock = Math.max(0, item.product.stock - item.quantity);
-        const newStatus = newStock === 0 ? 'หมดสต็อก' : newStock <= 15 ? 'ใกล้หมด' : 'พร้อมขาย';
-        batch.update(prodRef, {
-          stock: newStock,
-          status: newStatus
-        });
-      }
+        // 2. Perform all updates
+        for (const prod of prodDataList) {
+          transaction.update(prod.ref, {
+            stock: prod.newStock,
+            status: prod.newStatus
+          });
+        }
 
-      await batch.commit();
+        // 3. Save Sale document
+        const salesCol = collection(db, 'sales');
+        const saleDocRef = doc(salesCol, invoiceNumber);
+        transaction.set(saleDocRef, newSale);
+      });
+
+      // Increment and save sequence ONLY after transaction succeeds
+      localStorage.setItem('receipt_invoice_seq', String(invoiceSeq + 1));
 
       const itemsInCart = [...cart];
       // Reset cart and callback
       setCart([]);
       onCheckoutSuccess(newSale, itemsInCart);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Checkout failed:', error);
-      handleFirestoreError(error, OperationType.WRITE, 'sales');
       setAlertTitle('การทำรายการล้มเหลว');
-      setAlertMessage('การทำรายการล้มเหลว กรุณาลองใหม่อีกครั้ง');
+      setAlertMessage(error.message || 'การทำรายการล้มเหลว กรุณาลองใหม่อีกครั้ง');
       setAlertOpen(true);
     } finally {
       setCheckoutLoading(false);
