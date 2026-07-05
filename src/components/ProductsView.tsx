@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { Product } from '../types';
-import { Plus, Download, Edit2, Trash2, Filter, AlertTriangle, Eye, ArrowLeft } from 'lucide-react';
+import { Plus, Download, Edit2, Trash2, Filter, AlertTriangle, Eye, ArrowLeft, Search } from 'lucide-react';
 import ProductFormModal from './ProductFormModal';
+import ConfirmModal from './ConfirmModal';
 
 interface ProductsViewProps {
   searchQuery: string;
@@ -13,11 +14,20 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<string>('ทั้งหมด');
-  const [selectedCategory, setSelectedCategory] = useState<string>('หมวดหมู่ทั้งหมด');
+  const [localSearchQuery, setLocalSearchQuery] = useState<string>('');
   
   // Modal states
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  // Delete confirm states
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState<boolean>(false);
+
+  // Alert modal states
+  const [alertOpen, setAlertOpen] = useState<boolean>(false);
+  const [alertTitle, setAlertTitle] = useState<string>('');
+  const [alertMessage, setAlertMessage] = useState<string>('');
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -43,12 +53,10 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
   // Filter products
   const filteredProducts = products.filter((p) => {
     // 1. Filter by search query
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.id.toLowerCase().includes(searchQuery.toLowerCase());
+    const searchVal = localSearchQuery.trim().toLowerCase();
+    const matchesSearch = p.name.toLowerCase().includes(searchVal) || p.id.toLowerCase().includes(searchVal);
     
-    // 2. Filter by category dropdown
-    const matchesCategory = selectedCategory === 'หมวดหมู่ทั้งหมด' || p.category === selectedCategory;
-
-    // 3. Filter by tabs (stock status)
+    // 2. Filter by tabs (stock status)
     let matchesTab = true;
     if (activeTab === 'สินค้าพร้อมขาย') {
       matchesTab = p.stock > 15;
@@ -58,7 +66,7 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
       matchesTab = p.stock === 0;
     }
 
-    return matchesSearch && matchesCategory && matchesTab;
+    return matchesSearch && matchesTab;
   });
 
   // Pagination logic
@@ -92,22 +100,30 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
     }
   };
 
-  const handleDeleteProduct = async (productId: string) => {
-    if (window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบสินค้านี้ออกจากคลัง?')) {
-      try {
-        await deleteDoc(doc(db, 'products', productId));
-      } catch (error) {
-        console.error('Error deleting product:', error);
-        handleFirestoreError(error, OperationType.DELETE, `products/${productId}`);
-        alert('เกิดข้อผิดพลาดในการลบสินค้า');
-      }
+  const handleDeleteClick = (productId: string) => {
+    setDeleteId(productId);
+    setConfirmDeleteOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteId) return;
+    try {
+      await deleteDoc(doc(db, 'products', deleteId));
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      handleFirestoreError(error, OperationType.DELETE, `products/${deleteId}`);
+      setAlertTitle('เกิดข้อผิดพลาด');
+      setAlertMessage('เกิดข้อผิดพลาดในการลบสินค้า');
+      setAlertOpen(true);
+    } finally {
+      setDeleteId(null);
     }
   };
 
   const handleExportCSV = () => {
     // Generates static CSV from products list
-    const headers = ['รหัสสินค้า', 'ชื่อสินค้า', 'หมวดหมู่', 'สต็อก', 'ราคา (บาท)', 'สถานะ'];
-    const rows = products.map(p => [p.id, p.name, p.category, p.stock, p.price, p.status]);
+    const headers = ['รหัสสินค้า', 'ชื่อสินค้า', 'สต็อก', 'ราคา (บาท)', 'สถานะ'];
+    const rows = products.map(p => [p.id, p.name, p.stock, p.price, p.status]);
     
     const csvContent = "data:text/csv;charset=utf-8,\ufeff" 
       + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
@@ -130,13 +146,6 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
           <p className="text-sm text-slate-500 mt-1 font-medium">จัดการสต็อกสินค้าและราคาทั้งหมดในระบบ</p>
         </div>
         <div className="flex flex-wrap gap-2.5 w-full sm:w-auto">
-          <button
-            onClick={handleExportCSV}
-            className="flex-1 sm:flex-none bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
-          >
-            <Download className="w-4 h-4" />
-            <span>นำออก</span>
-          </button>
           <button
             onClick={handleOpenAddModal}
             className="flex-1 sm:flex-none bg-slate-900 hover:bg-slate-850 text-white px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
@@ -183,24 +192,21 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
           })}
         </div>
 
-        {/* Category Dropdown Selector */}
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <select
-            value={selectedCategory}
+        {/* Local Search Input Field */}
+        <div className="relative w-full md:w-72 shrink-0">
+          <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+            <Search className="w-4 h-4" />
+          </span>
+          <input
+            type="text"
+            placeholder="ค้นหาชื่อหรือรหัสสินค้า..."
+            value={localSearchQuery}
             onChange={(e) => {
-              setSelectedCategory(e.target.value);
+              setLocalSearchQuery(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full md:w-48 px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all cursor-pointer"
-          >
-            <option value="หมวดหมู่ทั้งหมด">หมวดหมู่ทั้งหมด</option>
-            <option value="เครื่องดื่ม">เครื่องดื่ม</option>
-            <option value="ขนม">ขนม</option>
-            <option value="ของใช้">ของใช้</option>
-          </select>
-          <button className="p-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer shrink-0">
-            <Filter className="w-4 h-4" />
-          </button>
+            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 bg-white placeholder-slate-400 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all shadow-sm"
+          />
         </div>
       </div>
 
@@ -217,7 +223,6 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
                   />
                 </th>
                 <th className="p-4 w-2/5">ชื่อสินค้า</th>
-                <th className="p-4 w-32">หมวดหมู่</th>
                 <th className="p-4 w-32 text-right">จำนวนสต็อก</th>
                 <th className="p-4 w-32 text-right">ราคา (฿)</th>
                 <th className="p-4 w-32 text-center">สถานะ</th>
@@ -227,13 +232,13 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
             <tbody className="divide-y divide-slate-50 text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-20 text-center">
+                  <td colSpan={6} className="py-20 text-center">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-slate-900 mx-auto"></div>
                   </td>
                 </tr>
               ) : currentItems.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center text-slate-400">
+                  <td colSpan={6} className="py-16 text-center text-slate-400">
                     ไม่พบสินค้าตรงตามเงื่อนไขที่ค้นหา
                   </td>
                 </tr>
@@ -257,9 +262,6 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
                         >
                           {p.name}
                         </button>
-                      </td>
-                      <td className="p-4 text-slate-600 font-medium">
-                        {p.category}
                       </td>
                       <td className={`p-4 text-right font-bold ${
                         isOutOfStock ? 'text-red-600' : isLowStock ? 'text-amber-500' : 'text-slate-900'
@@ -289,7 +291,7 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => handleDeleteProduct(p.id)}
+                            onClick={() => handleDeleteClick(p.id)}
                             className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -371,7 +373,7 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => handleDeleteProduct(p.id)}
+                    onClick={() => handleDeleteClick(p.id)}
                     className="p-1 text-slate-400 hover:text-red-600 rounded-lg"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -389,7 +391,6 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
                         {p.name}
                       </button>
                     </h3>
-                    <p className="text-xs text-slate-500 font-medium mt-1">{p.category}</p>
                   </div>
                 </div>
 
@@ -428,6 +429,29 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
         onClose={() => setModalOpen(false)}
         product={editingProduct}
         onSave={handleSaveProduct}
+      />
+
+      {/* Confirm Delete Modal */}
+      <ConfirmModal
+        isOpen={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="ลบสินค้าออกจากคลัง"
+        message="คุณแน่ใจหรือไม่ว่าต้องการลบสินค้านี้ออกจากคลัง? การดำเนินการนี้ไม่สามารถย้อนกลับได้"
+        confirmText="ลบสินค้า"
+        cancelText="ยกเลิก"
+        isDanger={true}
+      />
+
+      {/* Alert Modal */}
+      <ConfirmModal
+        isOpen={alertOpen}
+        onClose={() => setAlertOpen(false)}
+        onConfirm={() => setAlertOpen(false)}
+        title={alertTitle}
+        message={alertMessage}
+        confirmText="ตกลง"
+        showCancel={false}
       />
     </div>
   );

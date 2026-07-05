@@ -25,7 +25,7 @@ export default function Sidebar({ activeTab, setActiveTab, onResetPOS }: Sidebar
             }`}
           >
             <ShoppingCart className="w-5 h-5" />
-            <span className="text-sm">การขาย</span>
+            <span className="text-sm">รายการสินค้า</span>
           </button>
 
           <button
@@ -37,7 +37,7 @@ export default function Sidebar({ activeTab, setActiveTab, onResetPOS }: Sidebar
             }`}
           >
             <Package className="w-5 h-5" />
-            <span className="text-sm">สินค้า</span>
+            <span className="text-sm">สต็อค</span>
           </button>
 
           <button
@@ -97,7 +97,7 @@ export default function Sidebar({ activeTab, setActiveTab, onResetPOS }: Sidebar
           }`}
         >
           <ShoppingCart className="w-5 h-5" />
-          <span className="text-[10px] mt-0.5">การขาย</span>
+          <span className="text-[10px] mt-0.5">รายการสินค้า</span>
         </button>
 
         <button
@@ -107,7 +107,7 @@ export default function Sidebar({ activeTab, setActiveTab, onResetPOS }: Sidebar
           }`}
         >
           <Package className="w-5 h-5" />
-          <span className="text-[10px] mt-0.5">สินค้า</span>
+          <span className="text-[10px] mt-0.5">สต็อค</span>
         </button>
 
         <button

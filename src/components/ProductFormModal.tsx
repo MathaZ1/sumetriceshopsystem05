@@ -17,6 +17,7 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
   const [stock, setStock] = useState<number>(0);
   const [imageUrl, setImageUrl] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Sync state with product when editing
   useEffect(() => {
@@ -36,6 +37,7 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
       setStock(0);
       setImageUrl('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400');
     }
+    setError(null);
   }, [product, isOpen]);
 
   if (!isOpen) return null;
@@ -43,11 +45,12 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id || !name || price < 0 || stock < 0) {
-      alert('กรุณากรอกข้อมูลให้ครบถ้วนและถูกต้อง');
+      setError('กรุณากรอกข้อมูลให้ครบถ้วนและถูกต้อง');
       return;
     }
 
     setSaving(true);
+    setError(null);
     try {
       // Clean image URL if empty
       const finalImageUrl = imageUrl.trim() || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400';
@@ -68,7 +71,7 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
       onClose();
     } catch (error) {
       console.error('Error saving product:', error);
-      alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+      setError('เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง');
     } finally {
       setSaving(false);
     }
@@ -92,6 +95,11 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-bold px-4 py-2.5 rounded-xl animate-shake">
+              {error}
+            </div>
+          )}
           {/* Product Name */}
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">

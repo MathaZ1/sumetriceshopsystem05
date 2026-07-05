@@ -3,6 +3,7 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { Customer } from '../types';
 import { Users, Plus, Search, Edit2, Trash2, Phone, MapPin, FileText, Check, X } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
 
 export default function CustomersView() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -17,6 +18,17 @@ export default function CustomersView() {
   const [address, setAddress] = useState<string>('');
   const [taxId, setTaxId] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Delete confirm states
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteName, setDeleteName] = useState<string>('');
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState<boolean>(false);
+
+  // Alert modal states
+  const [alertOpen, setAlertOpen] = useState<boolean>(false);
+  const [alertTitle, setAlertTitle] = useState<string>('');
+  const [alertMessage, setAlertMessage] = useState<string>('');
 
   // Read customers from Firestore
   useEffect(() => {
@@ -43,6 +55,7 @@ export default function CustomersView() {
     setPhone('');
     setAddress('');
     setTaxId('');
+    setError(null);
     setIsModalOpen(true);
   };
 
@@ -52,14 +65,19 @@ export default function CustomersView() {
     setPhone(c.phone);
     setAddress(c.address || '');
     setTaxId(c.taxId || '');
+    setError(null);
     setIsModalOpen(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      setError('กรุณากรอกชื่อลูกค้า');
+      return;
+    }
 
     setSaving(true);
+    setError(null);
     try {
       const id = editingCustomer ? editingCustomer.id : 'CUST-' + Math.floor(10000 + Math.random() * 90000);
       const customerData: Customer = {
@@ -74,20 +92,30 @@ export default function CustomersView() {
       setIsModalOpen(false);
     } catch (error) {
       console.error('Failed to save customer:', error);
-      alert('เกิดข้อผิดพลาดในการบันทึกข้อมูลลูกค้า');
+      setError('เกิดข้อผิดพลาดในการบันทึกข้อมูลลูกค้า');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (id: string, customerName: string) => {
-    if (window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบรายชื่อลูกค้า "${customerName}"?`)) {
-      try {
-        await deleteDoc(doc(db, 'customers', id));
-      } catch (error) {
-        console.error('Failed to delete customer:', error);
-        alert('เกิดข้อผิดพลาดในการลบข้อมูลลูกค้า');
-      }
+  const handleDeleteClick = (id: string, customerName: string) => {
+    setDeleteId(id);
+    setDeleteName(customerName);
+    setConfirmDeleteOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteId) return;
+    try {
+      await deleteDoc(doc(db, 'customers', deleteId));
+    } catch (error) {
+      console.error('Failed to delete customer:', error);
+      setAlertTitle('เกิดข้อผิดพลาด');
+      setAlertMessage('เกิดข้อผิดพลาดในการลบข้อมูลลูกค้า');
+      setAlertOpen(true);
+    } finally {
+      setDeleteId(null);
+      setDeleteName('');
     }
   };
 
@@ -163,7 +191,7 @@ export default function CustomersView() {
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(c.id, c.name)}
+                        onClick={() => handleDeleteClick(c.id, c.name)}
                         className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
                         title="ลบข้อมูล"
                       >
@@ -216,6 +244,11 @@ export default function CustomersView() {
               </div>
 
               <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5">
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-bold px-4 py-2.5 rounded-xl">
+                    {error}
+                  </div>
+                )}
                 {/* Name */}
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
@@ -304,6 +337,29 @@ export default function CustomersView() {
         {/* Spacer for mobile menu */}
         <div className="h-16 lg:hidden"></div>
       </div>
+
+      {/* Confirm Delete Customer Modal */}
+      <ConfirmModal
+        isOpen={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="ลบรายชื่อลูกค้าสมาชิก"
+        message={`คุณแน่ใจหรือไม่ว่าต้องการลบรายชื่อลูกค้า "${deleteName}"? การดำเนินการนี้ไม่สามารถย้อนกลับได้`}
+        confirmText="ลบข้อมูล"
+        cancelText="ยกเลิก"
+        isDanger={true}
+      />
+
+      {/* Alert Modal */}
+      <ConfirmModal
+        isOpen={alertOpen}
+        onClose={() => setAlertOpen(false)}
+        onConfirm={() => setAlertOpen(false)}
+        title={alertTitle}
+        message={alertMessage}
+        confirmText="ตกลง"
+        showCancel={false}
+      />
     </div>
   );
 }

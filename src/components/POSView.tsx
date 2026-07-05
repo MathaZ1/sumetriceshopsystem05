@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { db, handleFirestoreError, OperationType, auth } from '../firebase';
 import { collection, onSnapshot, addDoc, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { Product, CartItem, Sale, SaleItem, Customer } from '../types';
-import { ShoppingCart, Plus, Minus, Check } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Check, Search } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
 
 interface POSViewProps {
   searchQuery: string;
@@ -29,10 +30,16 @@ export default function POSView({
 }: POSViewProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('ทั้งหมด');
+  const [localSearchQuery, setLocalSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [checkoutLoading, setCheckoutLoading] = useState<boolean>(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustId, setSelectedCustId] = useState<string>('');
+
+  // Alert modal states
+  const [alertOpen, setAlertOpen] = useState<boolean>(false);
+  const [alertTitle, setAlertTitle] = useState<string>('');
+  const [alertMessage, setAlertMessage] = useState<string>('');
 
   // Load customer lists from Firestore for POS dropdown
   useEffect(() => {
@@ -77,24 +84,28 @@ export default function POSView({
     return () => unsubscribe();
   }, []);
 
-  // Filter products by category and search query
+  // Filter products by category and local search query
   const filteredProducts = products.filter((p) => {
     const matchesCategory = selectedCategory === 'ทั้งหมด' || p.category === selectedCategory;
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.id.toLowerCase().includes(searchQuery.toLowerCase());
+    const searchVal = localSearchQuery.trim().toLowerCase();
+    const matchesSearch = p.name.toLowerCase().includes(searchVal) || p.id.toLowerCase().includes(searchVal);
     return matchesCategory && matchesSearch;
   });
 
   const addToCart = (product: Product) => {
     if (product.stock <= 0) return;
 
+    const existing = cart.find((item) => item.product.id === product.id);
+    if (existing && existing.quantity >= product.stock) {
+      setAlertTitle('สต็อกไม่เพียงพอ');
+      setAlertMessage(`ไม่สามารถเพิ่มสินค้าได้มากกว่าจำนวนสินค้าที่มีในคลัง (${product.stock} ชิ้น)`);
+      setAlertOpen(true);
+      return;
+    }
+
     setCart((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
-      if (existing) {
-        // If stock limit is reached
-        if (existing.quantity >= product.stock) {
-          alert(`ไม่สามารถเพิ่มสินค้าได้มากกว่าจำนวนสินค้าที่มีในคลัง (${product.stock} ชิ้น)`);
-          return prev;
-        }
+      const isExist = prev.some((item) => item.product.id === product.id);
+      if (isExist) {
         return prev.map((item) =>
           item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
@@ -105,19 +116,22 @@ export default function POSView({
   };
 
   const updateQuantity = (productId: string, delta: number) => {
+    const item = cart.find((i) => i.product.id === productId);
+    if (!item) return;
+
+    const newQty = item.quantity + delta;
+    if (delta > 0 && newQty > item.product.stock) {
+      setAlertTitle('สต็อกไม่เพียงพอ');
+      setAlertMessage(`ไม่สามารถเพิ่มสินค้าได้มากกว่าจำนวนสินค้าที่มีในคลัง (${item.product.stock} ชิ้น)`);
+      setAlertOpen(true);
+      return;
+    }
+
     setCart((prev) => {
       return prev
         .map((item) => {
           if (item.product.id === productId) {
-            const newQty = item.quantity + delta;
-            
-            // Check stock limit for increase
-            if (delta > 0 && newQty > item.product.stock) {
-              alert(`ไม่สามารถเพิ่มสินค้าได้มากกว่าจำนวนสินค้าที่มีในคลัง (${item.product.stock} ชิ้น)`);
-              return item;
-            }
-
-            return { ...item, quantity: newQty };
+            return { ...item, quantity: item.quantity + delta };
           }
           return item;
         })
@@ -191,7 +205,9 @@ export default function POSView({
     } catch (error) {
       console.error('Checkout failed:', error);
       handleFirestoreError(error, OperationType.WRITE, 'sales');
-      alert('การทำรายการล้มเหลว กรุณาลองใหม่อีกครั้ง');
+      setAlertTitle('การทำรายการล้มเหลว');
+      setAlertMessage('การทำรายการล้มเหลว กรุณาลองใหม่อีกครั้ง');
+      setAlertOpen(true);
     } finally {
       setCheckoutLoading(false);
     }
@@ -201,21 +217,18 @@ export default function POSView({
     <div className="flex-1 flex flex-col md:flex-row overflow-hidden h-full relative">
       {/* Product Catalog Column */}
       <div className="flex-1 overflow-y-auto p-4 lg:p-6 pb-24 md:pb-6 flex flex-col gap-4 bg-slate-50">
-        {/* Categories Pills */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-5 py-2 rounded-full font-semibold text-xs whitespace-nowrap transition-all duration-200 cursor-pointer border ${
-                selectedCategory === cat
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
-                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+        {/* Search Input Field */}
+        <div className="relative w-full">
+          <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+            <Search className="w-4 h-4" />
+          </span>
+          <input
+            type="text"
+            placeholder="ค้นหาชื่อหรือรหัสสินค้า..."
+            value={localSearchQuery}
+            onChange={(e) => setLocalSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 bg-white placeholder-slate-400 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all shadow-sm"
+          />
         </div>
 
         {/* Loading Spinner */}
@@ -243,20 +256,19 @@ export default function POSView({
                     isOutOfStock ? 'opacity-60 cursor-not-allowed' : ''
                   }`}
                 >
-                  {/* Category and Stock Badge */}
-                  <div className="flex justify-between items-start gap-2 mb-2">
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
-                      {p.category}
-                    </span>
+                  {/* Stock Badge */}
+                  <div className="flex justify-end items-start gap-2 mb-2">
                     {isOutOfStock ? (
                       <span className="bg-red-50 text-red-600 border border-red-100 text-[9px] font-black px-1.5 py-0.5 rounded-md">
                         หมดสต็อก
                       </span>
                     ) : isLowStock ? (
                       <span className="bg-amber-50 text-amber-700 border border-amber-100 text-[9px] font-black px-1.5 py-0.5 rounded-md">
-                        ใกล้หมด ({p.stock})
+                        ใกล้หมด
                       </span>
-                    ) : null}
+                    ) : (
+                      <div className="h-4"></div>
+                    )}
                   </div>
 
                   {/* Product Name */}
@@ -266,18 +278,12 @@ export default function POSView({
                     </p>
                   </div>
 
-                  {/* Price and Stock Footer */}
-                  <div className="flex justify-between items-end mt-3 pt-2.5 border-t border-slate-100">
+                  {/* Price Footer */}
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex justify-between items-center">
                     <div>
                       <span className="text-[10px] text-slate-400 block font-bold">ราคา</span>
                       <p className="text-base font-black text-slate-950">
                         ฿{p.price.toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[10px] text-slate-400 block font-bold">ในคลัง</span>
-                      <p className="text-xs font-extrabold text-slate-700">
-                        {p.stock} ชิ้น
                       </p>
                     </div>
                   </div>
@@ -458,7 +464,9 @@ export default function POSView({
             if (cart.length > 0) {
               handleCheckout();
             } else {
-              alert('กรุณาเลือกสินค้าใส่ตะกร้าก่อนทำการสั่งซื้อ');
+              setAlertTitle('ตะกร้าว่างเปล่า');
+              setAlertMessage('กรุณาเลือกสินค้าใส่ตะกร้าก่อนทำการสั่งซื้อ');
+              setAlertOpen(true);
             }
           }}
           className="w-full bg-slate-900 text-white font-bold py-3 px-4 rounded-xl shadow-lg flex justify-between items-center hover:bg-slate-850 transition-all duration-200 active:scale-[0.98]"
@@ -470,6 +478,16 @@ export default function POSView({
           <span className="font-extrabold text-base">฿{Math.max(0, cartTotal - discount).toFixed(2)}</span>
         </button>
       </div>
+
+      <ConfirmModal
+        isOpen={alertOpen}
+        onClose={() => setAlertOpen(false)}
+        onConfirm={() => setAlertOpen(false)}
+        title={alertTitle}
+        message={alertMessage}
+        confirmText="ตกลง"
+        showCancel={false}
+      />
     </div>
   );
 }

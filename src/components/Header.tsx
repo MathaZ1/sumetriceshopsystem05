@@ -1,6 +1,8 @@
-import { Search, Bell, Settings, Menu, LogOut } from 'lucide-react';
+import { useState } from 'react';
+import { Bell, Settings, Menu, LogOut } from 'lucide-react';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
+import ConfirmModal from './ConfirmModal';
 
 interface HeaderProps {
   searchQuery: string;
@@ -10,23 +12,26 @@ interface HeaderProps {
 
 export default function Header({ searchQuery, setSearchQuery, activeTab }: HeaderProps) {
   const currentUser = auth.currentUser;
+  const [confirmOpen, setConfirmOpen] = useState<boolean>(false);
 
-  const handleSignOut = async () => {
-    if (window.confirm('คุณต้องการออกจากระบบใช่หรือไม่?')) {
-      try {
-        await signOut(auth);
-      } catch (err) {
-        console.error('Sign out error:', err);
-      }
+  const handleSignOutClick = () => {
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmSignOut = async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error('Sign out error:', err);
     }
   };
   // Get heading title based on active tab
   const getTitle = () => {
     switch (activeTab) {
       case 'pos':
-        return 'หน้าขายสินค้า';
-      case 'products':
         return 'รายการสินค้า';
+      case 'products':
+        return 'สต็อค';
       case 'reports':
         return 'รายงานสรุปยอดขาย';
       case 'receipt':
@@ -38,21 +43,6 @@ export default function Header({ searchQuery, setSearchQuery, activeTab }: Heade
     }
   };
 
-  const getPlaceholder = () => {
-    switch (activeTab) {
-      case 'products':
-        return 'ค้นหาสินค้าด้วยชื่อ หรือรหัส...';
-      case 'reports':
-        return 'ค้นหารายงานล่าสุด...';
-      case 'receipt':
-        return 'ค้นหาสินค้าด้วยชื่อ หรือ รหัส (SKU)...';
-      case 'customers':
-        return 'ค้นหาสมาชิกลูกค้า ด้วยชื่อหรือเบอร์โทร...';
-      default:
-        return 'ค้นหาสินค้า...';
-    }
-  };
-
   return (
     <header className="flex justify-between items-center w-full px-6 h-16 sticky top-0 z-40 bg-white border-b border-slate-100">
       {/* Mobile Menu Button / Header Brand */}
@@ -61,19 +51,8 @@ export default function Header({ searchQuery, setSearchQuery, activeTab }: Heade
         <h1 className="text-lg font-bold text-slate-900 tracking-tight">สุเมธค้าข้าว</h1>
       </div>
 
-      {/* Search Bar - hidden or customized based on tab */}
-      <div className="hidden md:block flex-1 max-w-md mx-6">
-        <div className="relative">
-          <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none text-sm text-slate-800 placeholder-slate-400 transition-all duration-200"
-            placeholder={getPlaceholder()}
-          />
-        </div>
-      </div>
+      {/* Spacer where search bar was */}
+      <div className="hidden md:block flex-1 max-w-md mx-6"></div>
 
       {/* Trailing Actions */}
       <div className="flex items-center gap-3">
@@ -108,7 +87,7 @@ export default function Header({ searchQuery, setSearchQuery, activeTab }: Heade
           </div>
 
           <button
-            onClick={handleSignOut}
+            onClick={handleSignOutClick}
             title="ออกจากระบบ"
             className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-xl transition-all duration-200 cursor-pointer"
           >
@@ -116,6 +95,18 @@ export default function Header({ searchQuery, setSearchQuery, activeTab }: Heade
           </button>
         </div>
       </div>
+
+      {/* Logout Confirmation */}
+      <ConfirmModal
+        isOpen={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={handleConfirmSignOut}
+        title="ออกจากระบบ"
+        message="คุณต้องการออกจากระบบใช่หรือไม่?"
+        confirmText="ออกจากระบบ"
+        cancelText="ยกเลิก"
+        isDanger={true}
+      />
     </header>
   );
 }

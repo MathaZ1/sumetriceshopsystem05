@@ -4,6 +4,7 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, query, orderBy, updateDoc } from 'firebase/firestore';
 import { Product, CartItem, Customer, Sale, SaleItem } from '../types';
 import { Search, Plus, Minus, Trash2, Printer, CheckCircle2, User, MapPin, FileText, Users, Ban, RefreshCw, Eye, Tag, Receipt } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
 
 function thaiBaht(num: number): string {
   if (isNaN(num) || num === 0) return 'ศูนย์บาทถ้วน';
@@ -146,6 +147,18 @@ export default function ReceiptView({
     return saved ? parseInt(saved, 10) : 1;
   });
 
+  // Modal confirmation states
+  const [confirmOpen, setConfirmOpen] = useState<boolean>(false);
+  const [confirmTitle, setConfirmTitle] = useState<string>('');
+  const [confirmMessage, setConfirmMessage] = useState<string>('');
+  const [confirmIsDanger, setConfirmIsDanger] = useState<boolean>(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
+  // Alert Modal states
+  const [alertOpen, setAlertOpen] = useState<boolean>(false);
+  const [alertTitle, setAlertTitle] = useState<string>('');
+  const [alertMessage, setAlertMessage] = useState<string>('');
+
   // Load sales history for cancellation/management
   useEffect(() => {
     const salesCol = collection(db, 'sales');
@@ -279,7 +292,9 @@ export default function ReceiptView({
 
   const handleSelectItem = (product: Product) => {
     if (product.stock <= 0) {
-      alert('สินค้านี้หมดสต็อกในคลังสินค้า');
+      setAlertTitle('หมดสต็อก');
+      setAlertMessage('สินค้านี้หมดสต็อกในคลังสินค้า');
+      setAlertOpen(true);
       return;
     }
 
@@ -287,7 +302,9 @@ export default function ReceiptView({
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing) {
         if (existing.quantity >= product.stock) {
-          alert(`ไม่สามารถเพิ่มสินค้าเกินคลังที่มีอยู่ (${product.stock} ชิ้น)`);
+          setAlertTitle('เกินสต็อก');
+          setAlertMessage(`ไม่สามารถเพิ่มสินค้าเกินคลังที่มีอยู่ (${product.stock} ชิ้น)`);
+          setAlertOpen(true);
           return prev;
         }
         return prev.map((item) =>
@@ -302,23 +319,31 @@ export default function ReceiptView({
     setShowDropdown(false);
   };
 
-  const handleCancelReceipt = async (sale: Sale) => {
+  const handleCancelReceipt = (sale: Sale) => {
     const isSuccess = sale.status === 'สำเร็จ';
     const newStatus = isSuccess ? 'ยกเลิก' : 'สำเร็จ';
-    const confirmMsg = isSuccess
-      ? `คุณต้องการยกเลิกบิลใบเสร็จเลขที่ ${sale.id} ใช่หรือไม่?\n(ระบบจะปรับปรุงข้อมูลและรายงานการขายทันที)`
-      : `คุณต้องการกู้คืนบิลใบเสร็จเลขที่ ${sale.id} ให้กลับมาใช้งานใช่หรือไม่?`;
-      
-    if (window.confirm(confirmMsg)) {
+    setConfirmTitle(isSuccess ? 'ยกเลิกบิลใบเสร็จ' : 'กู้คืนบิลใบเสร็จ');
+    setConfirmMessage(
+      isSuccess
+        ? `คุณต้องการยกเลิกบิลใบเสร็จเลขที่ ${sale.id} ใช่หรือไม่? (ระบบจะปรับปรุงข้อมูลและรายงานการขายทันที)`
+        : `คุณต้องการกู้คืนบิลใบเสร็จเลขที่ ${sale.id} ให้กลับมาใช้งานใช่หรือไม่?`
+    );
+    setConfirmIsDanger(isSuccess);
+    setPendingAction(() => async () => {
       try {
         const docRef = doc(db, 'sales', sale.id);
         await updateDoc(docRef, { status: newStatus });
-        alert(`เปลี่ยนสถานะบิลเลขที่ ${sale.id} เป็น "${newStatus}" สำเร็จ!`);
+        setAlertTitle('สำเร็จ');
+        setAlertMessage(`เปลี่ยนสถานะบิลเลขที่ ${sale.id} เป็น "${newStatus}" สำเร็จ!`);
+        setAlertOpen(true);
       } catch (error) {
         console.error('Error toggling receipt status:', error);
-        alert('เกิดข้อผิดพลาดในการเปลี่ยนสถานะใบเสร็จ');
+        setAlertTitle('เกิดข้อผิดพลาด');
+        setAlertMessage('เกิดข้อผิดพลาดในการเปลี่ยนสถานะใบเสร็จ');
+        setAlertOpen(true);
       }
-    }
+    });
+    setConfirmOpen(true);
   };
 
   const handleLoadSaleToPrint = (sale: Sale) => {
@@ -377,7 +402,9 @@ export default function ReceiptView({
     if (!item) return;
 
     if (quantity > item.product.stock) {
-      alert(`ไม่สามารถเพิ่มสินค้าเกินคลังที่มีอยู่ (${item.product.stock} ชิ้น)`);
+      setAlertTitle('เกินสต็อก');
+      setAlertMessage(`ไม่สามารถเพิ่มสินค้าเกินคลังที่มีอยู่ (${item.product.stock} ชิ้น)`);
+      setAlertOpen(true);
       return;
     }
 
@@ -393,7 +420,9 @@ export default function ReceiptView({
           if (i.product.id === productId) {
             const nextQty = i.quantity + delta;
             if (nextQty > i.product.stock) {
-              alert(`ไม่สามารถเพิ่มสินค้าเกินคลังที่มีอยู่ (${i.product.stock} ชิ้น)`);
+              setAlertTitle('เกินสต็อก');
+              setAlertMessage(`ไม่สามารถเพิ่มสินค้าเกินคลังที่มีอยู่ (${i.product.stock} ชิ้น)`);
+              setAlertOpen(true);
               return i;
             }
             return { ...i, quantity: nextQty };
@@ -421,7 +450,9 @@ export default function ReceiptView({
 
   const handlePrint = async () => {
     if (items.length === 0) {
-      alert('กรุณาเพิ่มรายการสินค้าก่อนพิมพ์ใบเสร็จ');
+      setAlertTitle('คำเตือน');
+      setAlertMessage('กรุณาเพิ่มรายการสินค้าก่อนพิมพ์ใบเสร็จ');
+      setAlertOpen(true);
       return;
     }
 
@@ -483,7 +514,9 @@ export default function ReceiptView({
 
   const handleSaveReceipt = async () => {
     if (items.length === 0) {
-      alert('กรุณาเพิ่มรายการสินค้าก่อนบันทึก');
+      setAlertTitle('คำเตือน');
+      setAlertMessage('กรุณาเพิ่มรายการสินค้าก่อนบันทึก');
+      setAlertOpen(true);
       return;
     }
 
@@ -520,7 +553,9 @@ export default function ReceiptView({
         await updateDoc(prodRef, { stock: newStock });
       }
 
-      alert(`บันทึกข้อมูลใบเสร็จรับเงินเลขที่ ${finalInvoiceNumber} สำเร็จและเชื่อมโยงกับหน้ารายงานแล้ว!`);
+      setAlertTitle('บันทึกสำเร็จ');
+      setAlertMessage(`บันทึกข้อมูลใบเสร็จรับเงินเลขที่ ${finalInvoiceNumber} สำเร็จและเชื่อมโยงกับหน้ารายงานแล้ว!`);
+      setAlertOpen(true);
 
       // Increment and save sequential invoice number only if we generated it locally
       if (!invoiceId) {
@@ -537,14 +572,20 @@ export default function ReceiptView({
       setItems([]);
     } catch (error) {
       console.error('Error saving receipt:', error);
-      alert('เกิดข้อผิดพลาดในการบันทึกข้อมูลใบเสร็จ');
+      setAlertTitle('เกิดข้อผิดพลาด');
+      setAlertMessage('เกิดข้อผิดพลาดในการบันทึกข้อมูลใบเสร็จ');
+      setAlertOpen(true);
     }
   };
 
   const handleClear = () => {
-    if (window.confirm('คุณต้องการเคลียร์รายการทั้งหมดใช่หรือไม่?')) {
+    setConfirmTitle('เคลียร์รายการทั้งหมด');
+    setConfirmMessage('คุณต้องการเคลียร์รายการทั้งหมดใช่หรือไม่?');
+    setConfirmIsDanger(true);
+    setPendingAction(() => () => {
       setItems([]);
-    }
+    });
+    setConfirmOpen(true);
   };
 
   return (
@@ -1373,6 +1414,29 @@ export default function ReceiptView({
         </div>,
         document.body
       )}
+
+      <ConfirmModal
+        isOpen={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          if (pendingAction) pendingAction();
+        }}
+        title={confirmTitle}
+        message={confirmMessage}
+        confirmText="ยืนยัน"
+        cancelText="ยกเลิก"
+        isDanger={confirmIsDanger}
+      />
+
+      <ConfirmModal
+        isOpen={alertOpen}
+        onClose={() => setAlertOpen(false)}
+        onConfirm={() => setAlertOpen(false)}
+        title={alertTitle}
+        message={alertMessage}
+        confirmText="ตกลง"
+        showCancel={false}
+      />
     </div>
   );
 }

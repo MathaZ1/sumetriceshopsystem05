@@ -7,6 +7,7 @@ import ReportsView from './components/ReportsView';
 import ReceiptView from './components/ReceiptView';
 import CustomersView from './components/CustomersView';
 import LoginView from './components/LoginView';
+import ConfirmModal from './components/ConfirmModal';
 import { seedInitialData, auth } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { CartItem, Sale } from './types';
@@ -21,6 +22,18 @@ export default function App() {
   const [posDiscount, setPosDiscount] = useState<number>(0);
   const [receiptDiscount, setReceiptDiscount] = useState<number>(0);
   const [receiptInvoiceNumber, setReceiptInvoiceNumber] = useState<string>('');
+
+  // Confirmation Modal states
+  const [confirmOpen, setConfirmOpen] = useState<boolean>(false);
+  const [confirmTitle, setConfirmTitle] = useState<string>('');
+  const [confirmMessage, setConfirmMessage] = useState<string>('');
+  const [confirmText, setConfirmText] = useState<string>('ยืนยัน');
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
+  // Alert Modal states
+  const [alertOpen, setAlertOpen] = useState<boolean>(false);
+  const [alertTitle, setAlertTitle] = useState<string>('');
+  const [alertMessage, setAlertMessage] = useState<string>('');
 
   // Track Firebase auth state changes
   useEffect(() => {
@@ -54,16 +67,22 @@ export default function App() {
     setReceiptInvoiceNumber(sale.id);
     // When checkout succeeds, automatically direct to receipt page!
     setActiveTab('receipt');
-    alert(`การสั่งซื้อรหัส ${sale.id} เสร็จสมบูรณ์แล้ว! กำลังเปิดหน้าพิมพ์ใบเสร็จรับเงิน...`);
+    setAlertTitle('สั่งซื้อเสร็จสมบูรณ์');
+    setAlertMessage(`การสั่งซื้อรหัส ${sale.id} เสร็จสมบูรณ์แล้ว! กำลังเปิดหน้าพิมพ์ใบเสร็จรับเงิน...`);
+    setAlertOpen(true);
   };
 
   const handleResetPOS = () => {
     if (cart.length > 0) {
-      if (window.confirm('คุณต้องการยกเลิกการขายปัจจุบันและล้างตะกร้าสินค้าใช่หรือไม่?')) {
+      setConfirmTitle('ยกเลิกรายการปัจจุบัน');
+      setConfirmMessage('คุณต้องการยกเลิกการขายปัจจุบันและล้างตะกร้าสินค้าใช่หรือไม่?');
+      setConfirmText('ล้างตะกร้า');
+      setPendingAction(() => () => {
         setCart([]);
         setPosDiscount(0);
         setActiveTab('pos');
-      }
+      });
+      setConfirmOpen(true);
     } else {
       setActiveTab('pos');
     }
@@ -162,6 +181,30 @@ export default function App() {
           {renderActiveView()}
         </main>
       </div>
+
+      <ConfirmModal
+        isOpen={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          if (pendingAction) pendingAction();
+          setConfirmOpen(false);
+        }}
+        title={confirmTitle}
+        message={confirmMessage}
+        confirmText={confirmText}
+        cancelText="ยกเลิก"
+        isDanger={true}
+      />
+
+      <ConfirmModal
+        isOpen={alertOpen}
+        onClose={() => setAlertOpen(false)}
+        onConfirm={() => setAlertOpen(false)}
+        title={alertTitle}
+        message={alertMessage}
+        confirmText="ตกลง"
+        showCancel={false}
+      />
     </div>
   );
 }
