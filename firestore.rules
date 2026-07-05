@@ -46,7 +46,8 @@ service cloud.firestore {
     // 3. Products collection rules
     match /products/{productId} {
       allow read: if isSignedIn();
-      allow write: if isEmailVerified() && isAdmin() && isValidId(productId) && isValidProduct(request.resource.data);
+      allow create, delete: if isEmailVerified() && isAdmin() && isValidId(productId) && isValidProduct(request.resource.data);
+      allow update: if isEmailVerified() && isValidId(productId) && isValidProduct(request.resource.data);
     }
 
     function isValidProduct(data) {
