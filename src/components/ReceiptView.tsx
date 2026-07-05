@@ -161,11 +161,9 @@ export default function ReceiptView({
   const [alertTitle, setAlertTitle] = useState<string>('');
   const [alertMessage, setAlertMessage] = useState<string>('');
 
-  // Restrict subtab to 'create' for non-admins
+  // Allow both admin and employee to use all subtabs (no restriction)
   useEffect(() => {
-    if (role !== 'admin' && subTab !== 'create') {
-      setSubTab('create');
-    }
+    // Both roles can use any subtab
   }, [role, subTab]);
 
   // เมื่อเปิดหน้าออกใบเสร็จรับเงินใหม่ หรือเมื่อเซฟสำเร็จ ให้ดึงเลขที่ถัดไปมาเตรียมไว้เลยเพื่อให้เชื่อมโยงกันทุกเครื่อง
@@ -182,14 +180,8 @@ export default function ReceiptView({
     }
   }, [invoiceId, subTab, items.length]);
 
-  // Load sales history for cancellation/management (Admin only)
+  // Load sales history for cancellation/management (Both Admin and Employee can access)
   useEffect(() => {
-    if (role !== 'admin') {
-      setAllSales([]);
-      setSalesLoading(false);
-      return () => {};
-    }
-
     const salesCol = collection(db, 'sales');
     const q = query(salesCol, orderBy('timestamp', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -203,7 +195,7 @@ export default function ReceiptView({
       console.error('Error loading sales history in receipt view:', error);
     });
     return () => unsubscribe();
-  }, [role]);
+  }, []);
 
   // Load customer lists from Firestore
   useEffect(() => {
@@ -653,8 +645,8 @@ export default function ReceiptView({
             <p className="text-sm text-slate-500 mt-1 font-medium">สร้างรายการขาย พิมพ์ใบเสร็จ และจัดการยกเลิกบิล</p>
           </div>
           
-          {/* Sub-tab Selection (Only for Admin) */}
-          {role === 'admin' && (
+          {/* Sub-tab Selection */}
+          {(role === 'admin' || role === 'employee') && (
             <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
               <button
                 onClick={() => setSubTab('create')}
