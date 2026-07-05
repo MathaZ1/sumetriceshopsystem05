@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, query, orderBy, updateDoc } from 'firebase/firestore';
 import { Product, CartItem, Customer, Sale, SaleItem } from '../types';
@@ -98,6 +99,7 @@ export default function ReceiptView({
   
   // Outer container ref and scale state to automatically fit the receipt preview to the width
   const previewContainerRef = React.useRef<HTMLDivElement>(null);
+  const receiptCardRef = React.useRef<HTMLDivElement>(null);
   const [previewScale, setPreviewScale] = useState<number>(1);
 
   useEffect(() => {
@@ -473,10 +475,10 @@ export default function ReceiptView({
       console.error('Error saving printed receipt:', error);
     }
 
-    setTimeout(() => {
-      window.print(); // Triggers real printer preview dialog
-      setIsPrinted(false);
-    }, 1000);
+    // Open the browser print dialog directly
+    window.print();
+
+    setIsPrinted(false);
   };
 
   const handleSaveReceipt = async () => {
@@ -975,6 +977,7 @@ export default function ReceiptView({
             {/* Paper Bill Lookalike Preview in Landscape Continuous Form layout */}
             <div ref={previewContainerRef} className="w-full overflow-hidden relative print:overflow-visible print:h-auto print:static" style={{ height: `${528 * previewScale}px` }}>
               <div
+                ref={receiptCardRef}
                 style={{
                   width: '864px',
                   height: '528px',
@@ -1013,10 +1016,10 @@ export default function ReceiptView({
                     <div>
                       <h3 className="font-extrabold text-stone-900 text-[13px] tracking-wide">ร้านสุเมธค้าข้าว</h3>
                       <p className="text-[9px] text-stone-500 mt-0.5 leading-tight">
-                        34/4 ถ.จุลจอมเกล้า ต.ท่าข้าม อ.พุนพิน จ.สุราษฏร์ธานี 84130
+                        ถ.จุลจอมเกล้า ต.ท่าข้าม อ.พุนพิน จ.สุราษฎร์ธานี 84130
                       </p>
-                      <p className="text-[9px] text-stone-500 mt-0.5">
-                        โทร : <span className="font-semibold text-stone-800">089-4443638</span> | เลขประจำตัวผู้เสียภาษี : <span className="font-mono text-stone-800">084351001529</span>
+                      <p className="text-[9px] text-stone-500 mt-0.5 leading-tight">
+                        สาขาโค้งวัดดอนกระถิน โทร : <span className="font-semibold text-stone-800">077-441628</span> / สาขาดอนเนียง โทร : <span className="font-semibold text-stone-800">098-6785002</span> | เลขประจำตัวผู้เสียภาษี : <span className="font-mono text-stone-800">084351001529</span>
                       </p>
                     </div>
 
@@ -1174,13 +1177,13 @@ export default function ReceiptView({
               >
                 {isPrinted ? (
                   <>
-                    <CheckCircle2 className="w-5 h-5 text-green-500 animate-bounce" />
-                    <span>กำลังพิมพ์...</span>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>กำลังสั่งพิมพ์...</span>
                   </>
                 ) : (
                   <>
                     <Printer className="w-5 h-5" />
-                    <span>พิมพ์ใบเสร็จ (Landscape Form)</span>
+                    <span>สั่งพิมพ์ใบเสร็จ (กระดาษต่อเนื่อง)</span>
                   </>
                 )}
               </button>
@@ -1211,6 +1214,165 @@ export default function ReceiptView({
         {/* Spacer for mobile menu */}
         <div className="h-16 lg:hidden"></div>
       </div>
+
+      {createPortal(
+        <div className="print-portal-container hidden print:block">
+          <div
+            className={`dot-matrix-print-target print-receipt-card bg-[#ffffff] border border-stone-250 p-5 font-mono text-[10px] text-stone-800 flex flex-col justify-between overflow-hidden ${printPinhole ? 'print-pinholes-visible' : ''}`}
+          >
+            {/* Main Content */}
+            <div className={`${printPinhole ? 'mx-6' : 'mx-1'} h-full flex flex-col justify-between gap-2`}>
+              
+              {/* Top Header Block */}
+              <div className="flex justify-between items-start border-b border-stone-250 pb-2">
+                <div>
+                  <h3 className="font-extrabold text-stone-900 text-[13px] tracking-wide">ร้านสุเมธค้าข้าว</h3>
+                  <p className="text-[9px] text-stone-500 mt-0.5 leading-tight">
+                    ถ.จุลจอมเกล้า ต.ท่าข้าม อ.พุนพิน จ.สุราษฎร์ธานี 84130
+                  </p>
+                  <p className="text-[9px] text-stone-500 mt-0.5 leading-tight">
+                    สาขาโค้งวัดดอนกระถิน โทร : <span className="font-semibold text-stone-800">077-441628</span> / สาขาดอนเนียง โทร : <span className="font-semibold text-stone-800">098-6785002</span> | เลขประจำตัวผู้เสียภาษี : <span className="font-mono text-stone-800">084351001529</span>
+                  </p>
+                </div>
+
+                <div className="text-right flex flex-col items-end gap-1">
+                  <div className="border border-stone-400 px-3 py-1 font-bold text-[10px] text-stone-900 bg-stone-100/60 tracking-wider rounded-sm">
+                    ใบเสร็จรับเงิน / RECEIPT
+                  </div>
+                  <div className="text-[9px] text-stone-600 mt-1.5 flex flex-col gap-0.5 items-end font-semibold">
+                    <div>เลขที่บิล / Invoice No : <span className="text-stone-950 font-bold font-mono">{invoiceNumber}</span></div>
+                    <div>วันที่ / Date : <span className="text-stone-950 font-bold">{todayStr}</span></div>
+                    <div>หน้า / Page : <span className="text-stone-950">1 / 1</span></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Information Block */}
+              <div className="border border-dashed border-stone-300 rounded-lg p-2.5 bg-stone-50/50 grid grid-cols-12 gap-2 text-[9px] leading-relaxed">
+                <div className="col-span-8 flex flex-col gap-0.5">
+                  <div>
+                    <span className="text-stone-400 font-bold">ลูกค้า / Customer :</span>{' '}
+                    <span className="text-stone-950 font-bold text-[10px]">
+                      {custName || 'ลูกค้าทั่วไป (General Cash Customer)'}
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-1">
+                    <span className="text-stone-400 font-bold shrink-0">ที่อยู่ / Address :</span>{' '}
+                    <span className="text-stone-800 font-semibold line-clamp-1 leading-normal">
+                      {custAddress || '........................................................................................................'}
+                    </span>
+                  </div>
+                </div>
+                <div className="col-span-4 flex flex-col gap-0.5 border-l border-dashed border-stone-200 pl-3">
+                  <div>
+                    <span className="text-stone-400 font-bold">เลขผู้เสียภาษี / Tax ID :</span>{' '}
+                    <span className="text-stone-950 font-mono font-bold">
+                      {custTaxId || '........................'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-stone-400 font-bold">เบอร์โทร / Phone :</span>{' '}
+                    <span className="text-stone-950 font-bold">
+                      {custPhone || '........................'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Items List Table */}
+              <div className="flex-1 min-h-[140px] flex flex-col justify-between mt-1">
+                <table className="w-full text-[9px] font-mono border-collapse">
+                  <thead>
+                    <tr className="border-y border-dashed border-stone-400 bg-stone-100/30 text-stone-700 font-bold text-left">
+                      <th className="py-1 text-center w-8">ลำดับ</th>
+                      <th className="py-1 px-2">รายการสินค้า / Description</th>
+                      <th className="py-1 text-right w-16">จำนวน</th>
+                      <th className="py-1 text-right w-24">หน่วยละ</th>
+                      <th className="py-1 text-right w-28 pr-1">จำนวนเงิน (บาท)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="text-center py-8 text-stone-400 font-bold italic">
+                          -- ไม่มีรายการในใบเสร็จ / No Items Added --
+                        </td>
+                      </tr>
+                    ) : (
+                      <>
+                        {items.map((i, index) => (
+                          <tr key={i.product.id} className="border-b border-dotted border-stone-200">
+                            <td className="text-center py-1">{index + 1}</td>
+                            <td className="px-2 py-1 font-bold text-stone-950">{i.product.name}</td>
+                            <td className="text-right py-1 font-semibold">{i.quantity}</td>
+                            <td className="text-right py-1">฿{i.product.price.toFixed(2)}</td>
+                            <td className="text-right py-1 font-bold text-stone-950 pr-1">฿{(i.product.price * i.quantity).toFixed(2)}</td>
+                          </tr>
+                        ))}
+                        {items.length < 5 && 
+                          Array.from({ length: 5 - items.length }).map((_, idx) => (
+                            <tr key={`empty-row-portal-${idx}`} className="border-b border-dotted border-stone-200/40 h-[22px]">
+                              <td className="text-center py-1 text-stone-300">-</td>
+                              <td className="px-2 py-1 text-stone-300">-</td>
+                              <td className="text-right py-1 text-stone-300">-</td>
+                              <td className="text-right py-1 text-stone-300">-</td>
+                              <td className="text-right py-1 text-stone-300 pr-1">-</td>
+                            </tr>
+                          ))
+                        }
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Calculations & Words Summary Grid */}
+              <div className="grid grid-cols-12 border-t border-dashed border-stone-300 pt-2 gap-4">
+                {/* Left part: Baht text */}
+                <div className="col-span-7 flex flex-col justify-center py-0.5">
+                  <div className="bg-stone-100/50 border border-dotted border-stone-350 px-2.5 py-2.5 rounded text-[9.5px] text-stone-600 font-bold leading-normal">
+                    จำนวนเงินตัวอักษร : <span className="text-stone-950 font-extrabold">{thaiBaht(netTotal)}</span>
+                  </div>
+                </div>
+
+                {/* Right part: Price totals */}
+                <div className="col-span-5 border-l border-dashed border-stone-250 pl-4 py-0.5 flex flex-col justify-center gap-1.5 text-[9.5px] font-bold text-stone-600 font-mono">
+                  <div className="flex justify-between">
+                    <span>รวมเงิน / Subtotal :</span>
+                    <span className="text-stone-900">฿{total.toFixed(2)}</span>
+                  </div>
+                  {discount > 0 && (
+                    <div className="flex justify-between text-[9px] text-emerald-700 font-bold">
+                      <span>ส่วนลด / Discount :</span>
+                      <span>-฿{discount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t border-dashed border-stone-400 pt-1 text-[11px] font-extrabold text-stone-950">
+                    <span>ยอดสุทธิ / Net Total :</span>
+                    <span className="text-[12px] text-stone-950">฿{netTotal.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Signature fields strip */}
+              <div className="grid grid-cols-2 gap-10 text-center mt-3 border-t border-dotted border-stone-300 pt-2.5 text-[8.5px] text-stone-500 font-bold">
+                <div className="flex flex-col items-center">
+                  <div className="h-6"></div>
+                  <p className="text-stone-700">ลงชื่อ ............................................................ ผู้รับสินค้า / Recipient</p>
+                  <p className="mt-1 text-stone-400">วันที่ ......../......../........</p>
+                </div>
+                <div className="flex flex-col items-center">
+                  <div className="h-6"></div>
+                  <p className="text-stone-700">ลงชื่อ ............................................................ ผู้รับเงิน / Collector</p>
+                  <p className="mt-1 text-stone-400">วันที่ ......../......../........</p>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

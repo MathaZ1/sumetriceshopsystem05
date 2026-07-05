@@ -20,48 +20,65 @@ body {
 
 /* Dot Matrix Landscape Printing Styles */
 @media print {
-  /* Hide every element on the screen by default */
-  html, body, #root, #root *, .flex-1, .grid, .sidebar, button, input, select, textarea {
-    visibility: hidden !important;
-    background: none !important;
-    box-shadow: none !important;
+  /* Hide the entire #root and other elements directly under body */
+  body > *:not(.print-portal-container) {
+    display: none !important;
   }
 
-  /* Only make the print receipt target card visible */
-  .dot-matrix-print-target, .dot-matrix-print-target * {
-    visibility: visible !important;
-  }
-
-  /* Force high contrast black on white for text, tables and boundaries, no backgrounds */
-  .dot-matrix-print-target,
-  .dot-matrix-print-target * {
-    background: none !important;
-    background-color: transparent !important;
-    box-shadow: none !important;
-    text-shadow: none !important;
-    color: #000000 !important;
+  /* Reset body and html settings for printing */
+  html, body {
+    width: 9in !important;
+    height: 5.5in !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: #ffffff !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* Format the printable target container */
-  .dot-matrix-print-target {
-    position: absolute !important;
+  /* Position the portal container at the top left of the page */
+  .print-portal-container {
+    display: block !important;
+    position: fixed !important;
     left: 0 !important;
     top: 0 !important;
-    width: 9in !important;         /* Fits standard continuous 9 inch form */
-    height: 5.5in !important;       /* Proportional to 5.5 inches height */
+    width: 9in !important;
+    height: 5.5in !important;
     margin: 0 !important;
-    padding: 10mm 15mm !important;  /* Optimized margin for reliable dot-matrix alignment */
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    z-index: 99999 !important;
+  }
+
+  /* Direct styling for the portaled print receipt target */
+  #root .dot-matrix-print-target {
+    display: flex !important;
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 9in !important;
+    height: 5.5in !important;
+    margin: 0 !important;
+    padding: 10mm 15mm !important; /* Professional margins for precise alignment */
     border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
     background-color: #ffffff !important;
     color: #000000 !important;
     font-family: 'Courier New', Courier, 'Noto Sans Thai', monospace !important;
     line-height: 1.3 !important;
     box-sizing: border-box !important;
+    transform: none !important;
+    overflow: hidden !important;
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+    page-break-before: avoid !important;
+    visibility: visible !important;
+    z-index: 999999 !important;
   }
 
-  /* Force high contrast black on white for text, tables and boundaries */
+  /* Force high contrast crisp print colors */
   .dot-matrix-print-target text,
   .dot-matrix-print-target p,
   .dot-matrix-print-target span,
@@ -71,26 +88,26 @@ body {
   .dot-matrix-print-target td,
   .dot-matrix-print-target th {
     color: #000000 !important;
+    background-color: transparent !important;
   }
 
-  /* Replace colored boarders with high contrast crisp dot matrix lines */
+  /* Replace colored borders with sharp crisp print-friendly dashed lines */
+  .dot-matrix-print-target .border-stone-250,
   .dot-matrix-print-target .border-stone-200,
-  .dot-matrix-print-target .border-slate-200 {
+  .dot-matrix-print-target .border-slate-200,
+  .dot-matrix-print-target .border-dashed {
     border-color: #000000 !important;
     border-style: dashed !important;
+    border-width: 1px !important;
   }
 
-  /* Hide the continuous form holes strip during actual printing unless explicitly requested */
+  /* Hide continuous form punch hole strips when physically printing */
   .print-pinholes {
     display: none !important;
   }
-  .print-pinholes-visible .print-pinholes {
-    display: flex !important;
-  }
 
-  /* Configure the print page format to standard continuous form dimensions */
   @page {
-    size: 9in 5.5in;
+    size: 9in 5.5in landscape;
     margin: 0;
   }
 }
