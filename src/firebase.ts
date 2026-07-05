@@ -68,13 +68,18 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
 // Seed Initial Data function
 export async function seedInitialData() {
+  if (!auth.currentUser) {
+    console.log('Skipping seedInitialData: User is not authenticated yet.');
+    return;
+  }
+
   const productsColPath = 'products';
   let productsSnap;
   try {
     const productsCol = collection(db, productsColPath);
     productsSnap = await getDocs(productsCol);
   } catch (error) {
-    handleFirestoreError(error, OperationType.GET, productsColPath);
+    console.warn('Skipping initial products seeding read:', error);
     return;
   }
 
@@ -135,7 +140,7 @@ export async function seedInitialData() {
       }
     }
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, productsColPath);
+    console.warn('Skipping products seeding write:', error);
     return;
   }
 
@@ -145,7 +150,7 @@ export async function seedInitialData() {
     const salesCol = collection(db, salesColPath);
     salesSnap = await getDocs(salesCol);
   } catch (error) {
-    handleFirestoreError(error, OperationType.GET, salesColPath);
+    console.warn('Skipping initial sales seeding read:', error);
     return;
   }
 
@@ -215,7 +220,7 @@ export async function seedInitialData() {
       }
     }
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, salesColPath);
+    console.warn('Skipping initial sales seeding write:', error);
     return;
   }
 }

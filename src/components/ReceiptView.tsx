@@ -77,6 +77,7 @@ interface ReceiptViewProps {
   setDiscount?: React.Dispatch<React.SetStateAction<number>>;
   invoiceId?: string;
   setInvoiceId?: React.Dispatch<React.SetStateAction<string>>;
+  role?: 'admin' | 'employee';
 }
 
 export default function ReceiptView({
@@ -85,7 +86,8 @@ export default function ReceiptView({
   discount: propDiscount,
   setDiscount: propSetDiscount,
   invoiceId,
-  setInvoiceId
+  setInvoiceId,
+  role = 'employee'
 }: ReceiptViewProps = {}) {
   const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -159,8 +161,21 @@ export default function ReceiptView({
   const [alertTitle, setAlertTitle] = useState<string>('');
   const [alertMessage, setAlertMessage] = useState<string>('');
 
-  // Load sales history for cancellation/management
+  // Restrict subtab to 'create' for non-admins
   useEffect(() => {
+    if (role !== 'admin' && subTab !== 'create') {
+      setSubTab('create');
+    }
+  }, [role, subTab]);
+
+  // Load sales history for cancellation/management (Admin only)
+  useEffect(() => {
+    if (role !== 'admin') {
+      setAllSales([]);
+      setSalesLoading(false);
+      return () => {};
+    }
+
     const salesCol = collection(db, 'sales');
     const q = query(salesCol, orderBy('timestamp', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -174,7 +189,7 @@ export default function ReceiptView({
       console.error('Error loading sales history in receipt view:', error);
     });
     return () => unsubscribe();
-  }, []);
+  }, [role]);
 
   // Load customer lists from Firestore
   useEffect(() => {
@@ -615,34 +630,36 @@ export default function ReceiptView({
             <p className="text-sm text-slate-500 mt-1 font-medium">สร้างรายการขาย พิมพ์ใบเสร็จ และจัดการยกเลิกบิล</p>
           </div>
           
-          {/* Sub-tab Selection */}
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
-            <button
-              onClick={() => setSubTab('create')}
-              className={`px-4 py-2 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
-                subTab === 'create'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>ออกใบเสร็จรับเงินใหม่</span>
-            </button>
-            <button
-              onClick={() => setSubTab('manage')}
-              className={`px-4 py-2 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
-                subTab === 'manage'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              <Ban className="w-3.5 h-3.5" />
-              <span>ยกเลิกออกใบเสร็จรับเงิน</span>
-              <span className="bg-slate-200 text-slate-700 text-[10px] px-1.5 py-0.5 rounded-full font-extrabold">
-                {allSales.length}
-              </span>
-            </button>
-          </div>
+          {/* Sub-tab Selection (Only for Admin) */}
+          {role === 'admin' && (
+            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button
+                onClick={() => setSubTab('create')}
+                className={`px-4 py-2 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
+                  subTab === 'create'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>ออกใบเสร็จรับเงินใหม่</span>
+              </button>
+              <button
+                onClick={() => setSubTab('manage')}
+                className={`px-4 py-2 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
+                  subTab === 'manage'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <Ban className="w-3.5 h-3.5" />
+                <span>ยกเลิกออกใบเสร็จรับเงิน</span>
+                <span className="bg-slate-200 text-slate-700 text-[10px] px-1.5 py-0.5 rounded-full font-extrabold">
+                  {allSales.length}
+                </span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Conditional Workspace */}

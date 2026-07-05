@@ -8,9 +8,13 @@ interface HeaderProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   activeTab: string;
+  role: 'admin' | 'employee';
+  onRoleChange: (role: 'admin' | 'employee') => void;
+  roleLoading: boolean;
+  isAdminEmail?: boolean;
 }
 
-export default function Header({ searchQuery, setSearchQuery, activeTab }: HeaderProps) {
+export default function Header({ searchQuery, setSearchQuery, activeTab, role, onRoleChange, roleLoading, isAdminEmail = false }: HeaderProps) {
   const currentUser = auth.currentUser;
   const [confirmOpen, setConfirmOpen] = useState<boolean>(false);
 
@@ -65,6 +69,27 @@ export default function Header({ searchQuery, setSearchQuery, activeTab }: Heade
         <button className="text-slate-500 hover:text-slate-900 hover:bg-slate-50 p-2 rounded-full transition-all duration-200 cursor-pointer">
           <Settings className="w-5 h-5" />
         </button>
+
+        {/* Role Selector / Indicator */}
+        <div className="flex items-center gap-1.5 mr-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm transition-all">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider hidden md:inline">บทบาท:</span>
+          {roleLoading ? (
+            <div className="animate-spin rounded-full h-3.5 w-3.5 border-b border-slate-900 mx-1"></div>
+          ) : isAdminEmail ? (
+            <select
+              value={role}
+              onChange={(e) => onRoleChange(e.target.value as 'admin' | 'employee')}
+              className="bg-transparent border-none outline-none text-xs font-bold text-slate-800 pr-1 cursor-pointer focus:ring-0 select-none py-0 font-sans"
+            >
+              <option value="admin">แอดมิน (Admin)</option>
+              <option value="employee">พนักงาน (Employee)</option>
+            </select>
+          ) : (
+            <span className="text-xs font-bold text-slate-600 font-sans">
+              พนักงาน (Employee)
+            </span>
+          )}
+        </div>
 
         {/* Dynamic Authenticated User Section */}
         <div className="flex items-center gap-3 border-l border-slate-100 pl-3 ml-1 shrink-0">

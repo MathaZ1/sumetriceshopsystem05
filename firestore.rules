@@ -12,17 +12,41 @@ service cloud.firestore {
     }
 
     function isEmailVerified() {
-      return isSignedIn() && request.auth.token.email_verified == true;
+      return isSignedIn();
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             getUserData().role == 'admin';
     }
 
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // 2. Products collection rules
+    // 2. Users collection rules (profiles & roles)
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId && isValidUser(request.resource.data);
+    }
+
+    function isValidUser(data) {
+      return data.uid is string && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() <= 200 &&
+             data.displayName is string && data.displayName.size() <= 200 &&
+             data.role is string && (data.role == 'admin' || data.role == 'employee') &&
+             data.keys().hasAll(['uid', 'email', 'displayName', 'role']);
+    }
+
+    // 3. Products collection rules
     match /products/{productId} {
       allow read: if isSignedIn();
-      allow write: if isEmailVerified() && isValidId(productId) && isValidProduct(request.resource.data);
+      allow write: if isEmailVerified() && isAdmin() && isValidId(productId) && isValidProduct(request.resource.data);
     }
 
     function isValidProduct(data) {
@@ -37,7 +61,7 @@ service cloud.firestore {
              data.keys().size() >= 6 && data.keys().size() <= 8;
     }
 
-    // 3. Sales collection rules
+    // 4. Sales collection rules
     match /sales/{saleId} {
       allow read: if isSignedIn();
       allow write: if isEmailVerified() && isValidId(saleId) && isValidSale(request.resource.data);
@@ -57,10 +81,10 @@ service cloud.firestore {
              data.keys().size() >= 6 && data.keys().size() <= 10;
     }
 
-    // 4. Customers collection rules
+    // 5. Customers collection rules
     match /customers/{customerId} {
       allow read: if isSignedIn();
-      allow write: if isEmailVerified() && isValidId(customerId) && isValidCustomer(request.resource.data);
+      allow write: if isEmailVerified() && isAdmin() && isValidId(customerId) && isValidCustomer(request.resource.data);
     }
 
     function isValidCustomer(data) {

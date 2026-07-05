@@ -4,9 +4,10 @@ interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onResetPOS: () => void;
+  role: 'admin' | 'employee';
 }
 
-export default function Sidebar({ activeTab, setActiveTab, onResetPOS }: SidebarProps) {
+export default function Sidebar({ activeTab, setActiveTab, onResetPOS, role }: SidebarProps) {
   return (
     <>
       {/* Desktop Sidebar */}
@@ -28,29 +29,33 @@ export default function Sidebar({ activeTab, setActiveTab, onResetPOS }: Sidebar
             <span className="text-sm">รายการสินค้า</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('products')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 cursor-pointer ${
-              activeTab === 'products'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-            }`}
-          >
-            <Package className="w-5 h-5" />
-            <span className="text-sm">สต็อค</span>
-          </button>
+          {role === 'admin' && (
+            <button
+              onClick={() => setActiveTab('products')}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 cursor-pointer ${
+                activeTab === 'products'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <Package className="w-5 h-5" />
+              <span className="text-sm">สต็อค</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('reports')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 cursor-pointer ${
-              activeTab === 'reports'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-            }`}
-          >
-            <BarChart3 className="w-5 h-5" />
-            <span className="text-sm">รายงาน</span>
-          </button>
+          {role === 'admin' && (
+            <button
+              onClick={() => setActiveTab('reports')}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 cursor-pointer ${
+                activeTab === 'reports'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <BarChart3 className="w-5 h-5" />
+              <span className="text-sm">รายงาน</span>
+            </button>
+          )}
 
           <button
             onClick={() => setActiveTab('receipt')}
@@ -64,17 +69,19 @@ export default function Sidebar({ activeTab, setActiveTab, onResetPOS }: Sidebar
             <span className="text-sm">ออกใบเสร็จรับเงิน</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('customers')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 cursor-pointer ${
-              activeTab === 'customers'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-            }`}
-          >
-            <Users className="w-5 h-5" />
-            <span className="text-sm">สมาชิกลูกค้า</span>
-          </button>
+          {role === 'admin' && (
+            <button
+              onClick={() => setActiveTab('customers')}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 cursor-pointer ${
+                activeTab === 'customers'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <Users className="w-5 h-5" />
+              <span className="text-sm">สมาชิกลูกค้า</span>
+            </button>
+          )}
         </nav>
 
         <div className="p-4 border-t border-slate-100">
@@ -100,25 +107,29 @@ export default function Sidebar({ activeTab, setActiveTab, onResetPOS }: Sidebar
           <span className="text-[10px] mt-0.5">รายการสินค้า</span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('products')}
-          className={`flex flex-col items-center justify-center flex-1 h-full py-1 ${
-            activeTab === 'products' ? 'text-slate-900 font-semibold' : 'text-slate-400'
-          }`}
-        >
-          <Package className="w-5 h-5" />
-          <span className="text-[10px] mt-0.5">สต็อค</span>
-        </button>
+        {role === 'admin' && (
+          <button
+            onClick={() => setActiveTab('products')}
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1 ${
+              activeTab === 'products' ? 'text-slate-900 font-semibold' : 'text-slate-400'
+            }`}
+          >
+            <Package className="w-5 h-5" />
+            <span className="text-[10px] mt-0.5">สต็อค</span>
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveTab('reports')}
-          className={`flex flex-col items-center justify-center flex-1 h-full py-1 ${
-            activeTab === 'reports' ? 'text-slate-900 font-semibold' : 'text-slate-400'
-          }`}
-        >
-          <BarChart3 className="w-5 h-5" />
-          <span className="text-[10px] mt-0.5">รายงาน</span>
-        </button>
+        {role === 'admin' && (
+          <button
+            onClick={() => setActiveTab('reports')}
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1 ${
+              activeTab === 'reports' ? 'text-slate-900 font-semibold' : 'text-slate-400'
+            }`}
+          >
+            <BarChart3 className="w-5 h-5" />
+            <span className="text-[10px] mt-0.5">รายงาน</span>
+          </button>
+        )}
 
         <button
           onClick={() => setActiveTab('receipt')}
@@ -130,15 +141,17 @@ export default function Sidebar({ activeTab, setActiveTab, onResetPOS }: Sidebar
           <span className="text-[10px] mt-0.5">ใบเสร็จ</span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('customers')}
-          className={`flex flex-col items-center justify-center flex-1 h-full py-1 ${
-            activeTab === 'customers' ? 'text-slate-900 font-semibold' : 'text-slate-400'
-          }`}
-        >
-          <Users className="w-5 h-5" />
-          <span className="text-[10px] mt-0.5">สมาชิก</span>
-        </button>
+        {role === 'admin' && (
+          <button
+            onClick={() => setActiveTab('customers')}
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1 ${
+              activeTab === 'customers' ? 'text-slate-900 font-semibold' : 'text-slate-400'
+            }`}
+          >
+            <Users className="w-5 h-5" />
+            <span className="text-[10px] mt-0.5">สมาชิก</span>
+          </button>
+        )}
       </nav>
     </>
   );
