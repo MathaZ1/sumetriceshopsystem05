@@ -100,6 +100,28 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
               {error}
             </div>
           )}
+
+          {/* Product ID */}
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
+              รหัสสินค้า / บาร์โค้ด
+            </label>
+            <input
+              type="text"
+              required
+              disabled={!!product}
+              value={id}
+              onChange={(e) => setId(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all disabled:bg-slate-50 disabled:text-slate-400"
+              placeholder="กรอกรหัสสินค้า หรือ สแกนบาร์โค้ด..."
+            />
+            {!product && (
+              <p className="text-[10px] text-slate-450 mt-1">
+                * ระบบสร้างรหัสให้อัตโนมัติ สามารถแก้ไขหรือลบเพื่อใช้บาร์โค้ดของคุณเองได้
+              </p>
+            )}
+          </div>
+
           {/* Product Name */}
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">

@@ -52,7 +52,7 @@ body {
   }
 
   /* Direct styling for the portaled print receipt target */
-  #root .dot-matrix-print-target {
+  .dot-matrix-print-target {
     display: flex !important;
     position: fixed !important;
     left: 0 !important;

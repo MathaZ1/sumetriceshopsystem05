@@ -1108,12 +1108,12 @@ export default function ReceiptView({
                         ถ.จุลจอมเกล้า ต.ท่าข้าม อ.พุนพิน จ.สุราษฎร์ธานี 84130
                       </p>
                       <p className="text-[9px] text-stone-500 mt-0.5 leading-tight">
-                        สาขาโค้งวัดดอนกระถิน โทร : <span className="font-semibold text-stone-800">077-441628</span> / สาขาดอนเนียง โทร : <span className="font-semibold text-stone-800">098-6785002</span> | เลขประจำตัวผู้เสียภาษี : <span className="font-mono text-stone-800">084351001529</span>
+                        สาขาโค้งวัดดอนกระถิน โทร : <span className="font-semibold text-stone-800">077-441628</span> / สาขาดอนเนียง โทร : <span className="font-semibold text-stone-800">098-6785002</span>
                       </p>
                     </div>
 
                     <div className="text-right flex flex-col items-end gap-1">
-                      <div className="border border-stone-400 px-3 py-1 font-bold text-[10px] text-stone-900 bg-stone-100/60 tracking-wider rounded-sm">
+                      <div className="font-extrabold text-[12px] text-stone-950 tracking-wider">
                         ใบเสร็จรับเงิน / RECEIPT
                       </div>
                       <div className="text-[9px] text-stone-600 mt-1.5 flex flex-col gap-0.5 items-end font-semibold">
@@ -1125,7 +1125,7 @@ export default function ReceiptView({
                   </div>
 
                   {/* Customer Information Block */}
-                  <div className="border border-dashed border-stone-300 rounded-lg p-2.5 bg-stone-50/50 grid grid-cols-12 gap-2 text-[9px] leading-relaxed">
+                  <div className="border border-dashed border-stone-300 rounded-lg p-2.5 bg-transparent grid grid-cols-12 gap-2 text-[9px] leading-relaxed">
                     <div className="col-span-8 flex flex-col gap-0.5">
                       <div>
                         <span className="text-stone-400 font-bold">ลูกค้า / Customer :</span>{' '}
@@ -1142,12 +1142,6 @@ export default function ReceiptView({
                     </div>
                     <div className="col-span-4 flex flex-col gap-0.5 border-l border-dashed border-stone-200 pl-3">
                       <div>
-                        <span className="text-stone-400 font-bold">เลขผู้เสียภาษี / Tax ID :</span>{' '}
-                        <span className="text-stone-950 font-mono font-bold">
-                          {custTaxId || '........................'}
-                        </span>
-                      </div>
-                      <div>
                         <span className="text-stone-400 font-bold">เบอร์โทร / Phone :</span>{' '}
                         <span className="text-stone-950 font-bold">
                           {custPhone || '........................'}
@@ -1160,7 +1154,7 @@ export default function ReceiptView({
                   <div className="flex-1 min-h-[140px] flex flex-col justify-between mt-1">
                     <table className="w-full text-[9px] font-mono border-collapse">
                       <thead>
-                        <tr className="border-y border-dashed border-stone-400 bg-stone-100/30 text-stone-700 font-bold text-left">
+                        <tr className="text-stone-700 font-bold text-left">
                           <th className="py-1 text-center w-8">ลำดับ</th>
                           <th className="py-1 px-2">รายการสินค้า / Description</th>
                           <th className="py-1 text-right w-16">จำนวน</th>
@@ -1178,7 +1172,7 @@ export default function ReceiptView({
                         ) : (
                           <>
                             {items.map((i, index) => (
-                              <tr key={i.product.id} className="border-b border-dotted border-stone-200">
+                              <tr key={i.product.id} className="">
                                 <td className="text-center py-1">{index + 1}</td>
                                 <td className="px-2 py-1 font-bold text-stone-950">{i.product.name}</td>
                                 <td className="text-right py-1 font-semibold">{i.quantity}</td>
@@ -1189,7 +1183,7 @@ export default function ReceiptView({
                             {/* Pads the table with empty rows to preserve standard 9"x5.5" height (Real-world billing accuracy) */}
                             {items.length < 5 && 
                               Array.from({ length: 5 - items.length }).map((_, idx) => (
-                                <tr key={`empty-row-${idx}`} className="border-b border-dotted border-stone-200/40 h-[22px]">
+                                <tr key={`empty-row-${idx}`} className="h-[22px]">
                                   <td className="text-center py-1 text-stone-300">-</td>
                                   <td className="px-2 py-1 text-stone-300">-</td>
                                   <td className="text-right py-1 text-stone-300">-</td>
@@ -1208,7 +1202,7 @@ export default function ReceiptView({
                   <div className="grid grid-cols-12 border-t border-dashed border-stone-300 pt-2 gap-4">
                     {/* Left part: Baht text */}
                     <div className="col-span-7 flex flex-col justify-center py-0.5">
-                      <div className="bg-stone-100/50 border border-dotted border-stone-350 px-2.5 py-2.5 rounded text-[9.5px] text-stone-600 font-bold leading-normal">
+                      <div className="border border-dotted border-stone-350 px-2.5 py-2.5 rounded text-[9.5px] text-stone-600 font-bold leading-normal">
                         จำนวนเงินตัวอักษร : <span className="text-stone-950 font-extrabold">{thaiBaht(netTotal)}</span>
                       </div>
                     </div>
@@ -1320,12 +1314,12 @@ export default function ReceiptView({
                     ถ.จุลจอมเกล้า ต.ท่าข้าม อ.พุนพิน จ.สุราษฎร์ธานี 84130
                   </p>
                   <p className="text-[9px] text-stone-500 mt-0.5 leading-tight">
-                    สาขาโค้งวัดดอนกระถิน โทร : <span className="font-semibold text-stone-800">077-441628</span> / สาขาดอนเนียง โทร : <span className="font-semibold text-stone-800">098-6785002</span> | เลขประจำตัวผู้เสียภาษี : <span className="font-mono text-stone-800">084351001529</span>
+                    สาขาโค้งวัดดอนกระถิน โทร : <span className="font-semibold text-stone-800">077-441628</span> / สาขาดอนเนียง โทร : <span className="font-semibold text-stone-800">098-6785002</span>
                   </p>
                 </div>
 
                 <div className="text-right flex flex-col items-end gap-1">
-                  <div className="border border-stone-400 px-3 py-1 font-bold text-[10px] text-stone-900 bg-stone-100/60 tracking-wider rounded-sm">
+                  <div className="font-extrabold text-[12px] text-stone-950 tracking-wider">
                     ใบเสร็จรับเงิน / RECEIPT
                   </div>
                   <div className="text-[9px] text-stone-600 mt-1.5 flex flex-col gap-0.5 items-end font-semibold">
@@ -1337,7 +1331,7 @@ export default function ReceiptView({
               </div>
 
               {/* Customer Information Block */}
-              <div className="border border-dashed border-stone-300 rounded-lg p-2.5 bg-stone-50/50 grid grid-cols-12 gap-2 text-[9px] leading-relaxed">
+              <div className="border border-dashed border-stone-300 rounded-lg p-2.5 bg-transparent grid grid-cols-12 gap-2 text-[9px] leading-relaxed">
                 <div className="col-span-8 flex flex-col gap-0.5">
                   <div>
                     <span className="text-stone-400 font-bold">ลูกค้า / Customer :</span>{' '}
@@ -1354,12 +1348,6 @@ export default function ReceiptView({
                 </div>
                 <div className="col-span-4 flex flex-col gap-0.5 border-l border-dashed border-stone-200 pl-3">
                   <div>
-                    <span className="text-stone-400 font-bold">เลขผู้เสียภาษี / Tax ID :</span>{' '}
-                    <span className="text-stone-950 font-mono font-bold">
-                      {custTaxId || '........................'}
-                    </span>
-                  </div>
-                  <div>
                     <span className="text-stone-400 font-bold">เบอร์โทร / Phone :</span>{' '}
                     <span className="text-stone-950 font-bold">
                       {custPhone || '........................'}
@@ -1372,7 +1360,7 @@ export default function ReceiptView({
               <div className="flex-1 min-h-[140px] flex flex-col justify-between mt-1">
                 <table className="w-full text-[9px] font-mono border-collapse">
                   <thead>
-                    <tr className="border-y border-dashed border-stone-400 bg-stone-100/30 text-stone-700 font-bold text-left">
+                    <tr className="text-stone-700 font-bold text-left">
                       <th className="py-1 text-center w-8">ลำดับ</th>
                       <th className="py-1 px-2">รายการสินค้า / Description</th>
                       <th className="py-1 text-right w-16">จำนวน</th>
@@ -1390,7 +1378,7 @@ export default function ReceiptView({
                     ) : (
                       <>
                         {items.map((i, index) => (
-                          <tr key={i.product.id} className="border-b border-dotted border-stone-200">
+                          <tr key={i.product.id} className="">
                             <td className="text-center py-1">{index + 1}</td>
                             <td className="px-2 py-1 font-bold text-stone-950">{i.product.name}</td>
                             <td className="text-right py-1 font-semibold">{i.quantity}</td>
@@ -1400,7 +1388,7 @@ export default function ReceiptView({
                         ))}
                         {items.length < 5 && 
                           Array.from({ length: 5 - items.length }).map((_, idx) => (
-                            <tr key={`empty-row-portal-${idx}`} className="border-b border-dotted border-stone-200/40 h-[22px]">
+                            <tr key={`empty-row-portal-${idx}`} className="h-[22px]">
                               <td className="text-center py-1 text-stone-300">-</td>
                               <td className="px-2 py-1 text-stone-300">-</td>
                               <td className="text-right py-1 text-stone-300">-</td>
@@ -1419,7 +1407,7 @@ export default function ReceiptView({
               <div className="grid grid-cols-12 border-t border-dashed border-stone-300 pt-2 gap-4">
                 {/* Left part: Baht text */}
                 <div className="col-span-7 flex flex-col justify-center py-0.5">
-                  <div className="bg-stone-100/50 border border-dotted border-stone-350 px-2.5 py-2.5 rounded text-[9.5px] text-stone-600 font-bold leading-normal">
+                  <div className="border border-dotted border-stone-350 px-2.5 py-2.5 rounded text-[9.5px] text-stone-600 font-bold leading-normal">
                     จำนวนเงินตัวอักษร : <span className="text-stone-950 font-extrabold">{thaiBaht(netTotal)}</span>
                   </div>
                 </div>
