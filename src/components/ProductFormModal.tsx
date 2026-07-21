@@ -14,7 +14,7 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
   const [name, setName] = useState<string>('');
   const [category, setCategory] = useState<string>('เครื่องดื่ม');
   const [price, setPrice] = useState<number>(0);
-  const [stock, setStock] = useState<number>(0);
+  const [stock, setStock] = useState<number>(999999);
   const [imageUrl, setImageUrl] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +26,7 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
       setName(product.name);
       setCategory(product.category || 'เครื่องดื่ม');
       setPrice(product.price);
-      setStock(product.stock);
+      setStock(product.stock || 999999);
       setImageUrl(product.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400');
     } else {
       // Clear for new product
@@ -34,7 +34,7 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
       setName('');
       setCategory('เครื่องดื่ม');
       setPrice(0);
-      setStock(0);
+      setStock(999999);
       setImageUrl('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400');
     }
     setError(null);
@@ -44,7 +44,7 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id || !name || price < 0 || stock < 0) {
+    if (!id || !name || price < 0) {
       setError('กรุณากรอกข้อมูลให้ครบถ้วนและถูกต้อง');
       return;
     }
@@ -55,14 +55,14 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
       // Clean image URL if empty
       const finalImageUrl = imageUrl.trim() || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400';
       
-      const status = stock === 0 ? 'หมดสต็อก' : stock <= 15 ? 'ใกล้หมด' : 'พร้อมขาย';
+      const status = 'พร้อมขาย';
 
       const productData = {
         id: id.trim().toUpperCase(),
         name: name.trim(),
         category,
         price: Number(price),
-        stock: Number(stock),
+        stock: Number(stock) || 999999,
         imageUrl: finalImageUrl,
         status
       };
@@ -101,26 +101,7 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
             </div>
           )}
 
-          {/* Product ID */}
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
-              รหัสสินค้า / บาร์โค้ด
-            </label>
-            <input
-              type="text"
-              required
-              disabled={!!product}
-              value={id}
-              onChange={(e) => setId(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all disabled:bg-slate-50 disabled:text-slate-400"
-              placeholder="กรอกรหัสสินค้า หรือ สแกนบาร์โค้ด..."
-            />
-            {!product && (
-              <p className="text-[10px] text-slate-450 mt-1">
-                * ระบบสร้างรหัสให้อัตโนมัติ สามารถแก้ไขหรือลบเพื่อใช้บาร์โค้ดของคุณเองได้
-              </p>
-            )}
-          </div>
+
 
           {/* Product Name */}
           <div>
@@ -137,39 +118,21 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            {/* Price */}
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
-                ราคา (฿)
-              </label>
-              <input
-                type="number"
-                required
-                min="0"
-                step="0.01"
-                value={price || ''}
-                onChange={(e) => setPrice(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
-                placeholder="0.00"
-              />
-            </div>
-
-            {/* Stock Level */}
-            <div>
-              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
-                จำนวนสต็อก
-              </label>
-              <input
-                type="number"
-                required
-                min="0"
-                value={stock || ''}
-                onChange={(e) => setStock(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
-                placeholder="0"
-              />
-            </div>
+          {/* Price */}
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
+              ราคา (฿)
+            </label>
+            <input
+              type="number"
+              required
+              min="0"
+              step="0.01"
+              value={price || ''}
+              onChange={(e) => setPrice(Number(e.target.value))}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
+              placeholder="0.00"
+            />
           </div>
 
           {/* Action Buttons */}

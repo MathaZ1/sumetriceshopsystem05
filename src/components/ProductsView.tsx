@@ -52,21 +52,11 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
 
   // Filter products
   const filteredProducts = products.filter((p) => {
-    // 1. Filter by search query
+    // Filter by search query
     const searchVal = localSearchQuery.trim().toLowerCase();
     const matchesSearch = p.name.toLowerCase().includes(searchVal) || p.id.toLowerCase().includes(searchVal);
     
-    // 2. Filter by tabs (stock status)
-    let matchesTab = true;
-    if (activeTab === 'สินค้าพร้อมขาย') {
-      matchesTab = p.stock > 15;
-    } else if (activeTab === 'สินค้าใกล้หมด') {
-      matchesTab = p.stock > 0 && p.stock <= 15;
-    } else if (activeTab === 'หมดสต็อก') {
-      matchesTab = p.stock === 0;
-    }
-
-    return matchesSearch && matchesTab;
+    return matchesSearch;
   });
 
   // Pagination logic
@@ -75,9 +65,6 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
-
-  // Status counters
-  const lowStockCount = products.filter(p => p.stock > 0 && p.stock <= 15).length;
 
   const handleOpenAddModal = () => {
     setEditingProduct(null);
@@ -143,7 +130,7 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-xl font-bold text-slate-900">รายการสินค้า</h2>
-          <p className="text-sm text-slate-500 mt-1 font-medium">จัดการสต็อกสินค้าและราคาทั้งหมดในระบบ</p>
+          <p className="text-sm text-slate-500 mt-1 font-medium">จัดการรายการสินค้าและราคาทั้งหมดในระบบ</p>
         </div>
         <div className="flex flex-wrap gap-2.5 w-full sm:w-auto">
           <button
@@ -158,40 +145,6 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
 
       {/* Filters & Tabs Section */}
       <div className="bg-white border border-slate-100 rounded-2xl p-4 mb-6 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
-        {/* Status Pills */}
-        <div className="flex flex-wrap gap-2 w-full md:w-auto">
-          {['ทั้งหมด', 'สินค้าพร้อมขาย', 'สินค้าใกล้หมด', 'หมดสต็อก'].map((tab) => {
-            const isActive = activeTab === tab;
-            let counter: number | null = null;
-            if (tab === 'สินค้าใกล้หมด') counter = lowStockCount;
-            if (tab === 'หมดสต็อก') counter = products.filter(p => p.stock === 0).length;
-
-            return (
-              <button
-                key={tab}
-                onClick={() => {
-                  setActiveTab(tab);
-                  setCurrentPage(1);
-                }}
-                className={`px-4 py-2 rounded-full border text-xs font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
-                  isActive
-                    ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
-                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                <span>{tab}</span>
-                {counter !== null && counter > 0 && (
-                  <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${
-                    isActive ? 'bg-white/20 text-white' : 'bg-red-100 text-red-600'
-                  }`}>
-                    {counter}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
         {/* Local Search Input Field */}
         <div className="relative w-full md:w-72 shrink-0">
           <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
@@ -222,31 +175,26 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
                     className="rounded text-slate-900 border-slate-200 focus:ring-slate-950 bg-white"
                   />
                 </th>
-                <th className="p-4 w-2/5">ชื่อสินค้า</th>
-                <th className="p-4 w-32 text-right">จำนวนสต็อก</th>
+                <th className="p-4 w-3/5">ชื่อสินค้า</th>
                 <th className="p-4 w-32 text-right">ราคา (฿)</th>
-                <th className="p-4 w-32 text-center">สถานะ</th>
                 <th className="p-4 w-28 text-right">จัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-20 text-center">
+                  <td colSpan={4} className="py-20 text-center">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-slate-900 mx-auto"></div>
                   </td>
                 </tr>
               ) : currentItems.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-16 text-center text-slate-400">
+                  <td colSpan={4} className="py-16 text-center text-slate-400">
                     ไม่พบสินค้าตรงตามเงื่อนไขที่ค้นหา
                   </td>
                 </tr>
               ) : (
                 currentItems.map((p) => {
-                  const isOutOfStock = p.stock === 0;
-                  const isLowStock = p.stock > 0 && p.stock <= 15;
-
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="p-4 text-center">
@@ -263,24 +211,8 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
                           {p.name}
                         </button>
                       </td>
-                      <td className={`p-4 text-right font-bold ${
-                        isOutOfStock ? 'text-red-600' : isLowStock ? 'text-amber-500' : 'text-slate-900'
-                      }`}>
-                        {p.stock}
-                      </td>
                       <td className="p-4 text-right font-extrabold text-slate-900">
                         {p.price.toFixed(2)}
-                      </td>
-                      <td className="p-4 text-center">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                          isOutOfStock
-                            ? 'bg-red-50 text-red-600 border-red-100'
-                            : isLowStock
-                            ? 'bg-amber-50 text-amber-600 border-amber-100'
-                            : 'bg-green-50 text-green-600 border-green-100'
-                        }`}>
-                          {p.status}
-                        </span>
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -355,10 +287,7 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
             ไม่พบสินค้าในระบบ
           </div>
         ) : (
-          filteredProducts.map((p) => {
-            const isOutOfStock = p.stock === 0;
-            const isLowStock = p.stock > 0 && p.stock <= 15;
-
+              filteredProducts.map((p) => {
             return (
               <div
                 key={p.id}
@@ -395,24 +324,7 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
                 </div>
 
                 {/* Sub row */}
-                <div className="flex justify-between items-end pt-3 border-t border-slate-100">
-                  <div>
-                    <p className="text-xs text-slate-500 font-semibold">
-                      คงเหลือ:{' '}
-                      <span className={`font-bold ${isOutOfStock ? 'text-red-600' : 'text-slate-900'}`}>
-                        {p.stock}
-                      </span>
-                    </p>
-                    <span className={`inline-flex items-center mt-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold border ${
-                      isOutOfStock
-                        ? 'bg-red-50 text-red-600 border-red-100'
-                        : isLowStock
-                        ? 'bg-amber-50 text-amber-600 border-amber-100'
-                        : 'bg-green-50 text-green-600 border-green-100'
-                    }`}>
-                      {p.status}
-                    </span>
-                  </div>
+                <div className="flex justify-end items-end pt-3 border-t border-slate-100">
                   <div className="text-right">
                     <p className="text-lg font-black text-slate-900">฿{p.price.toFixed(2)}</p>
                   </div>
