@@ -1130,7 +1130,7 @@ export default function ReceiptView({
                   </div>
 
                   {/* Customer Information Block */}
-                  <div className="border border-dashed border-stone-300 rounded-lg p-2.5 bg-transparent grid grid-cols-12 gap-2 text-[9px] leading-relaxed">
+                  <div className="py-2 bg-transparent grid grid-cols-12 gap-2 text-[9px] leading-relaxed">
                     <div className="col-span-8 flex flex-col gap-0.5">
                       <div>
                         <span className="text-stone-400 font-bold">ลูกค้า / Customer :</span>{' '}
@@ -1145,7 +1145,7 @@ export default function ReceiptView({
                         </span>
                       </div>
                     </div>
-                    <div className="col-span-4 flex flex-col gap-0.5 border-l border-dashed border-stone-200 pl-3">
+                    <div className="col-span-4 flex flex-col gap-0.5 pl-3">
                       <div>
                         <span className="text-stone-400 font-bold">เบอร์โทร / Phone :</span>{' '}
                         <span className="text-stone-950 font-bold">
@@ -1204,16 +1204,16 @@ export default function ReceiptView({
                   </div>
 
                   {/* Calculations & Words Summary Grid */}
-                  <div className="grid grid-cols-12 border-t border-dashed border-stone-300 pt-2 gap-4">
+                  <div className="grid grid-cols-12 border-t border-stone-200 pt-2 gap-4">
                     {/* Left part: Baht text */}
                     <div className="col-span-7 flex flex-col justify-center py-0.5">
-                      <div className="border border-dotted border-stone-350 px-2.5 py-2.5 rounded text-[9.5px] text-stone-600 font-bold leading-normal">
+                      <div className="px-1 py-2 text-[9.5px] text-stone-600 font-bold leading-normal">
                         จำนวนเงินตัวอักษร : <span className="text-stone-950 font-extrabold">{thaiBaht(netTotal)}</span>
                       </div>
                     </div>
 
                     {/* Right part: Price totals */}
-                    <div className="col-span-5 border-l border-dashed border-stone-250 pl-4 py-0.5 flex flex-col justify-center gap-1.5 text-[9.5px] font-bold text-stone-600 font-mono">
+                    <div className="col-span-5 pl-4 py-0.5 flex flex-col justify-center gap-1.5 text-[9.5px] font-bold text-stone-600 font-mono">
                       <div className="flex justify-between">
                         <span>รวมเงิน / Subtotal :</span>
                         <span className="text-stone-900">฿{total.toFixed(2)}</span>
@@ -1224,7 +1224,7 @@ export default function ReceiptView({
                           <span>-฿{discount.toFixed(2)}</span>
                         </div>
                       )}
-                      <div className="flex justify-between border-t border-dashed border-stone-400 pt-1 text-[11px] font-extrabold text-stone-950">
+                      <div className="flex justify-between border-t border-stone-250 pt-1 text-[11px] font-extrabold text-stone-950">
                         <span>ยอดสุทธิ / Net Total :</span>
                         <span className="text-[12px] text-stone-950">฿{netTotal.toFixed(2)}</span>
                       </div>
@@ -1232,7 +1232,7 @@ export default function ReceiptView({
                   </div>
 
                   {/* Signature fields strip */}
-                  <div className="grid grid-cols-2 gap-10 text-center mt-3 border-t border-dotted border-stone-300 pt-2.5 text-[8.5px] text-stone-500 font-bold">
+                  <div className="grid grid-cols-2 gap-10 text-center mt-3 border-t border-stone-200 pt-2.5 text-[8.5px] text-stone-500 font-bold">
                     <div className="flex flex-col items-center">
                       <div className="h-6"></div> {/* Space for real physical signature */}
                       <p className="text-stone-700">ลงชื่อ ............................................................ ผู้รับสินค้า / Recipient</p>
@@ -1337,7 +1337,7 @@ export default function ReceiptView({
               </div>
 
               {/* Customer Information Block */}
-              <div className="border border-dashed border-stone-300 rounded-lg p-2.5 bg-transparent grid grid-cols-12 gap-2 text-[9px] leading-relaxed">
+              <div className="py-2 bg-transparent grid grid-cols-12 gap-2 text-[9px] leading-relaxed">
                 <div className="col-span-8 flex flex-col gap-0.5">
                   <div>
                     <span className="text-stone-400 font-bold">ลูกค้า / Customer :</span>{' '}
@@ -1352,7 +1352,7 @@ export default function ReceiptView({
                     </span>
                   </div>
                 </div>
-                <div className="col-span-4 flex flex-col gap-0.5 border-l border-dashed border-stone-200 pl-3">
+                <div className="col-span-4 flex flex-col gap-0.5 pl-3">
                   <div>
                     <span className="text-stone-400 font-bold">เบอร์โทร / Phone :</span>{' '}
                     <span className="text-stone-950 font-bold">
@@ -1410,16 +1410,16 @@ export default function ReceiptView({
               </div>
 
               {/* Calculations & Words Summary Grid */}
-              <div className="grid grid-cols-12 border-t border-dashed border-stone-300 pt-2 gap-4">
+              <div className="grid grid-cols-12 border-t border-stone-200 pt-2 gap-4">
                 {/* Left part: Baht text */}
                 <div className="col-span-7 flex flex-col justify-center py-0.5">
-                  <div className="border border-dotted border-stone-350 px-2.5 py-2.5 rounded text-[9.5px] text-stone-600 font-bold leading-normal">
+                  <div className="px-1 py-2 text-[9.5px] text-stone-600 font-bold leading-normal">
                     จำนวนเงินตัวอักษร : <span className="text-stone-950 font-extrabold">{thaiBaht(netTotal)}</span>
                   </div>
                 </div>
 
                 {/* Right part: Price totals */}
-                <div className="col-span-5 border-l border-dashed border-stone-250 pl-4 py-0.5 flex flex-col justify-center gap-1.5 text-[9.5px] font-bold text-stone-600 font-mono">
+                <div className="col-span-5 pl-4 py-0.5 flex flex-col justify-center gap-1.5 text-[9.5px] font-bold text-stone-600 font-mono">
                   <div className="flex justify-between">
                     <span>รวมเงิน / Subtotal :</span>
                     <span className="text-stone-900">฿{total.toFixed(2)}</span>
@@ -1430,7 +1430,7 @@ export default function ReceiptView({
                       <span>-฿{discount.toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between border-t border-dashed border-stone-400 pt-1 text-[11px] font-extrabold text-stone-950">
+                  <div className="flex justify-between border-t border-stone-250 pt-1 text-[11px] font-extrabold text-stone-950">
                     <span>ยอดสุทธิ / Net Total :</span>
                     <span className="text-[12px] text-stone-950">฿{netTotal.toFixed(2)}</span>
                   </div>
@@ -1438,7 +1438,7 @@ export default function ReceiptView({
               </div>
 
               {/* Signature fields strip */}
-              <div className="grid grid-cols-2 gap-10 text-center mt-3 border-t border-dotted border-stone-300 pt-2.5 text-[8.5px] text-stone-500 font-bold">
+              <div className="grid grid-cols-2 gap-10 text-center mt-3 border-t border-stone-200 pt-2.5 text-[8.5px] text-stone-500 font-bold">
                 <div className="flex flex-col items-center">
                   <div className="h-6"></div>
                   <p className="text-stone-700">ลงชื่อ ............................................................ ผู้รับสินค้า / Recipient</p>
