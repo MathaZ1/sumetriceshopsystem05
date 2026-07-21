@@ -142,6 +142,15 @@ export default function ReceiptView({
   const setDiscount = propSetDiscount !== undefined ? propSetDiscount : setLocalDiscount;
 
   const [isPrinted, setIsPrinted] = useState<boolean>(false);
+  const [isInIframe, setIsInIframe] = useState<boolean>(false);
+
+  useEffect(() => {
+    try {
+      setIsInIframe(window.self !== window.top);
+    } catch (e) {
+      setIsInIframe(true);
+    }
+  }, []);
 
   // Load current invoice sequence from localStorage
   const [invoiceSeq, setInvoiceSeq] = useState<number>(() => {
@@ -497,11 +506,7 @@ export default function ReceiptView({
 
     // หากเปิดดูบิลเดิม หรือบิลที่เกิดจากการชำระเงินทางหน้า POS สำเร็จแล้ว (มี invoiceId) ให้ผ่านการบันทึกไปได้เลยเพื่อไม่ให้ตัดสต็อกเบิ้ล
     if (invoiceId) {
-      const existingId = invoiceId;
-      if (setInvoiceId) {
-        setInvoiceId('');
-      }
-      return existingId;
+      return invoiceId;
     }
 
     const finalInvoiceNumber = invoiceNumber;
@@ -583,7 +588,12 @@ export default function ReceiptView({
     setIsPrinted(true);
     const invoiceNum = await saveSaleToFirestore();
     if (invoiceNum) {
-      window.print();
+      try {
+        window.focus();
+        window.print();
+      } catch (err) {
+        console.error('Print failed:', err);
+      }
     }
     setIsPrinted(false);
   };
@@ -796,7 +806,28 @@ export default function ReceiptView({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="flex flex-col gap-6 w-full">
+            {isInIframe && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-pulse">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 bg-amber-100 text-amber-800 rounded-xl mt-0.5 sm:mt-0 shrink-0">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-amber-900 font-sans uppercase tracking-wider">
+                      คำแนะนำสำคัญสำหรับการใช้งานปุ่มพิมพ์ใบเสร็จ
+                    </h4>
+                    <p className="text-[11px] text-amber-700 font-medium leading-relaxed mt-1">
+                      ขณะนี้คุณกำลังใช้งานแอปผ่าน "หน้าต่างจำลอง (Sandbox Iframe)" ของ AI Studio ซึ่งเบราว์เซอร์จะบล็อกกล่องคำสั่งพิมพ์ใบเสร็จ (Print Dialog) โดยอัตโนมัติตามนโยบายความปลอดภัย เพื่อการสั่งพิมพ์ใบเสร็จที่ทำงานได้สมบูรณ์แบบ <strong>กรุณากดปุ่ม "เปิดในแท็บใหม่" (Open in new tab)</strong> ที่อยู่บริเวณแถบสีส้มด้านบนขวาของหน้าจอจำลอง แล้วคุณจะสามารถทำรายการและสั่งพิมพ์กระดาษต่อเนื่องขนาด 9" x 5.5" ได้อย่างลื่นไหล 100%!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           {/* Left Column: Product Search & Cart Editor (Span 7/12) */}
           <div className="lg:col-span-7 flex flex-col gap-6">
@@ -1265,6 +1296,7 @@ export default function ReceiptView({
           </div>
 
         </div>
+        </div>
 
         )}
 
@@ -1273,7 +1305,7 @@ export default function ReceiptView({
       </div>
 
       {createPortal(
-        <div className="print-portal-container hidden print:block">
+        <div className="print-portal-container">
           <div
             className={`dot-matrix-print-target print-receipt-card bg-[#ffffff] border border-stone-250 p-5 font-mono text-[10px] text-stone-800 flex flex-col justify-between overflow-hidden ${printPinhole ? 'print-pinholes-visible' : ''}`}
           >

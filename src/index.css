@@ -18,6 +18,20 @@ body {
   scrollbar-width: none;
 }
 
+/* On screen, keep the print portal container in the DOM layout tree to ensure browser layout engines (like Chrome/Safari)
+   can pre-compute layout, font size, and element metrics, but hide it visually and prevent user interaction.
+   This prevents blank pages or missing print dialog content in sandboxed iframes. */
+.print-portal-container {
+  display: block !important;
+  position: absolute !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  z-index: -99999 !important;
+}
+
 /* Dot Matrix Landscape Printing Styles */
 @media print {
   /* Hide the entire #root and other elements directly under body */
@@ -47,6 +61,9 @@ body {
     height: 5.5in !important;
     margin: 0 !important;
     padding: 0 !important;
+    opacity: 1 !important;
+    overflow: visible !important;
+    pointer-events: auto !important;
     box-sizing: border-box !important;
     z-index: 99999 !important;
   }
