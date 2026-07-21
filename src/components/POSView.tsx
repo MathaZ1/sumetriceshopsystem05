@@ -93,16 +93,6 @@ export default function POSView({
   });
 
   const addToCart = (product: Product) => {
-    if (product.stock <= 0) return;
-
-    const existing = cart.find((item) => item.product.id === product.id);
-    if (existing && existing.quantity >= product.stock) {
-      setAlertTitle('สต็อกไม่เพียงพอ');
-      setAlertMessage(`ไม่สามารถเพิ่มสินค้าได้มากกว่าจำนวนสินค้าที่มีในคลัง (${product.stock} ชิ้น)`);
-      setAlertOpen(true);
-      return;
-    }
-
     setCart((prev) => {
       const isExist = prev.some((item) => item.product.id === product.id);
       if (isExist) {
@@ -118,14 +108,6 @@ export default function POSView({
   const updateQuantity = (productId: string, delta: number) => {
     const item = cart.find((i) => i.product.id === productId);
     if (!item) return;
-
-    const newQty = item.quantity + delta;
-    if (delta > 0 && newQty > item.product.stock) {
-      setAlertTitle('สต็อกไม่เพียงพอ');
-      setAlertMessage(`ไม่สามารถเพิ่มสินค้าได้มากกว่าจำนวนสินค้าที่มีในคลัง (${item.product.stock} ชิ้น)`);
-      setAlertOpen(true);
-      return;
-    }
 
     setCart((prev) => {
       return prev
@@ -174,22 +156,18 @@ export default function POSView({
       };
 
       await runTransaction(db, async (transaction) => {
-        // 1. Fetch current product stocks and check availability
+        // 1. Fetch current product stocks
         const prodDataList: { ref: any; newStock: number; newStatus: string }[] = [];
         
         for (const item of cart) {
           const prodRef = doc(db, 'products', item.product.id);
           const prodDoc = await transaction.get(prodRef);
-          if (!prodDoc.exists()) {
-            throw new Error(`ไม่พบสินค้า: ${item.product.name}`);
+          if (prodDoc.exists()) {
+            const currentStock = prodDoc.data().stock || 0;
+            const newStock = Math.max(0, currentStock - item.quantity);
+            const newStatus = 'พร้อมขาย';
+            prodDataList.push({ ref: prodRef, newStock, newStatus });
           }
-          const currentStock = prodDoc.data().stock || 0;
-          if (currentStock < item.quantity) {
-            throw new Error(`สินค้า "${item.product.name}" มีสต็อกไม่เพียงพอ (เหลือ ${currentStock} ชิ้น)`);
-          }
-          const newStock = currentStock - item.quantity;
-          const newStatus = newStock === 0 ? 'หมดสต็อก' : newStock <= 15 ? 'ใกล้หมด' : 'พร้อมขาย';
-          prodDataList.push({ ref: prodRef, newStock, newStatus });
         }
 
         // 2. Perform all updates
@@ -258,32 +236,12 @@ export default function POSView({
           /* Products Grid */
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredProducts.map((p) => {
-              const isOutOfStock = p.stock <= 0;
-              const isLowStock = p.stock > 0 && p.stock <= 15;
-
               return (
                 <div
                   key={p.id}
                   onClick={() => addToCart(p)}
-                  className={`bg-white rounded-2xl border border-slate-100 p-4 hover:border-slate-450 hover:shadow-md cursor-pointer transition-all duration-200 flex flex-col justify-between min-h-[120px] shadow-sm relative group ${
-                    isOutOfStock ? 'opacity-60 cursor-not-allowed' : ''
-                  }`}
+                  className="bg-white rounded-2xl border border-slate-100 p-4 hover:border-slate-450 hover:shadow-md cursor-pointer transition-all duration-200 flex flex-col justify-between min-h-[120px] shadow-sm relative group"
                 >
-                  {/* Stock Badge */}
-                  <div className="flex justify-end items-start gap-2 mb-2">
-                    {isOutOfStock ? (
-                      <span className="bg-red-50 text-red-600 border border-red-100 text-[9px] font-black px-1.5 py-0.5 rounded-md">
-                        หมดสต็อก
-                      </span>
-                    ) : isLowStock ? (
-                      <span className="bg-amber-50 text-amber-700 border border-amber-100 text-[9px] font-black px-1.5 py-0.5 rounded-md">
-                        ใกล้หมด
-                      </span>
-                    ) : (
-                      <div className="h-4"></div>
-                    )}
-                  </div>
-
                   {/* Product Name */}
                   <div className="flex-1 flex items-center min-h-[40px] my-1">
                     <p className="text-sm font-extrabold text-slate-900 group-hover:text-slate-700 transition-colors line-clamp-2 leading-snug">

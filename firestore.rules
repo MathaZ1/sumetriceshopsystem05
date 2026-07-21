@@ -14,8 +14,8 @@ service cloud.firestore {
 
     // 2. Products collection rules
     match /products/{productId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow read: if true;
+      allow write: if true;
     }
 
     // 3. Sales collection rules
@@ -28,6 +28,11 @@ service cloud.firestore {
     match /customers/{customerId} {
       allow read: if isSignedIn();
       allow write: if isSignedIn();
+    }
+
+    // 5. System collection rules
+    match /system/{docId} {
+      allow read, write: if true;
     }
   }
 }

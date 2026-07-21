@@ -312,22 +312,9 @@ export default function ReceiptView({
   }, [invoiceId, allSales, customers, setItems, setDiscount]);
 
   const handleSelectItem = (product: Product) => {
-    if (product.stock <= 0) {
-      setAlertTitle('หมดสต็อก');
-      setAlertMessage('สินค้านี้หมดสต็อกในคลังสินค้า');
-      setAlertOpen(true);
-      return;
-    }
-
     setItems((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing) {
-        if (existing.quantity >= product.stock) {
-          setAlertTitle('เกินสต็อก');
-          setAlertMessage(`ไม่สามารถเพิ่มสินค้าเกินคลังที่มีอยู่ (${product.stock} ชิ้น)`);
-          setAlertOpen(true);
-          return prev;
-        }
         return prev.map((item) =>
           item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
@@ -466,13 +453,6 @@ export default function ReceiptView({
     const item = items.find((i) => i.product.id === productId);
     if (!item) return;
 
-    if (quantity > item.product.stock) {
-      setAlertTitle('เกินสต็อก');
-      setAlertMessage(`ไม่สามารถเพิ่มสินค้าเกินคลังที่มีอยู่ (${item.product.stock} ชิ้น)`);
-      setAlertOpen(true);
-      return;
-    }
-
     setItems((prev) =>
       prev.map((i) => (i.product.id === productId ? { ...i, quantity } : i))
     );
@@ -484,12 +464,6 @@ export default function ReceiptView({
         .map((i) => {
           if (i.product.id === productId) {
             const nextQty = i.quantity + delta;
-            if (nextQty > i.product.stock) {
-              setAlertTitle('เกินสต็อก');
-              setAlertMessage(`ไม่สามารถเพิ่มสินค้าเกินคลังที่มีอยู่ (${i.product.stock} ชิ้น)`);
-              setAlertOpen(true);
-              return i;
-            }
             return { ...i, quantity: nextQty };
           }
           return i;

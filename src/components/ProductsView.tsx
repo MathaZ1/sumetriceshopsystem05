@@ -23,6 +23,7 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
   // Delete confirm states
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState<boolean>(false);
+  const [confirmClearAllOpen, setConfirmClearAllOpen] = useState<boolean>(false);
 
   // Alert modal states
   const [alertOpen, setAlertOpen] = useState<boolean>(false);
@@ -107,6 +108,29 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
     }
   };
 
+  const handleClearAllProducts = async () => {
+    try {
+      // Loop and delete each product
+      for (const p of products) {
+        await deleteDoc(doc(db, 'products', p.id));
+      }
+      
+      // Mark initialized as true so seedInitialData doesn't run again
+      await setDoc(doc(db, 'system', 'initialized'), { initialized: true });
+
+      setAlertTitle('สำเร็จ');
+      setAlertMessage('ล้างข้อมูลสินค้าทั้งหมดเรียบร้อยแล้ว');
+      setAlertOpen(true);
+    } catch (error) {
+      console.error('Error clearing all products:', error);
+      setAlertTitle('เกิดข้อผิดพลาด');
+      setAlertMessage('เกิดข้อผิดพลาดในการล้างสินค้าทั้งหมด');
+      setAlertOpen(true);
+    } finally {
+      setConfirmClearAllOpen(false);
+    }
+  };
+
   const handleExportCSV = () => {
     // Generates static CSV from products list
     const headers = ['รหัสสินค้า', 'ชื่อสินค้า', 'สต็อก', 'ราคา (บาท)', 'สถานะ'];
@@ -133,6 +157,15 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
           <p className="text-sm text-slate-500 mt-1 font-medium">จัดการรายการสินค้าและราคาทั้งหมดในระบบ</p>
         </div>
         <div className="flex flex-wrap gap-2.5 w-full sm:w-auto">
+          {products.length > 0 && (
+            <button
+              onClick={() => setConfirmClearAllOpen(true)}
+              className="flex-1 sm:flex-none border border-red-200 hover:border-red-300 text-red-600 bg-red-50 hover:bg-red-100/50 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>ล้างสินค้าทั้งหมด ({products.length})</span>
+            </button>
+          )}
           <button
             onClick={handleOpenAddModal}
             className="flex-1 sm:flex-none bg-slate-900 hover:bg-slate-850 text-white px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
@@ -351,6 +384,18 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
         title="ลบสินค้าออกจากคลัง"
         message="คุณแน่ใจหรือไม่ว่าต้องการลบสินค้านี้ออกจากคลัง? การดำเนินการนี้ไม่สามารถย้อนกลับได้"
         confirmText="ลบสินค้า"
+        cancelText="ยกเลิก"
+        isDanger={true}
+      />
+
+      {/* Confirm Clear All Modal */}
+      <ConfirmModal
+        isOpen={confirmClearAllOpen}
+        onClose={() => setConfirmClearAllOpen(false)}
+        onConfirm={handleClearAllProducts}
+        title="ล้างข้อมูลสินค้าทั้งหมด"
+        message="คุณแน่ใจหรือไม่ว่าต้องการลบรายการสินค้าทั้งหมดออกจากระบบ? การดำเนินการนี้ไม่สามารถย้อนกลับได้และข้อมูลจะสูญหายอย่างถาวร"
+        confirmText="ล้างข้อมูลทั้งหมด"
         cancelText="ยกเลิก"
         isDanger={true}
       />

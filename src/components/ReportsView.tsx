@@ -270,14 +270,11 @@ export default function ReportsView() {
                 // Cancelled: Add back to inventory stock
                 newStock = currentStock + item.quantity;
               } else {
-                // Restored: Deduct from inventory stock, but check if there's enough stock
-                if (currentStock < item.quantity) {
-                  throw new Error(`ไม่สามารถกู้คืนบิลได้ เนื่องจากสต็อกสินค้า "${item.name}" มีไม่เพียงพอ (ต้องการ ${item.quantity} ชิ้น แต่ในสต็อกเหลือ ${currentStock} ชิ้น)`);
-                }
-                newStock = currentStock - item.quantity;
+                // Restored: Deduct from inventory stock
+                newStock = Math.max(0, currentStock - item.quantity);
               }
 
-              const newStatus = newStock === 0 ? 'หมดสต็อก' : newStock <= 15 ? 'ใกล้หมด' : 'พร้อมขาย';
+              const newStatus = 'พร้อมขาย';
               productUpdates.push({ ref: prodRef, newStock, newStatus });
             }
           }

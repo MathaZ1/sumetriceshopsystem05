@@ -4,6 +4,7 @@ import {
   getFirestore,
   collection,
   getDocs,
+  getDoc,
   setDoc,
   doc,
   initializeFirestore,
@@ -76,6 +77,19 @@ export async function seedInitialData() {
     return;
   }
 
+  // Check if system has already been initialized (seeded once)
+  try {
+    const initDocRef = doc(db, 'system', 'initialized');
+    const initDocSnap = await getDoc(initDocRef);
+    if (initDocSnap.exists()) {
+      console.log('Database already initialized. Skipping seedInitialData.');
+      return;
+    }
+  } catch (error) {
+    console.warn('Skipping seedInitialData: failed to read system initialization doc', error);
+    return;
+  }
+
   const productsColPath = 'products';
   let productsSnap;
   try {
@@ -88,52 +102,286 @@ export async function seedInitialData() {
 
   try {
     if (productsSnap.empty) {
-      console.log('Seeding initial products...');
+      console.log('Seeding initial products for Sumeth Rice Shop...');
       const initialProducts = [
         {
-          id: 'PRD-001',
-          name: 'น้ำดื่ม ตราสิงห์ 600มล.',
+          id: '10292',
+          name: '107 อาหารสัตว์',
+          category: 'อาหารสัตว์',
+          price: 500.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1589923188900-85dae523342b?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10386',
+          name: '114 อาหารสัตว์',
+          category: 'อาหารสัตว์',
+          price: 520.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1589923188900-85dae523342b?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10515',
+          name: '285 (กลม)',
           category: 'เครื่องดื่ม',
-          price: 10,
-          stock: 145,
-          imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB1JFPcKEmeEisqL6gEbsd1PIZsfqpY8kNHnapz9unXEjRawKoLCd6pEkWlp7S2gbHHUEvhdDidezOnXqJ8m7frAMTPDa3XGyx7PiSiaE74YwaLQea2sxjHRAW3utkZTrhp7eW45WXdwMAKKXeHnJ-Vy3cfDlJPFV2YYFnUeCBWsx_uZfsp3j-_QdivRK41eGxoOuLlENYP4t_MMb3vf8nzJUukji0LKvXXrLHWD1za1_FD28rNvMQuTj1xrlx3o6_gtbOrtAcL5Gs',
+          price: 260.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&q=80&w=400',
           status: 'พร้อมขาย'
         },
         {
-          id: 'PRD-002',
-          name: 'เลย์ รสมันฝรั่งแท้ 50กรัม',
-          category: 'ขนม',
-          price: 20,
-          stock: 12,
-          imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA1GjzrwIGCHFuO5y-p_UGo-tgtpxbTQRtjkX-dvFS8LHxlVjbCkY-ouh2mGsyyrH4LrgOO4a-sIQMJOnjpKU9xkMTGkxsepsx8UsQg8CpFt-1MAYDth--JIR799n06YlWgo1KJdTEBTBXA9wPDVoj7kkw_gQ8a6L1Kw88_SXx9VtM1Q-Trn6wcw2ou9U4N0pn_fgI-WouepT8eTBWvGTlbjDSJmF3vECjBX_zu9jMR4zpeRQ10UUZgLWHkCOIbfHdGpK1VihCHLRg',
-          status: 'ใกล้หมด'
-        },
-        {
-          id: 'PRD-003',
-          name: 'ผงซักฟอก บรีส 1000กรัม',
-          category: 'ของใช้',
-          price: 85,
-          stock: 30,
-          imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDrlwV4uIcsl6hKdc1eqbIPkp3Pq9rc7lpYci9hA8XjTLKcOhNNAiSUH_eF-Njjtqa3qrXurHzW0mLsls7-c1k5gsbaI62YF2coEV7HgG2Xi_nzRbMweQhjPwFpkJJ8nmruf5O1mkmAuzJ5PSb0KazUiW3mocdsdmm7QK9OHJY3eOgYMxzZkHrYfDd16bXuzxQGoSlAhgUThv8kK_JjHDJx3GJZVC-h7Zl_ZPgvf1RPUdVAllk1bB70cK7jXHA9lF5_a7En_PMqj3g',
-          status: 'พร้อมขาย'
-        },
-        {
-          id: 'PRD-004',
-          name: 'เครื่องดื่มชูกำลัง กระทิงแดง',
+          id: '10516',
+          name: '285 (ลัง)',
           category: 'เครื่องดื่ม',
-          price: 12,
-          stock: 80,
-          imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCee84rRJzMaFlx9316TQ9nhfmxesA3N0IM9kVl3LOKMHYVv1xsMBODQ2fOeVphP3O_9QdYTTTl3lxr2w-x8WpF_1AAy29UIV3X5J9EnOJFA54cw_ITX5yocw6xFapCfTEBD9eG5FHFLS3mWj5zXuo94SUT-ah0fCMWnN0Is42QPEJlF7tezS5cgCZg8EtbF8Hh2Kftva016yPu73RLH9b8gtnnX-iynvIcdnZJXORRG_TsV-07ewNjNJBBlIaGw5mglUhl5ZIAetM',
+          price: 3120.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&q=80&w=400',
           status: 'พร้อมขาย'
         },
         {
-          id: 'PRD-005',
-          name: 'มาม่า รสต้มยำกุ้ง 55กรัม',
-          category: 'ขนม',
-          price: 6,
-          stock: 0,
-          imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCvbSwX3e683WE2_QIb943ayVYFP6Lirs39lSRHRQKj67gxBEyFFl02AtHDxFPB-bFrjziS-zYzgvJioSIZpxbkHBngnzFhPiYRw6cozBtypJL758seMn8HE8a0uCoiEEL6IJCYYeEnmlCH0-4eH_Jm9NIJRRpH2GPgPGxQW8ZQLE9KRtODz_lCMi3nY3pVrmxbcUuhWwCGuwKhsytb_oVp4Xzlv1T0wwAvjJaODV2p4Ca27F4h_aVbSdIC4-HW9wYaNTHhIfRKfY8',
-          status: 'หมดสต็อก'
+          id: '10461',
+          name: '4มงกุฎ (15กก)',
+          category: 'ข้าวสาร',
+          price: 605.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10621',
+          name: '4มงกุฎ (40kg)',
+          category: 'ข้าวสาร',
+          price: 1610.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10355',
+          name: '4มงกุฎ (5กก)',
+          category: 'ข้าวสาร',
+          price: 2050.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10274',
+          name: '9920 ดุกเล็ก อาหารสัตว์',
+          category: 'อาหารสัตว์',
+          price: 520.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1589923188900-85dae523342b?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10275',
+          name: '9921 ดุกกลาง อาหารสัตว์',
+          category: 'อาหารสัตว์',
+          price: 500.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1589923188900-85dae523342b?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10276',
+          name: '9922 ดุกใหญ่ อาหารสัตว์',
+          category: 'อาหารสัตว์',
+          price: 480.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1589923188900-85dae523342b?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10329',
+          name: '9931 กินพืชเล็ก อาหารสัตว์',
+          category: 'อาหารสัตว์',
+          price: 420.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1589923188900-85dae523342b?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10408',
+          name: '9933. กินพืชใหญ่ อาหารสัตว์',
+          category: 'อาหารสัตว์',
+          price: 380.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1589923188900-85dae523342b?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10352',
+          name: 'A+ ขวด (ปลีก)',
+          category: 'บุหรี่ / ยาเส้น / ใบจาก',
+          price: 60.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10233',
+          name: 'A+ (10ขวด)',
+          category: 'เครื่องดื่ม',
+          price: 500.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10430',
+          name: 'A+ ลัง',
+          category: 'เครื่องดื่ม',
+          price: 2400.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10026',
+          name: 'M-150',
+          category: 'เครื่องดื่ม',
+          price: 510.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10302',
+          name: 'M-150 แพค',
+          category: 'เครื่องดื่ม',
+          price: 105.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10470',
+          name: 'กข43',
+          category: 'ข้าวสาร',
+          price: 205.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10213',
+          name: 'กระต่าย (15M)',
+          category: 'ข้าวสาร',
+          price: 380.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10226',
+          name: 'กระต่าย (ใหญ่)',
+          category: 'ข้าวสาร',
+          price: 960.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10225',
+          name: 'กวาง (ใหญ่)',
+          category: 'ข้าวสาร',
+          price: 860.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10695',
+          name: 'กวาง 15กกเหลือง',
+          category: 'ข้าวสาร',
+          price: 310.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10102',
+          name: 'กินดี 20กก',
+          category: 'ข้าวสาร',
+          price: 580.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10696',
+          name: 'กุหลาบ 5กก',
+          category: 'ข้าวสาร',
+          price: 108.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10825',
+          name: 'กุหลาบ 5กก (มัด)',
+          category: 'ข้าวสาร',
+          price: 580.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10032',
+          name: 'ข้าวหอมใหญ่',
+          category: 'ข้าวสาร',
+          price: 1130.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10163',
+          name: 'ขุนศึก (5M) มัด',
+          category: 'ข้าวสาร',
+          price: 1930.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10810',
+          name: 'ขุนศึก 15กก ส้ม',
+          category: 'ข้าวสาร',
+          price: 570.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10002',
+          name: 'ขุนศึก 40กก',
+          category: 'ข้าวสาร',
+          price: 1430.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10014',
+          name: 'สำรับแดง (15M)',
+          category: 'ข้าวสาร',
+          price: 620.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
+        },
+        {
+          id: '10001',
+          name: 'สำรับแดง (ใหญ่)',
+          category: 'ข้าวสาร',
+          price: 1650.00,
+          stock: 999999,
+          imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&q=80&w=400',
+          status: 'พร้อมขาย'
         }
       ];
 
@@ -222,6 +470,9 @@ export async function seedInitialData() {
         await setDoc(doc(salesCol, s.id), s);
       }
     }
+
+    // Mark as initialized
+    await setDoc(doc(db, 'system', 'initialized'), { initialized: true });
   } catch (error) {
     console.warn('Skipping initial sales seeding write:', error);
     return;
