@@ -49,6 +49,8 @@ body {
     background-color: #ffffff !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    -webkit-text-size-adjust: 100% !important;
+    text-size-adjust: 100% !important;
   }
 
   /* Position the portal container at the top left of the page */
@@ -66,6 +68,8 @@ body {
     pointer-events: auto !important;
     box-sizing: border-box !important;
     z-index: 99999 !important;
+    -webkit-text-size-adjust: 100% !important;
+    text-size-adjust: 100% !important;
   }
 
   /* Direct styling for the portaled print receipt target */
@@ -92,6 +96,8 @@ body {
     page-break-before: avoid !important;
     visibility: visible !important;
     z-index: 999999 !important;
+    -webkit-text-size-adjust: 100% !important;
+    text-size-adjust: 100% !important;
   }
 
   /* Force high contrast crisp print colors with original colors */
@@ -112,7 +118,7 @@ body {
   }
 
   @page {
-    size: 9in 5.5in;
+    size: 9in 5.5in landscape;
     margin: 0;
   }
 }
