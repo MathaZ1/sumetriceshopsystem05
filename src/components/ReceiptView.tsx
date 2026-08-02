@@ -1376,7 +1376,7 @@ export default function ReceiptView({
                 width: 9.5in !important;
                 height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
                 margin: 0 auto !important;
-                padding: 8mm 12mm !important;
+                padding: 8mm 10mm 8mm 22mm !important;
               }
             }
           `}</style>

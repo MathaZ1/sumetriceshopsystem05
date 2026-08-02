@@ -87,7 +87,7 @@ body {
     left: auto !important;
     top: 0 !important;
     margin: 0 auto !important;
-    padding: 8mm 12mm !important; /* Elegant top/bottom and left/right margins for Dot Matrix */
+    padding: 8mm 10mm 8mm 22mm !important; /* Shift content to the right for optimal dot matrix print margin */
     border: none !important;
     box-shadow: none !important;
     border-radius: 0 !important;
