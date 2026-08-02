@@ -41,8 +41,8 @@ body {
 
   /* Reset body and html settings for printing */
   html, body {
-    width: 9in !important;
-    height: 5.5in !important;
+    width: 9.5in !important;
+    height: 11in !important;
     overflow: hidden !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -59,8 +59,8 @@ body {
     position: fixed !important;
     left: 0 !important;
     top: 0 !important;
-    width: 9in !important;
-    height: 5.5in !important;
+    width: 9.5in !important;
+    height: 11in !important;
     margin: 0 !important;
     padding: 0 !important;
     opacity: 1 !important;
@@ -78,8 +78,8 @@ body {
     position: fixed !important;
     left: 0 !important;
     top: 0 !important;
-    width: 9in !important;
-    height: 5.5in !important;
+    width: 9.5in !important;
+    height: 11in !important;
     margin: 0 !important;
     padding: 10mm 15mm !important; /* Professional margins for precise alignment */
     border: none !important;
@@ -118,7 +118,7 @@ body {
   }
 
   @page {
-    size: 9in 5.5in landscape;
+    size: 9.5in 11in portrait;
     margin: 0;
   }
 }

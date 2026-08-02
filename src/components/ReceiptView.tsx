@@ -99,6 +99,15 @@ export default function ReceiptView({
   // Inner Sub-tab navigation
   const [subTab, setSubTab] = useState<'create' | 'manage'>('create');
   const [printPinhole, setPrintPinhole] = useState<boolean>(true);
+  const [paperSize, setPaperSize] = useState<'9.5x11' | '9.5x5.5'>(() => {
+    const saved = localStorage.getItem('receipt_paper_size');
+    return saved === '9.5x5.5' ? '9.5x5.5' : '9.5x11'; // Default to standard 9.5" x 11" Dot Matrix paper
+  });
+
+  const handlePaperSizeChange = (size: '9.5x11' | '9.5x5.5') => {
+    setPaperSize(size);
+    localStorage.setItem('receipt_paper_size', size);
+  };
   
   // Outer container ref and scale state to automatically fit the receipt preview to the width
   const previewContainerRef = React.useRef<HTMLDivElement>(null);
@@ -110,8 +119,8 @@ export default function ReceiptView({
     const resizeObserver = new ResizeObserver((entries) => {
       for (let entry of entries) {
         const containerWidth = entry.contentRect.width;
-        // The default width of our printable card is 864px (9 inches at 96 dpi)
-        const targetWidth = 864;
+        // Standard width for 9.5 inches continuous form paper at 96 dpi is 912px
+        const targetWidth = 912;
         if (containerWidth < targetWidth) {
           setPreviewScale(containerWidth / targetWidth);
         } else {
@@ -121,7 +130,7 @@ export default function ReceiptView({
     });
     resizeObserver.observe(previewContainerRef.current);
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [paperSize]);
   
   // Sales list states
   const [allSales, setAllSales] = useState<Sale[]>([]);
@@ -1046,7 +1055,37 @@ export default function ReceiptView({
             {/* Print Options Panel */}
             <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col gap-3">
               <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">การตั้งค่าการพิมพ์ / Print Options</h4>
-              <div className="flex items-center justify-between py-1.5 border-t border-slate-105/50">
+              
+              {/* Paper Size Selector */}
+              <div className="flex flex-col gap-1.5 py-1 border-t border-slate-100">
+                <label className="text-xs font-bold text-slate-700">ขนาดกระดาษต่อเนื่อง (Dot Matrix Paper Size)</label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => handlePaperSizeChange('9.5x11')}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      paperSize === '9.5x11'
+                        ? 'border-slate-950 bg-slate-950 text-white shadow-sm'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>9.5" x 11" (เต็มหน้า)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePaperSizeChange('9.5x5.5')}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      paperSize === '9.5x5.5'
+                        ? 'border-slate-950 bg-slate-950 text-white shadow-sm'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>9.5" x 5.5" (ครึ่งหน้า)</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between py-1.5 border-t border-slate-100">
                 <div className="flex flex-col pr-4">
                   <span className="text-xs font-bold text-slate-700">พิมพ์ขอบรูหนามเตยกระดาษต่อเนื่อง</span>
                   <span className="text-[10px] text-slate-400 font-semibold leading-relaxed mt-0.5">
@@ -1064,17 +1103,19 @@ export default function ReceiptView({
             </div>
             
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">ภาพตัวอย่างใบเสร็จต่อเนื่อง 9" x 5.5"</span>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                ภาพตัวอย่างใบเสร็จต่อเนื่อง {paperSize === '9.5x11' ? '9.5" x 11"' : '9.5" x 5.5"'}
+              </span>
               <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full font-bold">Dot Matrix Format</span>
             </div>
 
-            {/* Paper Bill Lookalike Preview in Landscape Continuous Form layout */}
-            <div ref={previewContainerRef} className="w-full overflow-hidden relative print:overflow-visible print:h-auto print:static" style={{ height: `${528 * previewScale}px` }}>
+            {/* Paper Bill Lookalike Preview in Continuous Form layout */}
+            <div ref={previewContainerRef} className="w-full overflow-hidden relative print:overflow-visible print:h-auto print:static" style={{ height: `${(paperSize === '9.5x11' ? 1056 : 528) * previewScale}px` }}>
               <div
                 ref={receiptCardRef}
                 style={{
-                  width: '864px',
-                  height: '528px',
+                  width: '912px',
+                  height: paperSize === '9.5x11' ? '1056px' : '528px',
                   transform: `scale(${previewScale})`,
                   transformOrigin: 'top left',
                   position: 'absolute',
@@ -1087,7 +1128,7 @@ export default function ReceiptView({
                 {/* Continuous Form Pinhole Margins (Left Strip) */}
                 {printPinhole && (
                   <div className="print-pinholes absolute left-0 top-0 bottom-0 w-8 border-r border-dashed border-stone-300 bg-stone-100/40 flex flex-col justify-around items-center py-4 z-10">
-                    {[...Array(6)].map((_, idx) => (
+                    {[...Array(paperSize === '9.5x11' ? 12 : 6)].map((_, idx) => (
                       <div key={`pin-l-${idx}`} className="w-2.5 h-2.5 rounded-full bg-slate-100 border border-stone-250 shadow-inner"></div>
                     ))}
                   </div>
@@ -1096,7 +1137,7 @@ export default function ReceiptView({
                 {/* Continuous Form Pinhole Margins (Right Strip) */}
                 {printPinhole && (
                   <div className="print-pinholes absolute right-0 top-0 bottom-0 w-8 border-l border-dashed border-stone-300 bg-stone-100/40 flex flex-col justify-around items-center py-4 z-10">
-                    {[...Array(6)].map((_, idx) => (
+                    {[...Array(paperSize === '9.5x11' ? 12 : 6)].map((_, idx) => (
                       <div key={`pin-r-${idx}`} className="w-2.5 h-2.5 rounded-full bg-slate-100 border border-stone-250 shadow-inner"></div>
                     ))}
                   </div>
@@ -1185,9 +1226,9 @@ export default function ReceiptView({
                                 <td className="text-right py-1 font-bold text-stone-950 pr-1">฿{(i.product.price * i.quantity).toFixed(2)}</td>
                               </tr>
                             ))}
-                            {/* Pads the table with empty rows to preserve standard 9"x5.5" height (Real-world billing accuracy) */}
-                            {items.length < 5 && 
-                              Array.from({ length: 5 - items.length }).map((_, idx) => (
+                            {/* Pads the table with empty rows to preserve standard paper height */}
+                            {items.length < (paperSize === '9.5x11' ? 12 : 5) && 
+                              Array.from({ length: (paperSize === '9.5x11' ? 12 : 5) - items.length }).map((_, idx) => (
                                 <tr key={`empty-row-${idx}`} className="h-[22px]">
                                   <td className="text-center py-1 text-stone-300">-</td>
                                   <td className="px-2 py-1 text-stone-300">-</td>
@@ -1306,6 +1347,26 @@ export default function ReceiptView({
 
       {createPortal(
         <div className="print-portal-container">
+          <style>{`
+            @media print {
+              @page {
+                size: ${paperSize === '9.5x11' ? '9.5in 11in portrait' : '9.5in 5.5in landscape'} !important;
+                margin: 0 !important;
+              }
+              html, body {
+                width: 9.5in !important;
+                height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
+              }
+              .print-portal-container {
+                width: 9.5in !important;
+                height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
+              }
+              .dot-matrix-print-target {
+                width: 9.5in !important;
+                height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
+              }
+            }
+          `}</style>
           <div
             className={`dot-matrix-print-target print-receipt-card bg-[#ffffff] border border-stone-250 p-5 font-mono text-[10px] text-stone-800 flex flex-col justify-between overflow-hidden ${printPinhole ? 'print-pinholes-visible' : ''}`}
           >
@@ -1392,8 +1453,8 @@ export default function ReceiptView({
                             <td className="text-right py-1 font-bold text-stone-950 pr-1">฿{(i.product.price * i.quantity).toFixed(2)}</td>
                           </tr>
                         ))}
-                        {items.length < 5 && 
-                          Array.from({ length: 5 - items.length }).map((_, idx) => (
+                        {items.length < (paperSize === '9.5x11' ? 12 : 5) && 
+                          Array.from({ length: (paperSize === '9.5x11' ? 12 : 5) - items.length }).map((_, idx) => (
                             <tr key={`empty-row-portal-${idx}`} className="h-[22px]">
                               <td className="text-center py-1 text-stone-300">-</td>
                               <td className="px-2 py-1 text-stone-300">-</td>
