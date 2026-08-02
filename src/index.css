@@ -84,10 +84,13 @@ body {
     flex-direction: column !important;
     justify-content: space-between !important;
     position: relative !important;
-    left: auto !important;
+    left: 0 !important;
     top: 0 !important;
-    margin: 0 auto !important;
-    padding: 8mm 10mm 8mm 22mm !important; /* Shift content to the right for optimal dot matrix print margin */
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 6mm 10mm !important; /* Balanced, symmetrical margins for dot matrix continuous form */
     border: none !important;
     box-shadow: none !important;
     border-radius: 0 !important;

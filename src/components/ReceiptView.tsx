@@ -1359,24 +1359,22 @@ export default function ReceiptView({
                 height: 100% !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                display: flex !important;
-                align-items: flex-start !important;
-                justify-content: center !important;
+                display: block !important;
               }
               .print-portal-container {
                 width: 100% !important;
                 height: 100% !important;
-                display: flex !important;
-                align-items: flex-start !important;
-                justify-content: center !important;
-                margin: 0 auto !important;
-                top: 0 !important;
+                display: block !important;
+                margin: 0 !important;
+                padding: 0 !important;
               }
               .dot-matrix-print-target {
-                width: 9.5in !important;
+                width: 100% !important;
+                max-width: 100% !important;
                 height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
-                margin: 0 auto !important;
-                padding: 8mm 10mm 8mm 22mm !important;
+                margin: 0 !important;
+                padding: 6mm 10mm !important;
+                box-sizing: border-box !important;
               }
             }
           `}</style>
@@ -1384,7 +1382,7 @@ export default function ReceiptView({
             className={`dot-matrix-print-target print-receipt-card bg-[#ffffff] border border-stone-250 p-5 font-mono text-[10px] text-stone-800 flex flex-col justify-between overflow-hidden ${printPinhole ? 'print-pinholes-visible' : ''}`}
           >
             {/* Main Content */}
-            <div className={`${printPinhole ? 'mx-6' : 'mx-1'} h-full flex flex-col justify-between gap-2`}>
+            <div className="mx-0 h-full flex flex-col justify-between gap-2 w-full">
               
               {/* Top Header Block */}
               <div className="flex justify-between items-start border-b border-stone-250 pb-2">
