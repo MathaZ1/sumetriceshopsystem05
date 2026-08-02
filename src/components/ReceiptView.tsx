@@ -1110,16 +1110,17 @@ export default function ReceiptView({
             </div>
 
             {/* Paper Bill Lookalike Preview in Continuous Form layout */}
-            <div ref={previewContainerRef} className="w-full overflow-hidden relative print:overflow-visible print:h-auto print:static" style={{ height: `${(paperSize === '9.5x11' ? 1056 : 528) * previewScale}px` }}>
+            <div ref={previewContainerRef} className="w-full overflow-hidden relative print:overflow-visible print:h-auto print:static flex justify-center" style={{ height: `${(paperSize === '9.5x11' ? 1056 : 528) * previewScale}px` }}>
               <div
                 ref={receiptCardRef}
                 style={{
                   width: '912px',
                   height: paperSize === '9.5x11' ? '1056px' : '528px',
                   transform: `scale(${previewScale})`,
-                  transformOrigin: 'top left',
+                  transformOrigin: 'top center',
                   position: 'absolute',
-                  left: 0,
+                  left: '50%',
+                  marginLeft: '-456px',
                   top: 0,
                 }}
                 className={`dot-matrix-print-target print-receipt-card bg-[#fafaf5] border border-stone-250 rounded-xl p-5 shadow-lg font-mono text-[10px] text-stone-800 select-all flex flex-col justify-between overflow-hidden ${printPinhole ? 'print-pinholes-visible' : ''}`}
@@ -1354,16 +1355,26 @@ export default function ReceiptView({
                 margin: 0 !important;
               }
               html, body {
-                width: 9.5in !important;
-                height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
+                width: 100% !important;
+                height: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
               }
               .print-portal-container {
-                width: 9.5in !important;
-                height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
+                width: 100% !important;
+                height: 100% !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                margin: 0 auto !important;
               }
               .dot-matrix-print-target {
                 width: 9.5in !important;
                 height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
+                margin: auto !important;
               }
             }
           `}</style>
