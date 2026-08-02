@@ -1360,21 +1360,23 @@ export default function ReceiptView({
                 margin: 0 !important;
                 padding: 0 !important;
                 display: flex !important;
-                align-items: center !important;
+                align-items: flex-start !important;
                 justify-content: center !important;
               }
               .print-portal-container {
                 width: 100% !important;
                 height: 100% !important;
                 display: flex !important;
-                align-items: center !important;
+                align-items: flex-start !important;
                 justify-content: center !important;
                 margin: 0 auto !important;
+                top: 0 !important;
               }
               .dot-matrix-print-target {
                 width: 9.5in !important;
                 height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
-                margin: auto !important;
+                margin: 0 auto !important;
+                padding: 8mm 12mm !important;
               }
             }
           `}</style>

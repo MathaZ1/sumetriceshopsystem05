@@ -49,23 +49,22 @@ body {
     background-color: #ffffff !important;
     display: flex !important;
     justify-content: center !important;
-    align-items: center !important;
+    align-items: flex-start !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     -webkit-text-size-adjust: 100% !important;
     text-size-adjust: 100% !important;
   }
 
-  /* Position the portal container centered in the print page */
+  /* Position the portal container centered in the print page, top-aligned */
   .print-portal-container {
     display: flex !important;
     justify-content: center !important;
-    align-items: center !important;
+    align-items: flex-start !important;
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
     right: 0 !important;
-    bottom: 0 !important;
     width: 100% !important;
     height: 100% !important;
     margin: 0 auto !important;
@@ -86,9 +85,9 @@ body {
     justify-content: space-between !important;
     position: relative !important;
     left: auto !important;
-    top: auto !important;
-    margin: auto !important;
-    padding: 10mm 15mm !important; /* Professional margins for precise alignment */
+    top: 0 !important;
+    margin: 0 auto !important;
+    padding: 8mm 12mm !important; /* Elegant top/bottom and left/right margins for Dot Matrix */
     border: none !important;
     box-shadow: none !important;
     border-radius: 0 !important;
