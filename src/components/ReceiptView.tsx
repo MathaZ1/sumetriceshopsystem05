@@ -1223,7 +1223,7 @@ export default function ReceiptView({
                         ) : (
                           <>
                             {items.map((i, index) => (
-                              <tr key={i.product.id || index} className="align-top border-b border-stone-150/40">
+                              <tr key={i.product.id || index} className="align-top">
                                 <td className="text-center py-1">{index + 1}</td>
                                 <td className="px-2 py-1 font-bold text-stone-950 break-words whitespace-pre-wrap">{i.product.name}</td>
                                 <td className="text-right py-1 font-semibold">{i.quantity}</td>
@@ -1468,7 +1468,7 @@ export default function ReceiptView({
                     ) : (
                       <>
                         {items.map((i, index) => (
-                          <tr key={i.product.id || index} className="align-top border-b border-stone-150/40">
+                          <tr key={i.product.id || index} className="align-top">
                             <td className="text-center py-1">{index + 1}</td>
                             <td className="px-2 py-1 font-bold text-stone-950 break-words whitespace-pre-wrap">{i.product.name}</td>
                             <td className="text-right py-1 font-semibold">{i.quantity}</td>
