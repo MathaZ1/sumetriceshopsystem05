@@ -31,6 +31,8 @@ export interface Sale {
   discount?: number;
   customerName?: string;
   customerPhone?: string;
+  customerAddress?: string;
+  customerTaxId?: string;
 }
 
 export interface Customer {

@@ -287,25 +287,23 @@ export default function ReceiptView({
 
     const matchedSale = allSales.find(s => s.id === invoiceId);
     if (matchedSale) {
-      // Set customer name and phone
+      // Set customer name, phone, address, and tax ID
       setCustName(matchedSale.customerName || 'ลูกค้าทั่วไป');
       setCustPhone(matchedSale.customerPhone || '');
+      setCustAddress(matchedSale.customerAddress || '');
+      setCustTaxId(matchedSale.customerTaxId || '');
       
       // Look up customer details in our loaded customer list
       if (matchedSale.customerName && matchedSale.customerName !== 'ลูกค้าทั่วไป') {
         const matchedCust = customers.find(c => c.name === matchedSale.customerName);
         if (matchedCust) {
-          setCustAddress(matchedCust.address || '');
-          setCustTaxId(matchedCust.taxId || '');
+          if (!matchedSale.customerAddress) setCustAddress(matchedCust.address || '');
+          if (!matchedSale.customerTaxId) setCustTaxId(matchedCust.taxId || '');
           setSelectedCustId(matchedCust.id);
         } else {
-          setCustAddress('');
-          setCustTaxId('');
           setSelectedCustId('');
         }
       } else {
-        setCustAddress('');
-        setCustTaxId('');
         setSelectedCustId('');
       }
 
@@ -441,22 +439,20 @@ export default function ReceiptView({
     // Set customer states
     setCustName(sale.customerName || 'ลูกค้าทั่วไป');
     setCustPhone(sale.customerPhone || '');
+    setCustAddress(sale.customerAddress || '');
+    setCustTaxId(sale.customerTaxId || '');
     
-    // Query/lookup customer full address and tax id from current customers list
+    // Query/lookup customer full address and tax id from current customers list if missing
     if (sale.customerName && sale.customerName !== 'ลูกค้าทั่วไป') {
       const matchedCust = customers.find(c => c.name === sale.customerName);
       if (matchedCust) {
-        setCustAddress(matchedCust.address || '');
-        setCustTaxId(matchedCust.taxId || '');
+        if (!sale.customerAddress) setCustAddress(matchedCust.address || '');
+        if (!sale.customerTaxId) setCustTaxId(matchedCust.taxId || '');
         setSelectedCustId(matchedCust.id);
       } else {
-        setCustAddress('');
-        setCustTaxId('');
         setSelectedCustId('');
       }
     } else {
-      setCustAddress('');
-      setCustTaxId('');
       setSelectedCustId('');
     }
 
@@ -538,6 +534,8 @@ export default function ReceiptView({
       discount: discount,
       customerName: custName || 'ลูกค้าทั่วไป',
       customerPhone: custPhone || '',
+      customerAddress: custAddress || '',
+      customerTaxId: custTaxId || '',
     };
 
     try {
@@ -1110,12 +1108,12 @@ export default function ReceiptView({
             </div>
 
             {/* Paper Bill Lookalike Preview in Continuous Form layout */}
-            <div ref={previewContainerRef} className="w-full overflow-hidden relative print:overflow-visible print:h-auto print:static flex justify-center" style={{ height: `${(paperSize === '9.5x11' ? 1056 : 528) * previewScale}px` }}>
+            <div ref={previewContainerRef} className="w-full relative print:overflow-visible print:h-auto print:static flex justify-center" style={{ minHeight: `${(paperSize === '9.5x11' ? 1056 : 528) * previewScale}px` }}>
               <div
                 ref={receiptCardRef}
                 style={{
                   width: '912px',
-                  height: paperSize === '9.5x11' ? '1056px' : '528px',
+                  minHeight: paperSize === '9.5x11' ? '1056px' : '528px',
                   transform: `scale(${previewScale})`,
                   transformOrigin: 'top center',
                   position: 'absolute',
@@ -1123,7 +1121,7 @@ export default function ReceiptView({
                   marginLeft: '-456px',
                   top: 0,
                 }}
-                className={`dot-matrix-print-target print-receipt-card bg-[#fafaf5] border border-stone-250 rounded-xl p-5 shadow-lg font-mono text-[10px] text-stone-800 select-all flex flex-col justify-between overflow-hidden ${printPinhole ? 'print-pinholes-visible' : ''}`}
+                className={`dot-matrix-print-target print-receipt-card bg-[#fafaf5] border border-stone-250 rounded-xl p-5 shadow-lg font-mono text-[10px] text-stone-800 select-all flex flex-col justify-between overflow-visible ${printPinhole ? 'print-pinholes-visible' : ''}`}
               >
                 
                 {/* Continuous Form Pinhole Margins (Left Strip) */}
@@ -1172,26 +1170,32 @@ export default function ReceiptView({
                   </div>
 
                   {/* Customer Information Block */}
-                  <div className="py-2 bg-transparent grid grid-cols-12 gap-2 text-[9px] leading-relaxed">
-                    <div className="col-span-8 flex flex-col gap-0.5">
-                      <div>
-                        <span className="text-stone-400 font-bold">ลูกค้า / Customer :</span>{' '}
-                        <span className="text-stone-950 font-bold text-[10px]">
+                  <div className="py-2 bg-transparent grid grid-cols-12 gap-2 text-[9px] leading-relaxed border-b border-stone-200/80 mb-1">
+                    <div className="col-span-7 flex flex-col gap-1 pr-2">
+                      <div className="flex items-start gap-1">
+                        <span className="text-stone-400 font-bold shrink-0">ลูกค้า / Customer :</span>{' '}
+                        <span className="text-stone-950 font-bold text-[9.5px]">
                           {custName || 'ลูกค้าทั่วไป (General Cash Customer)'}
                         </span>
                       </div>
                       <div className="flex items-start gap-1">
                         <span className="text-stone-400 font-bold shrink-0">ที่อยู่ / Address :</span>{' '}
-                        <span className="text-stone-800 font-semibold line-clamp-1 leading-normal">
+                        <span className="text-stone-800 font-semibold leading-normal break-words whitespace-pre-wrap">
                           {custAddress || '........................................................................................................'}
                         </span>
                       </div>
                     </div>
-                    <div className="col-span-4 flex flex-col gap-0.5 pl-3">
-                      <div>
-                        <span className="text-stone-400 font-bold">เบอร์โทร / Phone :</span>{' '}
+                    <div className="col-span-5 flex flex-col gap-1 pl-3 border-l border-stone-200/60">
+                      <div className="flex items-start gap-1">
+                        <span className="text-stone-400 font-bold shrink-0">เบอร์โทร / Phone :</span>{' '}
                         <span className="text-stone-950 font-bold">
                           {custPhone || '........................'}
+                        </span>
+                      </div>
+                      <div className="flex items-start gap-1">
+                        <span className="text-stone-400 font-bold shrink-0">เลขผู้เสียภาษี / Tax ID :</span>{' '}
+                        <span className="text-stone-950 font-bold">
+                          {custTaxId || '........................'}
                         </span>
                       </div>
                     </div>
@@ -1201,7 +1205,7 @@ export default function ReceiptView({
                   <div className="flex-1 min-h-[140px] flex flex-col justify-between mt-1">
                     <table className="w-full text-[9px] font-mono border-collapse">
                       <thead>
-                        <tr className="text-stone-700 font-bold text-left">
+                        <tr className="text-stone-700 font-bold text-left border-b border-stone-300 pb-1">
                           <th className="py-1 text-center w-8">ลำดับ</th>
                           <th className="py-1 px-2">รายการสินค้า / Description</th>
                           <th className="py-1 text-right w-16">จำนวน</th>
@@ -1219,9 +1223,9 @@ export default function ReceiptView({
                         ) : (
                           <>
                             {items.map((i, index) => (
-                              <tr key={i.product.id} className="">
+                              <tr key={i.product.id || index} className="align-top border-b border-stone-150/40">
                                 <td className="text-center py-1">{index + 1}</td>
-                                <td className="px-2 py-1 font-bold text-stone-950">{i.product.name}</td>
+                                <td className="px-2 py-1 font-bold text-stone-950 break-words whitespace-pre-wrap">{i.product.name}</td>
                                 <td className="text-right py-1 font-semibold">{i.quantity}</td>
                                 <td className="text-right py-1">฿{i.product.price.toFixed(2)}</td>
                                 <td className="text-right py-1 font-bold text-stone-950 pr-1">฿{(i.product.price * i.quantity).toFixed(2)}</td>
@@ -1371,15 +1375,17 @@ export default function ReceiptView({
               .dot-matrix-print-target {
                 width: 100% !important;
                 max-width: 100% !important;
-                height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
+                min-height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
+                height: auto !important;
                 margin: 0 !important;
                 padding: 6mm 10mm !important;
                 box-sizing: border-box !important;
+                overflow: visible !important;
               }
             }
           `}</style>
           <div
-            className={`dot-matrix-print-target print-receipt-card bg-[#ffffff] border border-stone-250 p-5 font-mono text-[10px] text-stone-800 flex flex-col justify-between overflow-hidden ${printPinhole ? 'print-pinholes-visible' : ''}`}
+            className={`dot-matrix-print-target print-receipt-card bg-[#ffffff] border border-stone-250 p-5 font-mono text-[10px] text-stone-800 flex flex-col justify-between overflow-visible ${printPinhole ? 'print-pinholes-visible' : ''}`}
           >
             {/* Main Content */}
             <div className="mx-0 h-full flex flex-col justify-between gap-2 w-full">
@@ -1409,26 +1415,32 @@ export default function ReceiptView({
               </div>
 
               {/* Customer Information Block */}
-              <div className="py-2 bg-transparent grid grid-cols-12 gap-2 text-[9px] leading-relaxed">
-                <div className="col-span-8 flex flex-col gap-0.5">
-                  <div>
-                    <span className="text-stone-400 font-bold">ลูกค้า / Customer :</span>{' '}
-                    <span className="text-stone-950 font-bold text-[10px]">
+              <div className="py-2 bg-transparent grid grid-cols-12 gap-2 text-[9px] leading-relaxed border-b border-stone-200/80 mb-1">
+                <div className="col-span-7 flex flex-col gap-1 pr-2">
+                  <div className="flex items-start gap-1">
+                    <span className="text-stone-400 font-bold shrink-0">ลูกค้า / Customer :</span>{' '}
+                    <span className="text-stone-950 font-bold text-[9.5px]">
                       {custName || 'ลูกค้าทั่วไป (General Cash Customer)'}
                     </span>
                   </div>
                   <div className="flex items-start gap-1">
                     <span className="text-stone-400 font-bold shrink-0">ที่อยู่ / Address :</span>{' '}
-                    <span className="text-stone-800 font-semibold line-clamp-1 leading-normal">
+                    <span className="text-stone-800 font-semibold leading-normal break-words whitespace-pre-wrap">
                       {custAddress || '........................................................................................................'}
                     </span>
                   </div>
                 </div>
-                <div className="col-span-4 flex flex-col gap-0.5 pl-3">
-                  <div>
-                    <span className="text-stone-400 font-bold">เบอร์โทร / Phone :</span>{' '}
+                <div className="col-span-5 flex flex-col gap-1 pl-3 border-l border-stone-200/60">
+                  <div className="flex items-start gap-1">
+                    <span className="text-stone-400 font-bold shrink-0">เบอร์โทร / Phone :</span>{' '}
                     <span className="text-stone-950 font-bold">
                       {custPhone || '........................'}
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-1">
+                    <span className="text-stone-400 font-bold shrink-0">เลขผู้เสียภาษี / Tax ID :</span>{' '}
+                    <span className="text-stone-950 font-bold">
+                      {custTaxId || '........................'}
                     </span>
                   </div>
                 </div>
@@ -1438,7 +1450,7 @@ export default function ReceiptView({
               <div className="flex-1 min-h-[140px] flex flex-col justify-between mt-1">
                 <table className="w-full text-[9px] font-mono border-collapse">
                   <thead>
-                    <tr className="text-stone-700 font-bold text-left">
+                    <tr className="text-stone-700 font-bold text-left border-b border-stone-300 pb-1">
                       <th className="py-1 text-center w-8">ลำดับ</th>
                       <th className="py-1 px-2">รายการสินค้า / Description</th>
                       <th className="py-1 text-right w-16">จำนวน</th>
@@ -1456,9 +1468,9 @@ export default function ReceiptView({
                     ) : (
                       <>
                         {items.map((i, index) => (
-                          <tr key={i.product.id} className="">
+                          <tr key={i.product.id || index} className="align-top border-b border-stone-150/40">
                             <td className="text-center py-1">{index + 1}</td>
-                            <td className="px-2 py-1 font-bold text-stone-950">{i.product.name}</td>
+                            <td className="px-2 py-1 font-bold text-stone-950 break-words whitespace-pre-wrap">{i.product.name}</td>
                             <td className="text-right py-1 font-semibold">{i.quantity}</td>
                             <td className="text-right py-1">฿{i.product.price.toFixed(2)}</td>
                             <td className="text-right py-1 font-bold text-stone-950 pr-1">฿{(i.product.price * i.quantity).toFixed(2)}</td>

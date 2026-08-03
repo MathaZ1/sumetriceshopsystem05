@@ -17,7 +17,9 @@ import { CartItem, Sale } from './types';
 // คุณสามารถแก้ไข คัดแยก หรือเพิ่มอีเมลอื่นๆ ของผู้ใช้งานที่ต้องการให้เป็นแอดมินในอาเรย์นี้ได้เลย
 const ADMIN_EMAILS = [
   'mathaza8@gmail.com', // อีเมลแอดมินหลักของคุณ
-  // 'anotheradmin@gmail.com', // สามารถเพิ่มเมลแอดมินร่วมได้ที่นี่
+  'Namsitang@gmail.com', // อีเมลแอดมินร่วม
+  'namsitang@gmail.com',
+  'sumat3292@gmail.com',
 ];
 
 // รายชื่ออีเมลที่มีสิทธิ์เข้าถึงในฐานะพนักงาน (Employee)
@@ -28,6 +30,16 @@ const EMPLOYEE_EMAILS = [
   // 'namwhandmt2543@gmail.com', // ใส่เมลพนักงานคนที่ 1 ที่นี่
   // 'employee2@gmail.com', // ใส่เมลพนักงานคนที่ 2 ที่นี่
 ];
+
+const checkIsAdminEmail = (email?: string | null) => {
+  if (!email) return false;
+  return ADMIN_EMAILS.some(e => e.toLowerCase() === email.toLowerCase());
+};
+
+const checkIsEmployeeEmail = (email?: string | null) => {
+  if (!email) return false;
+  return EMPLOYEE_EMAILS.some(e => e.toLowerCase() === email.toLowerCase());
+};
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -83,8 +95,8 @@ export default function App() {
         const userDocRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
         
-        const isAdminEmail = ADMIN_EMAILS.includes(user.email || '');
-        const isEmployeeEmail = EMPLOYEE_EMAILS.includes(user.email || '');
+        const isAdminEmail = checkIsAdminEmail(user.email);
+        const isEmployeeEmail = checkIsEmployeeEmail(user.email);
 
         // 🛡️ ระบบรักษาความปลอดภัยแบบ Whitelist:
         // หากผู้ดูแลระบบทำการเพิ่มรายชื่อพนักงานใน EMPLOYEE_EMAILS (ไม่เป็นอาเรย์ว่าง)
@@ -120,7 +132,7 @@ export default function App() {
         }
       } catch (err) {
         console.error('Error fetching user role:', err);
-        const isAdminEmail = ADMIN_EMAILS.includes(user.email || '');
+        const isAdminEmail = checkIsAdminEmail(user.email);
         setRole(isAdminEmail ? 'admin' : 'employee');
       } finally {
         setRoleLoading(false);
@@ -141,7 +153,7 @@ export default function App() {
     if (!user) return;
 
     // ระบบความปลอดภัย: หากผู้ใช้พยายามเปลี่ยนเป็น admin แต่อีเมลไม่อยู่ในรายชื่อที่อนุญาต จะไม่อนุมัติ
-    const isAdminEmail = ADMIN_EMAILS.includes(user.email || '');
+    const isAdminEmail = checkIsAdminEmail(user.email);
     if (newRole === 'admin' && !isAdminEmail) {
       setAlertTitle('ปฏิเสธการเข้าถึง');
       setAlertMessage('อีเมลของคุณไม่อยู่ในรายชื่อผู้มีสิทธิ์ใช้งานสิทธิ์แอดมิน (Admin) กรุณาติดต่อผู้ดูแลระบบ');
@@ -297,7 +309,7 @@ export default function App() {
           role={role}
           onRoleChange={handleRoleChange}
           roleLoading={roleLoading}
-          isAdminEmail={ADMIN_EMAILS.includes(user?.email || '')}
+          isAdminEmail={checkIsAdminEmail(user?.email)}
         />
 
         {/* Dynamic Inner Viewport */}
