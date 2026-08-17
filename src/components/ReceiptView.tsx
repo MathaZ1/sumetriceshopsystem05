@@ -1148,20 +1148,20 @@ export default function ReceiptView({
                   {/* Top Header Block */}
                   <div className="flex justify-between items-start border-b border-stone-250 pb-2">
                     <div>
-                      <h3 className="font-extrabold text-stone-900 text-[13px] tracking-wide">ร้านสุเมธค้าข้าว</h3>
-                      <p className="text-[9px] text-stone-500 mt-0.5 leading-tight">
+                      <h3 className="font-extrabold text-stone-900 text-[14.5px] tracking-wide">ร้านสุเมธค้าข้าว</h3>
+                      <p className="text-[10px] text-stone-500 mt-0.5 leading-tight">
                         ถ.จุลจอมเกล้า ต.ท่าข้าม อ.พุนพิน จ.สุราษฎร์ธานี 84130
                       </p>
-                      <p className="text-[9px] text-stone-500 mt-0.5 leading-tight">
+                      <p className="text-[10px] text-stone-500 mt-0.5 leading-tight">
                         สาขาโค้งวัดดอนกระถิน โทร : <span className="font-semibold text-stone-800">077-441628</span> / สาขาดอนเนียง โทร : <span className="font-semibold text-stone-800">098-6785002</span>
                       </p>
                     </div>
 
                     <div className="text-right flex flex-col items-end gap-1">
-                      <div className="font-extrabold text-[12px] text-stone-950 tracking-wider">
+                      <div className="font-extrabold text-[13px] text-stone-950 tracking-wider">
                         ใบเสร็จรับเงิน / RECEIPT
                       </div>
-                      <div className="text-[9px] text-stone-600 mt-1.5 flex flex-col gap-0.5 items-end font-semibold">
+                      <div className="text-[10px] text-stone-600 mt-1 flex flex-col gap-0.5 items-end font-semibold">
                         <div>เลขที่บิล / Invoice No : <span className="text-stone-950 font-bold font-mono">{invoiceNumber}</span></div>
                         <div>วันที่ / Date : <span className="text-stone-950 font-bold">{todayStr}</span></div>
                         <div>หน้า / Page : <span className="text-stone-950">1 / 1</span></div>
@@ -1170,11 +1170,11 @@ export default function ReceiptView({
                   </div>
 
                   {/* Customer Information Block */}
-                  <div className="py-2 bg-transparent grid grid-cols-12 gap-2 text-[9px] leading-relaxed border-b border-stone-200/80 mb-1">
+                  <div className="py-2 bg-transparent grid grid-cols-12 gap-2 text-[10px] leading-relaxed border-b border-stone-200/80 mb-1">
                     <div className="col-span-7 flex flex-col gap-1 pr-2">
                       <div className="flex items-start gap-1">
                         <span className="text-stone-400 font-bold shrink-0">ลูกค้า / Customer :</span>{' '}
-                        <span className="text-stone-950 font-bold text-[9.5px]">
+                        <span className="text-stone-950 font-bold text-[10.5px]">
                           {custName || 'ลูกค้าทั่วไป (General Cash Customer)'}
                         </span>
                       </div>
@@ -1203,7 +1203,7 @@ export default function ReceiptView({
 
                   {/* Items List Table (Formatted in standard dot matrix table layout) */}
                   <div className="flex-1 min-h-[140px] flex flex-col justify-between mt-1">
-                    <table className="w-full text-[9px] font-mono border-collapse">
+                    <table className="w-full text-[10px] font-mono border-collapse">
                       <thead>
                         <tr className="text-stone-700 font-bold text-left border-b border-stone-300 pb-1">
                           <th className="py-1 text-center w-8">ลำดับ</th>
@@ -1225,16 +1225,16 @@ export default function ReceiptView({
                             {items.map((i, index) => (
                               <tr key={i.product.id || index} className="align-top">
                                 <td className="text-center py-1">{index + 1}</td>
-                                <td className="px-2 py-1 font-bold text-stone-950 break-words whitespace-pre-wrap">{i.product.name}</td>
+                                <td className="px-2 py-1 font-bold text-stone-950 break-words whitespace-pre-wrap text-[10.5px]">{i.product.name}</td>
                                 <td className="text-right py-1 font-semibold">{i.quantity}</td>
-                                <td className="text-right py-1">฿{i.product.price.toFixed(2)}</td>
-                                <td className="text-right py-1 font-bold text-stone-950 pr-1">฿{(i.product.price * i.quantity).toFixed(2)}</td>
+                                <td className="text-right py-1">{i.product.price.toFixed(2)}</td>
+                                <td className="text-right py-1 font-bold text-stone-950 pr-1">{(i.product.price * i.quantity).toFixed(2)}</td>
                               </tr>
                             ))}
                             {/* Pads the table with empty rows to preserve standard paper height */}
                             {items.length < (paperSize === '9.5x11' ? 12 : 5) && 
                               Array.from({ length: (paperSize === '9.5x11' ? 12 : 5) - items.length }).map((_, idx) => (
-                                <tr key={`empty-row-${idx}`} className="h-[22px]">
+                                <tr key={`empty-row-${idx}`} className="h-[20px]">
                                   <td className="text-center py-1 text-stone-300">-</td>
                                   <td className="px-2 py-1 text-stone-300">-</td>
                                   <td className="text-right py-1 text-stone-300">-</td>
@@ -1253,41 +1253,41 @@ export default function ReceiptView({
                   <div className="grid grid-cols-12 border-t border-stone-200 pt-2 gap-4">
                     {/* Left part: Baht text */}
                     <div className="col-span-7 flex flex-col justify-center py-0.5">
-                      <div className="px-1 py-2 text-[9.5px] text-stone-600 font-bold leading-normal">
+                      <div className="px-1 py-2 text-[10.5px] text-stone-600 font-bold leading-normal">
                         จำนวนเงินตัวอักษร : <span className="text-stone-950 font-extrabold">{thaiBaht(netTotal)}</span>
                       </div>
                     </div>
 
                     {/* Right part: Price totals */}
-                    <div className="col-span-5 pl-4 py-0.5 flex flex-col justify-center gap-1.5 text-[9.5px] font-bold text-stone-600 font-mono">
+                    <div className="col-span-5 pl-4 py-0.5 flex flex-col justify-center gap-1.5 text-[10.5px] font-bold text-stone-600 font-mono">
                       <div className="flex justify-between">
                         <span>รวมเงิน / Subtotal :</span>
-                        <span className="text-stone-900">฿{total.toFixed(2)}</span>
+                        <span className="text-stone-900">{total.toFixed(2)}</span>
                       </div>
                       {discount > 0 && (
-                        <div className="flex justify-between text-[9px] text-emerald-700 font-bold">
+                        <div className="flex justify-between text-[10px] text-emerald-700 font-bold">
                           <span>ส่วนลด / Discount :</span>
-                          <span>-฿{discount.toFixed(2)}</span>
+                          <span>-{discount.toFixed(2)}</span>
                         </div>
                       )}
-                      <div className="flex justify-between border-t border-stone-250 pt-1 text-[11px] font-extrabold text-stone-950">
+                      <div className="flex justify-between border-t border-stone-250 pt-1 text-[12px] font-extrabold text-stone-950">
                         <span>ยอดสุทธิ / Net Total :</span>
-                        <span className="text-[12px] text-stone-950">฿{netTotal.toFixed(2)}</span>
+                        <span className="text-[13.5px] text-stone-950">{netTotal.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Signature fields strip */}
-                  <div className="grid grid-cols-2 gap-10 text-center mt-3 border-t border-stone-200 pt-2.5 text-[8.5px] text-stone-500 font-bold">
+                  <div className="grid grid-cols-2 gap-10 text-center mt-2.5 border-t border-stone-200 pt-2 text-[9.5px] text-stone-500 font-bold">
                     <div className="flex flex-col items-center">
-                      <div className="h-6"></div> {/* Space for real physical signature */}
+                      <div className="h-5"></div> {/* Space for real physical signature */}
                       <p className="text-stone-700">ลงชื่อ ............................................................ ผู้รับสินค้า / Recipient</p>
-                      <p className="mt-1 text-stone-400">วันที่ ......../......../........</p>
+                      <p className="mt-0.5 text-stone-400">วันที่ ......../......../........</p>
                     </div>
                     <div className="flex flex-col items-center">
-                      <div className="h-6"></div> {/* Space for real physical signature */}
+                      <div className="h-5"></div> {/* Space for real physical signature */}
                       <p className="text-stone-700">ลงชื่อ ............................................................ ผู้รับเงิน / Collector</p>
-                      <p className="mt-1 text-stone-400">วันที่ ......../......../........</p>
+                      <p className="mt-0.5 text-stone-400">วันที่ ......../......../........</p>
                     </div>
                   </div>
 
@@ -1393,20 +1393,20 @@ export default function ReceiptView({
               {/* Top Header Block */}
               <div className="flex justify-between items-start border-b border-stone-250 pb-2">
                 <div>
-                  <h3 className="font-extrabold text-stone-900 text-[13px] tracking-wide">ร้านสุเมธค้าข้าว</h3>
-                  <p className="text-[9px] text-stone-500 mt-0.5 leading-tight">
+                  <h3 className="font-extrabold text-stone-900 text-[14.5px] tracking-wide">ร้านสุเมธค้าข้าว</h3>
+                  <p className="text-[10px] text-stone-500 mt-0.5 leading-tight">
                     ถ.จุลจอมเกล้า ต.ท่าข้าม อ.พุนพิน จ.สุราษฎร์ธานี 84130
                   </p>
-                  <p className="text-[9px] text-stone-500 mt-0.5 leading-tight">
+                  <p className="text-[10px] text-stone-500 mt-0.5 leading-tight">
                     สาขาโค้งวัดดอนกระถิน โทร : <span className="font-semibold text-stone-800">077-441628</span> / สาขาดอนเนียง โทร : <span className="font-semibold text-stone-800">098-6785002</span>
                   </p>
                 </div>
 
                 <div className="text-right flex flex-col items-end gap-1">
-                  <div className="font-extrabold text-[12px] text-stone-950 tracking-wider">
+                  <div className="font-extrabold text-[13px] text-stone-950 tracking-wider">
                     ใบเสร็จรับเงิน / RECEIPT
                   </div>
-                  <div className="text-[9px] text-stone-600 mt-1.5 flex flex-col gap-0.5 items-end font-semibold">
+                  <div className="text-[10px] text-stone-600 mt-1 flex flex-col gap-0.5 items-end font-semibold">
                     <div>เลขที่บิล / Invoice No : <span className="text-stone-950 font-bold font-mono">{invoiceNumber}</span></div>
                     <div>วันที่ / Date : <span className="text-stone-950 font-bold">{todayStr}</span></div>
                     <div>หน้า / Page : <span className="text-stone-950">1 / 1</span></div>
@@ -1415,11 +1415,11 @@ export default function ReceiptView({
               </div>
 
               {/* Customer Information Block */}
-              <div className="py-2 bg-transparent grid grid-cols-12 gap-2 text-[9px] leading-relaxed border-b border-stone-200/80 mb-1">
+              <div className="py-2 bg-transparent grid grid-cols-12 gap-2 text-[10px] leading-relaxed border-b border-stone-200/80 mb-1">
                 <div className="col-span-7 flex flex-col gap-1 pr-2">
                   <div className="flex items-start gap-1">
                     <span className="text-stone-400 font-bold shrink-0">ลูกค้า / Customer :</span>{' '}
-                    <span className="text-stone-950 font-bold text-[9.5px]">
+                    <span className="text-stone-950 font-bold text-[10.5px]">
                       {custName || 'ลูกค้าทั่วไป (General Cash Customer)'}
                     </span>
                   </div>
@@ -1448,7 +1448,7 @@ export default function ReceiptView({
 
               {/* Items List Table */}
               <div className="flex-1 min-h-[140px] flex flex-col justify-between mt-1">
-                <table className="w-full text-[9px] font-mono border-collapse">
+                <table className="w-full text-[10px] font-mono border-collapse">
                   <thead>
                     <tr className="text-stone-700 font-bold text-left border-b border-stone-300 pb-1">
                       <th className="py-1 text-center w-8">ลำดับ</th>
@@ -1470,15 +1470,15 @@ export default function ReceiptView({
                         {items.map((i, index) => (
                           <tr key={i.product.id || index} className="align-top">
                             <td className="text-center py-1">{index + 1}</td>
-                            <td className="px-2 py-1 font-bold text-stone-950 break-words whitespace-pre-wrap">{i.product.name}</td>
+                            <td className="px-2 py-1 font-bold text-stone-950 break-words whitespace-pre-wrap text-[10.5px]">{i.product.name}</td>
                             <td className="text-right py-1 font-semibold">{i.quantity}</td>
-                            <td className="text-right py-1">฿{i.product.price.toFixed(2)}</td>
-                            <td className="text-right py-1 font-bold text-stone-950 pr-1">฿{(i.product.price * i.quantity).toFixed(2)}</td>
+                            <td className="text-right py-1">{i.product.price.toFixed(2)}</td>
+                            <td className="text-right py-1 font-bold text-stone-950 pr-1">{(i.product.price * i.quantity).toFixed(2)}</td>
                           </tr>
                         ))}
                         {items.length < (paperSize === '9.5x11' ? 12 : 5) && 
                           Array.from({ length: (paperSize === '9.5x11' ? 12 : 5) - items.length }).map((_, idx) => (
-                            <tr key={`empty-row-portal-${idx}`} className="h-[22px]">
+                            <tr key={`empty-row-portal-${idx}`} className="h-[20px]">
                               <td className="text-center py-1 text-stone-300">-</td>
                               <td className="px-2 py-1 text-stone-300">-</td>
                               <td className="text-right py-1 text-stone-300">-</td>
@@ -1497,41 +1497,41 @@ export default function ReceiptView({
               <div className="grid grid-cols-12 border-t border-stone-200 pt-2 gap-4">
                 {/* Left part: Baht text */}
                 <div className="col-span-7 flex flex-col justify-center py-0.5">
-                  <div className="px-1 py-2 text-[9.5px] text-stone-600 font-bold leading-normal">
+                  <div className="px-1 py-2 text-[10.5px] text-stone-600 font-bold leading-normal">
                     จำนวนเงินตัวอักษร : <span className="text-stone-950 font-extrabold">{thaiBaht(netTotal)}</span>
                   </div>
                 </div>
 
                 {/* Right part: Price totals */}
-                <div className="col-span-5 pl-4 py-0.5 flex flex-col justify-center gap-1.5 text-[9.5px] font-bold text-stone-600 font-mono">
+                <div className="col-span-5 pl-4 py-0.5 flex flex-col justify-center gap-1.5 text-[10.5px] font-bold text-stone-600 font-mono">
                   <div className="flex justify-between">
                     <span>รวมเงิน / Subtotal :</span>
-                    <span className="text-stone-900">฿{total.toFixed(2)}</span>
+                    <span className="text-stone-900">{total.toFixed(2)}</span>
                   </div>
                   {discount > 0 && (
-                    <div className="flex justify-between text-[9px] text-emerald-700 font-bold">
+                    <div className="flex justify-between text-[10px] text-emerald-700 font-bold">
                       <span>ส่วนลด / Discount :</span>
-                      <span>-฿{discount.toFixed(2)}</span>
+                      <span>-{discount.toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between border-t border-stone-250 pt-1 text-[11px] font-extrabold text-stone-950">
+                  <div className="flex justify-between border-t border-stone-250 pt-1 text-[12px] font-extrabold text-stone-950">
                     <span>ยอดสุทธิ / Net Total :</span>
-                    <span className="text-[12px] text-stone-950">฿{netTotal.toFixed(2)}</span>
+                    <span className="text-[13.5px] text-stone-950">{netTotal.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Signature fields strip */}
-              <div className="grid grid-cols-2 gap-10 text-center mt-3 border-t border-stone-200 pt-2.5 text-[8.5px] text-stone-500 font-bold">
+              <div className="grid grid-cols-2 gap-10 text-center mt-2.5 border-t border-stone-200 pt-2 text-[9.5px] text-stone-500 font-bold">
                 <div className="flex flex-col items-center">
-                  <div className="h-6"></div>
+                  <div className="h-5"></div>
                   <p className="text-stone-700">ลงชื่อ ............................................................ ผู้รับสินค้า / Recipient</p>
-                  <p className="mt-1 text-stone-400">วันที่ ......../......../........</p>
+                  <p className="mt-0.5 text-stone-400">วันที่ ......../......../........</p>
                 </div>
                 <div className="flex flex-col items-center">
-                  <div className="h-6"></div>
+                  <div className="h-5"></div>
                   <p className="text-stone-700">ลงชื่อ ............................................................ ผู้รับเงิน / Collector</p>
-                  <p className="mt-1 text-stone-400">วันที่ ......../......../........</p>
+                  <p className="mt-0.5 text-stone-400">วันที่ ......../......../........</p>
                 </div>
               </div>
 
