@@ -11,6 +11,7 @@ export default function LoginView() {
   const [copied, setCopied] = useState<boolean>(false);
 
   const handleGoogleLogin = async (customEmail?: string) => {
+    if (loading) return;
     setLoading(true);
     setError('');
     
@@ -34,12 +35,17 @@ export default function LoginView() {
 
       await signInWithPopup(auth, googleProvider);
     } catch (err: any) {
-      console.error('Google Sign-In Error:', err);
+      if (err?.code === 'auth/cancelled-popup-request' || err?.message?.includes('cancelled-popup-request')) {
+        // Benign: Previous popup request was cancelled by user interaction
+        return;
+      }
       if (err?.code === 'auth/popup-closed-by-user') {
         setError('การเข้าสู่ระบบถูกยกเลิก (ปิดหน้าต่างล็อกอินของ Google)');
-      } else if (err?.code === 'auth/cancelled-popup-request') {
-        // Request cancelled due to duplicate popup
-      } else if (err?.message && err.message.includes('auth/unauthorized-domain')) {
+        return;
+      }
+      
+      console.error('Google Sign-In Error:', err);
+      if (err?.message && err.message.includes('auth/unauthorized-domain')) {
         setError('auth/unauthorized-domain: โดเมนปัจจุบันยังไม่ได้เปิดอนุญาตในระบบความปลอดภัยของ Firebase');
       } else if (err?.message) {
         setError(err.message);
@@ -220,15 +226,18 @@ export default function LoginView() {
         <div className="mt-6 pt-5 border-t border-slate-100">
           <p className="text-[11px] font-bold text-slate-400 mb-2">เลือกบัญชีที่บันทึกไว้ได้อย่างรวดเร็ว:</p>
           <div className="flex flex-wrap gap-1.5">
-            {['sumat3292@gmail.com', 'Namsitang@gmail.com', 'mathaza8@gmail.com'].map((email) => (
+            {['sumethsumeth06@gmail.com', 'sumat3292@gmail.com', 'Namsitang@gmail.com', 'mathaza8@gmail.com'].map((email) => (
               <button
                 key={email}
                 type="button"
+                disabled={loading}
                 onClick={() => {
                   setGmailInput(email);
                   handleGoogleLogin(email);
                 }}
-                className="text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200/80 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                className={`text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200/80 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 active:scale-95 ${
+                  loading ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
                 <Mail className="w-3 h-3 text-slate-400" />
                 <span>{email}</span>

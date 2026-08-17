@@ -20,6 +20,7 @@ const ADMIN_EMAILS = [
   'Namsitang@gmail.com', // อีเมลแอดมินร่วม
   'namsitang@gmail.com',
   'sumat3292@gmail.com',
+  'sumethsumeth06@gmail.com',
 ];
 
 // รายชื่ออีเมลที่มีสิทธิ์เข้าถึงในฐานะพนักงาน (Employee)
@@ -112,10 +113,13 @@ export default function App() {
         if (userDoc.exists()) {
           const fetchedRole = userDoc.data().role as 'admin' | 'employee';
           
-          // ระบบความปลอดภัย: ป้องกันไม่ให้อีเมลธรรมดาแอบอ้างสิทธิ์เป็น Admin
+          // ระบบความปลอดภัย: ป้องกันไม่ให้อีเมลธรรมดาแอบอ้างสิทธิ์เป็น Admin และอัปเกรดเป็น Admin อัตโนมัติสำหรับแอดมิน
           if (!isAdminEmail && fetchedRole === 'admin') {
             await setDoc(userDocRef, { role: 'employee' }, { merge: true });
             setRole('employee');
+          } else if (isAdminEmail && fetchedRole !== 'admin') {
+            await setDoc(userDocRef, { role: 'admin' }, { merge: true });
+            setRole('admin');
           } else {
             setRole(fetchedRole || 'employee');
           }
