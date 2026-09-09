@@ -361,10 +361,6 @@ export default function ReceiptView({
   setInvoiceId,
   role = 'employee'
 }: ReceiptViewProps = {}) {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [searchResults, setSearchResults] = useState<Product[]>([]);
-  const [showDropdown, setShowDropdown] = useState<boolean>(false);
   const [localItems, setLocalItems] = useState<CartItem[]>([]);
   const [localDiscount, setLocalDiscount] = useState<number>(0);
   
@@ -441,15 +437,6 @@ export default function ReceiptView({
   }, [items, paperSize, custName, custAddress, custPhone, custTaxId, discount, printPinhole]);
 
   const [isPrinted, setIsPrinted] = useState<boolean>(false);
-  const [isInIframe, setIsInIframe] = useState<boolean>(false);
-
-  useEffect(() => {
-    try {
-      setIsInIframe(window.self !== window.top);
-    } catch (e) {
-      setIsInIframe(true);
-    }
-  }, []);
 
   // Load current invoice sequence from localStorage
   const [invoiceSeq, setInvoiceSeq] = useState<number>(() => {
@@ -544,39 +531,6 @@ export default function ReceiptView({
     }
   };
 
-  // Load products catalog for search
-  useEffect(() => {
-    const productsCol = collection(db, 'products');
-    const unsubscribe = onSnapshot(productsCol, (snapshot) => {
-      const prods: Product[] = [];
-      snapshot.forEach((docSnap) => {
-        prods.push({ id: docSnap.id, ...docSnap.data() } as Product);
-      });
-      setProducts(prods);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'products');
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // Filter products by query
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setSearchResults([]);
-      setShowDropdown(false);
-      return;
-    }
-
-    const filtered = products.filter(
-      (p) =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.id.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    setSearchResults(filtered);
-    setShowDropdown(true);
-  }, [searchQuery, products]);
-
   // Load sale details if invoiceId is provided (e.g., from POS checkout or history selection)
   useEffect(() => {
     if (!invoiceId) return;
@@ -623,33 +577,6 @@ export default function ReceiptView({
     }
   }, [invoiceId, allSales, customers, setItems, setDiscount]);
 
-  const handleSelectItem = (product: Product) => {
-    if (items.length >= 25 && !items.some(item => item.product.id === product.id)) {
-      setAlertTitle('ครบจำนวน 25 รายการแล้ว');
-      setAlertMessage('สามารถใส่รายการสินค้าได้สูงสุด 25 รายการต่อ 1 ใบเสร็จ เพื่อให้จัดพิมพ์ลงใน 1 หน้าได้อย่างสมบูรณ์');
-      setAlertOpen(true);
-      return;
-    }
-
-    setItems((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      } else {
-        return [...prev, { product, quantity: 1 }];
-      }
-    });
-
-    if (items.length >= 8 && paperSize !== '9.5x11') {
-      handlePaperSizeChange('9.5x11');
-    }
-
-    setSearchQuery('');
-    setShowDropdown(false);
-  };
-
   const handleAddCustomItem = (e: React.FormEvent) => {
     e.preventDefault();
     if (items.length >= 25) {
@@ -689,52 +616,6 @@ export default function ReceiptView({
     if (items.length >= 8 && paperSize !== '9.5x11') {
       handlePaperSizeChange('9.5x11');
     }
-  };
-
-  const handleLoadSample25Items = () => {
-    const sampleNames = [
-      'ข้าวหอมมะลิ 100% สุรินทร์ (50 กก.)',
-      'ข้าวหอมมะลิคัดพิเศษ ตราฉัตรทอง (50 กก.)',
-      'ข้าวสารขาว 5% พิษณุโลก (50 กก.)',
-      'ข้าวสารขาว 15% บรรจุกระสอบ (50 กก.)',
-      'ข้าวเหนียวเขี้ยวงู เชียงราย (50 กก.)',
-      'ข้าวเหนียว กข.6 ขอนแก่น (50 กก.)',
-      'ข้าวกล้องหอมมะลิเพื่อสุขภาพ (5 กก.)',
-      'ข้าวไรซ์เบอร์รี่เกรด A (5 กก.)',
-      'ข้าวหอมปทุมธานี ชั้น 1 (50 กก.)',
-      'ข้าวเสาไห้แท้ สระบุรี (50 กก.)',
-      'ข้าวหอมมะลิเก่าค้างปี (50 กก.)',
-      'ปลายข้าวขาว บีทู สำหรับทำโจ๊ก (50 กก.)',
-      'ปลายข้าวเหนียว สำหรับทำแป้ง (50 กก.)',
-      'รำข้าวสกัดละเอียด (กระสอบ 40 กก.)',
-      'แกลบดิบสำหรับการเกษตร (กระสอบใหญ่)',
-      'ข้าวสารเสาไห้แท้ (15 กก.)',
-      'ข้าวหอมมะลิใหม่ต้นฤดู (15 กก.)',
-      'ข้าวขาวคัดพิเศษ ตราส้มโอ (50 กก.)',
-      'ข้าวเหนียวดำ ลืมผัว อินทรีย์ (1 กก.)',
-      'ข้าวกล้องไรซ์เบอร์รี่ ปลอดสาร (1 กก.)',
-      'ข้าวมันปูแดงคัดพิเศษ (1 กก.)',
-      'ข้าวทับทิมชุมแพ (5 กก.)',
-      'ข้าว กข.43 ดัชนีน้ำตาลต่ำ (5 กก.)',
-      'กระสอบพลาสติกสานบรรจุ 50 กก. (10 ใบ)',
-      'ค่าบริการจัดส่งสินค้าถึงปลายทาง (รอบพิเศษ)',
-    ];
-
-    const sampleItems: CartItem[] = sampleNames.map((name, idx) => ({
-      product: {
-        id: `sample-${idx + 1}`,
-        name,
-        price: 250 + ((idx * 65) % 1100),
-        stock: 50,
-        category: 'ข้าวสาร',
-        imageUrl: '',
-        status: 'พร้อมขาย',
-      },
-      quantity: 1 + (idx % 4),
-    }));
-
-    setItems(sampleItems);
-    handlePaperSizeChange('9.5x11');
   };
 
   const handleClearAllItems = () => {
@@ -1242,152 +1123,19 @@ export default function ReceiptView({
           </div>
         ) : (
           <div className="flex flex-col gap-6 w-full">
-            {isInIframe && (
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-pulse">
-                <div className="flex items-start gap-3">
-                  <div className="p-2.5 bg-amber-100 text-amber-800 rounded-xl mt-0.5 sm:mt-0 shrink-0">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-black text-amber-900 font-sans uppercase tracking-wider">
-                      คำแนะนำสำคัญสำหรับการใช้งานปุ่มพิมพ์ใบเสร็จ
-                    </h4>
-                    <p className="text-[11px] text-amber-700 font-medium leading-relaxed mt-1">
-                      ขณะนี้คุณกำลังใช้งานแอปผ่าน "หน้าต่างจำลอง (Sandbox Iframe)" ของ AI Studio ซึ่งเบราว์เซอร์จะบล็อกกล่องคำสั่งพิมพ์ใบเสร็จ (Print Dialog) โดยอัตโนมัติตามนโยบายความปลอดภัย เพื่อการสั่งพิมพ์ใบเสร็จที่ทำงานได้สมบูรณ์แบบ <strong>กรุณากดปุ่ม "เปิดในแท็บใหม่" (Open in new tab)</strong> ที่อยู่บริเวณแถบสีส้มด้านบนขวาของหน้าจอจำลอง แล้วคุณจะสามารถทำรายการและสั่งพิมพ์กระดาษต่อเนื่องขนาด 9" x 5.5" ได้อย่างลื่นไหล 100%!
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-            
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
-          {/* Left Column: Product Search & Cart Editor (Span 6/12) */}
-          <div className="lg:col-span-6 flex flex-col gap-6">
+          {/* Left Column: Customer Details & Items in Bill (Span 5/12 on desktop for ideal balance) */}
+          <div className="lg:col-span-5 xl:col-span-5 flex flex-col gap-5">
             
-            {/* Product Search & Add Panel */}
-            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col gap-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <Search className="w-4 h-4 text-slate-700" />
-                  <h3 className="text-sm font-bold text-slate-900">ค้นหาและเพิ่มรายการสินค้า</h3>
-                </div>
-                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md ${
-                  items.length >= 25 ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-slate-100 text-slate-700'
-                }`}>
-                  {items.length}/25 รายการ (สูงสุด 1 หน้า)
-                </span>
-              </div>
-
-              {/* Search Bar with live dropdown */}
-              <div className="relative">
-                <div className="relative flex items-center">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onFocus={() => {
-                      if (searchQuery.trim() !== '') setShowDropdown(true);
-                    }}
-                    placeholder="พิมพ์ชื่อสินค้าหรือรหัสสินค้า เพื่อค้นหา..."
-                    className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchQuery('');
-                        setShowDropdown(false);
-                      }}
-                      className="absolute right-3 text-slate-400 hover:text-slate-600 cursor-pointer"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Dropdown Results */}
-                {showDropdown && (
-                  <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-30 max-h-64 overflow-y-auto divide-y divide-slate-100">
-                    {searchResults.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-slate-500">
-                        ไม่พบสินค้าที่ตรงกับคำค้นหา
-                      </div>
-                    ) : (
-                      searchResults.map((prod) => (
-                        <div
-                          key={prod.id}
-                          onClick={() => handleSelectItem(prod)}
-                          className="px-4 py-2.5 hover:bg-slate-50 flex items-center justify-between cursor-pointer transition-colors"
-                        >
-                          <div className="min-w-0 pr-3">
-                            <p className="text-xs font-bold text-slate-900 truncate">{prod.name}</p>
-                            <p className="text-[10px] text-slate-500">รหัส: {prod.id} • คงเหลือ: {prod.stock} ชิ้น</p>
-                          </div>
-                          <div className="flex items-center gap-3 shrink-0">
-                            <span className="text-xs font-black text-slate-900 font-mono">฿{prod.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                            <span className="px-2 py-1 rounded bg-slate-950 text-white text-[10px] font-bold">+ เพิ่ม</span>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Quick Select & Actions */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
-                <select
-                  onChange={(e) => {
-                    const found = products.find(p => p.id === e.target.value);
-                    if (found) {
-                      handleSelectItem(found);
-                      e.target.value = '';
-                    }
-                  }}
-                  defaultValue=""
-                  className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none bg-white transition-all cursor-pointer"
-                >
-                  <option value="" disabled>-- เลือกจากสินค้าในคลัง --</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} (฿{p.price.toFixed(2)})
-                    </option>
-                  ))}
-                </select>
-
-                <button
-                  type="button"
-                  onClick={() => setShowCustomItemModal(true)}
-                  className="px-3 py-2 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors shrink-0"
-                >
-                  <PackagePlus className="w-3.5 h-3.5 text-slate-600" />
-                  <span>+ รายการเอง</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleLoadSample25Items}
-                  title="ใส่ตัวอย่างสินค้า 25 รายการทันที เพื่อทดสอบการพิมพ์และดูหน้าตา 1 หน้า"
-                  className="px-3 py-2 rounded-xl border border-amber-200 hover:border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors shrink-0"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                  <span>ตัวอย่าง 25 รายการ</span>
-                </button>
-              </div>
-            </div>
-
             {/* Customer Information Panel */}
-            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col gap-4">
+            <div className="bg-white border border-slate-150 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col gap-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4 text-slate-700" />
                   <h3 className="text-sm font-bold text-slate-900">ข้อมูลผู้ซื้อ / Customer Info</h3>
                 </div>
-                <span className="text-[10px] bg-slate-100 px-2 py-1 rounded-md text-slate-700 font-bold">เลือกสมาชิกด่วน</span>
+                <span className="text-[10px] bg-slate-100 px-2 py-1 rounded-md text-slate-700 font-bold">เลือกลูกค้า</span>
               </div>
 
               {/* Select Member Dropdown */}
@@ -1498,34 +1246,45 @@ export default function ReceiptView({
             </div>
 
             {/* List Table of Chosen Items */}
-            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden flex flex-col">
-              <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+            <div className="bg-white border border-slate-150 rounded-2xl shadow-xs overflow-hidden flex flex-col">
+              <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex justify-between items-center gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-slate-900">รายการสินค้าในบิล</h3>
-                  <span className={`text-xs font-bold px-2.5 py-0.5 rounded-lg border ${
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-lg border ${
                     items.length >= 25 
                       ? 'bg-rose-50 text-rose-700 border-rose-200' 
                       : 'bg-white text-slate-700 border-slate-200'
                   }`}>
-                    {items.length} / 25 รายการ
+                    {items.length} / 25
                   </span>
                 </div>
-                {items.length > 0 && (
+                
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={handleClearAllItems}
-                    className="text-xs text-red-600 hover:text-red-700 hover:underline font-bold cursor-pointer transition-colors"
+                    onClick={() => setShowCustomItemModal(true)}
+                    className="px-2.5 py-1 rounded-lg border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
                   >
-                    ล้างรายการทั้งหมด
+                    <PackagePlus className="w-3.5 h-3.5 text-slate-500" />
+                    <span>+ รายการเอง</span>
                   </button>
-                )}
+                  {items.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleClearAllItems}
+                      className="text-xs text-red-500 hover:text-red-700 hover:underline font-bold cursor-pointer transition-colors px-1"
+                    >
+                      ล้างรายการ
+                    </button>
+                  )}
+                </div>
               </div>
 
               {items.length === 0 ? (
-                <div className="py-20 text-center text-slate-400 flex flex-col items-center justify-center">
-                  <Printer className="w-12 h-12 mb-3 stroke-[1.5]" />
-                  <p className="text-sm font-bold text-slate-600">ยังไม่มีรายการสินค้าในบิล</p>
-                  <p className="text-xs mt-1 text-slate-400">ค้นหาหรือเลือกสินค้าด้านบน หรือกด "ตัวอย่าง 25 รายการ" เพื่อทดสอบ</p>
+                <div className="py-10 text-center text-slate-400 flex flex-col items-center justify-center px-4">
+                  <Printer className="w-10 h-10 mb-2 stroke-[1.5] text-slate-300" />
+                  <p className="text-sm font-bold text-slate-700">ยังไม่มีรายการสินค้าในบิล</p>
+                  <p className="text-xs mt-1 text-slate-400">ทำรายการขายจาก "หน้าขาย (POS)" หรือกดปุ่ม "+ รายการเอง" ด้านบน หรือเลือกจากแท็บ "จัดการบิล"</p>
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
@@ -1621,8 +1380,8 @@ export default function ReceiptView({
             </div>
           </div>
 
-          {/* Right Column: Receipt Preview & Actions (Span 6/12) */}
-          <div className="lg:col-span-6 flex flex-col gap-6">
+          {/* Right Column: Receipt Preview & Actions (Span 7/12 for spacious, legible paper view) */}
+          <div className="lg:col-span-7 xl:col-span-7 flex flex-col gap-5">
             
             {/* Print Options Panel */}
             <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col gap-3">
