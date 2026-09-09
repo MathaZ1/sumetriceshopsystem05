@@ -13,7 +13,7 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
   const [id, setId] = useState<string>('');
   const [name, setName] = useState<string>('');
   const [category, setCategory] = useState<string>('เครื่องดื่ม');
-  const [price, setPrice] = useState<number>(0);
+  const [price, setPrice] = useState<string>('0');
   const [stock, setStock] = useState<number>(999999);
   const [imageUrl, setImageUrl] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
@@ -25,7 +25,7 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
       setId(product.id);
       setName(product.name);
       setCategory(product.category || 'เครื่องดื่ม');
-      setPrice(product.price);
+      setPrice(product.price !== undefined && product.price !== null ? String(product.price) : '0');
       setStock(product.stock || 999999);
       setImageUrl(product.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400');
     } else {
@@ -33,7 +33,7 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
       setId('PRD-' + Math.floor(10000 + Math.random() * 90000));
       setName('');
       setCategory('เครื่องดื่ม');
-      setPrice(0);
+      setPrice('0');
       setStock(999999);
       setImageUrl('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400');
     }
@@ -44,8 +44,9 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id || !name || price < 0) {
-      setError('กรุณากรอกข้อมูลให้ครบถ้วนและถูกต้อง');
+    const numPrice = price === '' ? 0 : Number(price);
+    if (!id || !name.trim() || isNaN(numPrice) || numPrice < 0) {
+      setError('กรุณากรอกข้อมูลให้ครบถ้วนและถูกต้อง (ราคาต้องไม่ติดลบ)');
       return;
     }
 
@@ -61,7 +62,7 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
         id: id.trim().toUpperCase(),
         name: name.trim(),
         category,
-        price: Number(price),
+        price: numPrice,
         stock: Number(stock) || 999999,
         imageUrl: finalImageUrl,
         status
@@ -121,16 +122,15 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
           {/* Price */}
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
-              ราคา (฿)
+              ราคา (฿) <span className="text-slate-400 font-normal lowercase">(สามารถใส่ 0 ได้)</span>
             </label>
             <input
               type="number"
-              required
               min="0"
-              step="0.01"
-              value={price || ''}
-              onChange={(e) => setPrice(Number(e.target.value))}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
+              step="any"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono text-slate-800 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
               placeholder="0.00"
             />
           </div>

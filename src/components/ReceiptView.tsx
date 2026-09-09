@@ -664,10 +664,10 @@ export default function ReceiptView({
       setAlertOpen(true);
       return;
     }
-    const priceVal = parseFloat(customPrice);
+    const priceVal = customPrice === '' ? 0 : parseFloat(customPrice);
     if (isNaN(priceVal) || priceVal < 0) {
       setAlertTitle('ข้อมูลไม่ถูกต้อง');
-      setAlertMessage('กรุณาระบุราคาที่ถูกต้อง');
+      setAlertMessage('กรุณาระบุราคาที่ถูกต้อง (ราคาต้องไม่ติดลบ)');
       setAlertOpen(true);
       return;
     }
@@ -1969,13 +1969,12 @@ export default function ReceiptView({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-800 mb-1">
-                    ราคาต่อหน่วย (บาท) <span className="text-red-500">*</span>
+                    ราคาต่อหน่วย (บาท) <span className="text-slate-400 font-normal lowercase">(ใส่ 0 ได้)</span>
                   </label>
                   <input
                     type="number"
                     step="any"
                     min="0"
-                    required
                     value={customPrice}
                     onChange={(e) => setCustomPrice(e.target.value)}
                     placeholder="0.00"
