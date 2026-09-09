@@ -219,13 +219,13 @@ function ContinuousReceiptPaper({
               {items.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="text-center py-10 text-black font-black text-[15px] italic">
-                    -- ไม่มีรายการในใบเสร็จ / No Items Added --
+                    ไม่มีรายการในใบเสร็จ (No Items Added)
                   </td>
                 </tr>
               ) : (
                 <>
                   {items.map((i, index) => (
-                    <tr key={i.product.id || index} className="align-top border-b border-stone-200/60">
+                    <tr key={i.product.id || index} className="align-top">
                       <td className="text-center py-2 text-black font-bold text-[14.5px]">{index + 1}</td>
                       <td className="px-2 py-2 font-bold text-black break-words whitespace-pre-wrap text-[14.5px]">
                         {i.product.name}
@@ -239,15 +239,15 @@ function ContinuousReceiptPaper({
                       </td>
                     </tr>
                   ))}
-                  {/* Pads the table with empty rows to preserve standard paper height */}
+                  {/* Pads the table with empty rows to preserve standard paper height without dash lines */}
                   {items.length < (paperSize === '9.5x11' ? 12 : 5) &&
                     Array.from({ length: (paperSize === '9.5x11' ? 12 : 5) - items.length }).map((_, idx) => (
                       <tr key={`empty-row-${idx}`} className="h-[26px]">
-                        <td className="text-center py-1 text-stone-300 font-bold">-</td>
-                        <td className="px-2 py-1 text-stone-300 font-bold">-</td>
-                        <td className="text-right py-1 text-stone-300 font-bold">-</td>
-                        <td className="text-right py-1 text-stone-300 font-bold">-</td>
-                        <td className="text-right py-1 text-stone-300 pr-1 font-bold">-</td>
+                        <td className="text-center py-1">&nbsp;</td>
+                        <td className="px-2 py-1">&nbsp;</td>
+                        <td className="text-right py-1">&nbsp;</td>
+                        <td className="text-right py-1">&nbsp;</td>
+                        <td className="text-right py-1 pr-1">&nbsp;</td>
                       </tr>
                     ))}
                 </>
