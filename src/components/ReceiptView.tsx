@@ -207,7 +207,7 @@ function ContinuousReceiptPaper({
         <div className="flex-1 min-h-[140px] flex flex-col justify-between mt-1">
           <table className="w-full text-[16px] font-mono border-collapse">
             <thead>
-              <tr className="text-black font-black text-left border-y-2 border-black bg-transparent">
+              <tr className="text-black font-black text-left bg-transparent">
                 <th className="py-2 text-center w-14 font-black text-[16px]">ลำดับ</th>
                 <th className="py-2 px-2 font-black text-[16px]">รายการสินค้า / Description</th>
                 <th className="py-2 text-right w-24 font-black text-[16px]">จำนวน</th>
