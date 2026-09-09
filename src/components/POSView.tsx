@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db, handleFirestoreError, OperationType, auth, getNextInvoiceNumber } from '../firebase';
 import { collection, onSnapshot, addDoc, doc, updateDoc, runTransaction } from 'firebase/firestore';
 import { Product, CartItem, Sale, SaleItem, Customer } from '../types';
-import { ShoppingCart, Plus, Minus, Check, Search } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Check, Search, Trash2, Edit2, X } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 
 interface POSViewProps {
@@ -35,6 +35,7 @@ export default function POSView({
   const [checkoutLoading, setCheckoutLoading] = useState<boolean>(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustId, setSelectedCustId] = useState<string>('');
+  const [showMobileCart, setShowMobileCart] = useState<boolean>(false);
 
   // Alert modal states
   const [alertOpen, setAlertOpen] = useState<boolean>(false);
@@ -119,6 +120,50 @@ export default function POSView({
         })
         .filter((item) => item.quantity > 0);
     });
+  };
+
+  const updateQuantityDirect = (productId: string, qtyStr: string) => {
+    if (qtyStr === '') {
+      setCart((prev) =>
+        prev.map((item) =>
+          item.product.id === productId ? { ...item, quantity: 1 } : item
+        )
+      );
+      return;
+    }
+    const val = parseInt(qtyStr, 10);
+    if (isNaN(val) || val <= 0) return;
+    setCart((prev) =>
+      prev.map((item) =>
+        item.product.id === productId ? { ...item, quantity: val } : item
+      )
+    );
+  };
+
+  const updateItemPrice = (productId: string, priceStr: string) => {
+    if (priceStr === '') {
+      setCart((prev) =>
+        prev.map((item) =>
+          item.product.id === productId
+            ? { ...item, product: { ...item.product, price: 0 } }
+            : item
+        )
+      );
+      return;
+    }
+    const val = parseFloat(priceStr);
+    if (isNaN(val) || val < 0) return;
+    setCart((prev) =>
+      prev.map((item) =>
+        item.product.id === productId
+          ? { ...item, product: { ...item.product, price: val } }
+          : item
+      )
+    );
+  };
+
+  const removeItem = (productId: string) => {
+    setCart((prev) => prev.filter((item) => item.product.id !== productId));
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
@@ -292,33 +337,69 @@ export default function POSView({
                   <p className="text-sm font-medium text-slate-900 truncate">
                     {item.product.name}
                   </p>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    ฿{item.product.price.toFixed(2)} / ชิ้น
-                  </p>
+                  
+                  {/* Editable Price per unit */}
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <div className="inline-flex items-center bg-slate-50 hover:bg-slate-100/80 focus-within:bg-white border border-slate-200 focus-within:border-slate-500 focus-within:ring-1 focus-within:ring-slate-500 rounded-lg px-2 py-0.5 transition-all shadow-xs group">
+                      <span className="text-xs font-bold text-slate-400">฿</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={item.product.price}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => updateItemPrice(item.product.id, e.target.value)}
+                        className="w-20 text-xs font-bold font-mono text-slate-900 bg-transparent border-none outline-none pl-1 focus:ring-0"
+                        placeholder="0.00"
+                        title="คลิกเพื่อแก้ไขหรือเปลี่ยนราคาต่อชิ้น"
+                      />
+                      <Edit2 className="w-3 h-3 text-slate-400 group-hover:text-slate-600 transition-colors ml-0.5 pointer-events-none" />
+                    </div>
+                    <span className="text-xs text-slate-500 font-medium">/ ชิ้น</span>
+                  </div>
                   
                   {/* Quantity controls */}
                   <div className="flex items-center gap-2 mt-2">
                     <button
+                      type="button"
                       onClick={() => updateQuantity(item.product.id, -1)}
                       className="w-6 h-6 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 hover:border-slate-400 active:bg-slate-100 transition-colors cursor-pointer"
+                      title="ลดจำนวน"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
-                    <span className="text-sm font-semibold w-6 text-center text-slate-800">
-                      {item.quantity}
-                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.quantity}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => updateQuantityDirect(item.product.id, e.target.value)}
+                      className="w-10 text-center text-xs font-bold font-mono text-slate-800 border border-slate-200 focus:border-slate-400 rounded-md py-0.5 px-0.5 outline-none bg-white"
+                      title="ระบุจำนวน"
+                    />
                     <button
+                      type="button"
                       onClick={() => updateQuantity(item.product.id, 1)}
                       className="w-6 h-6 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 hover:border-slate-400 active:bg-slate-100 transition-colors cursor-pointer"
+                      title="เพิ่มจำนวน"
                     >
                       <Plus className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => removeItem(item.product.id)}
+                      className="ml-auto p-1 text-slate-300 hover:text-red-500 rounded transition-colors cursor-pointer"
+                      title="ลบออกจากตะกร้า"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
 
                 {/* Subtotal price */}
                 <div className="text-right">
-                  <p className="text-sm font-bold text-slate-900">
+                  <p className="text-sm font-bold text-slate-900 font-mono">
                     ฿{(item.product.price * item.quantity).toFixed(2)}
                   </p>
                 </div>
@@ -430,17 +511,15 @@ export default function POSView({
       <div className="md:hidden fixed bottom-18 right-4 left-4 z-40">
         <button
           onClick={() => {
-            // In a mobile environment, click directly processes the sale if items are present, or shows alert.
-            // Or we could let it slide up/toggle. Let's make it easy: clicking triggers checkout.
             if (cart.length > 0) {
-              handleCheckout();
+              setShowMobileCart(true);
             } else {
               setAlertTitle('ตะกร้าว่างเปล่า');
               setAlertMessage('กรุณาเลือกสินค้าใส่ตะกร้าก่อนทำการสั่งซื้อ');
               setAlertOpen(true);
             }
           }}
-          className="w-full bg-slate-900 text-white font-bold py-3 px-4 rounded-xl shadow-lg flex justify-between items-center hover:bg-slate-850 transition-all duration-200 active:scale-[0.98]"
+          className="w-full bg-slate-900 text-white font-bold py-3 px-4 rounded-xl shadow-lg flex justify-between items-center hover:bg-slate-850 transition-all duration-200 active:scale-[0.98] cursor-pointer"
         >
           <span className="flex items-center gap-2">
             <ShoppingCart className="w-5 h-5" />
@@ -449,6 +528,168 @@ export default function POSView({
           <span className="font-extrabold text-base">฿{Math.max(0, cartTotal - discount).toFixed(2)}</span>
         </button>
       </div>
+
+      {/* Mobile Cart Modal Drawer */}
+      {showMobileCart && (
+        <div className="md:hidden fixed inset-0 z-50 bg-black/60 flex flex-col justify-end backdrop-blur-xs">
+          <div className="bg-white rounded-t-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom-5 duration-200">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-slate-700" />
+                <span>ตะกร้าสินค้า ({cartItemsCount})</span>
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowMobileCart(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+              {cart.map((item) => (
+                <div key={item.product.id} className="flex justify-between items-start border-b border-slate-100 pb-3">
+                  <div className="flex-1 min-w-0 pr-2">
+                    <p className="text-sm font-medium text-slate-900 truncate">
+                      {item.product.name}
+                    </p>
+                    
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <div className="inline-flex items-center bg-slate-50 hover:bg-slate-100/80 focus-within:bg-white border border-slate-200 focus-within:border-slate-500 focus-within:ring-1 focus-within:ring-slate-500 rounded-lg px-2 py-0.5 transition-all shadow-xs group">
+                        <span className="text-xs font-bold text-slate-400">฿</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={item.product.price}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => updateItemPrice(item.product.id, e.target.value)}
+                          className="w-20 text-xs font-bold font-mono text-slate-900 bg-transparent border-none outline-none pl-1 focus:ring-0"
+                          placeholder="0.00"
+                          title="คลิกเพื่อแก้ไขหรือเปลี่ยนราคาต่อชิ้น"
+                        />
+                        <Edit2 className="w-3 h-3 text-slate-400 group-hover:text-slate-600 transition-colors ml-0.5 pointer-events-none" />
+                      </div>
+                      <span className="text-xs text-slate-500 font-medium">/ ชิ้น</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(item.product.id, -1)}
+                        className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 active:bg-slate-100 cursor-pointer"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => updateQuantityDirect(item.product.id, e.target.value)}
+                        className="w-10 text-center text-xs font-bold font-mono text-slate-800 border border-slate-200 rounded-md py-1 px-0.5 outline-none bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(item.product.id, 1)}
+                        className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 active:bg-slate-100 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.product.id)}
+                        className="ml-auto p-1.5 text-slate-300 hover:text-red-500 rounded transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-slate-900 font-mono">
+                      ฿{(item.product.price * item.quantity).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-100">
+              <div className="flex flex-col gap-2 mb-3">
+                <div className="flex flex-col gap-1 pb-2 border-b border-slate-200/50">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">เลือกสมาชิก / Customer</span>
+                  <select
+                    value={selectedCustId}
+                    onChange={(e) => setSelectedCustId(e.target.value)}
+                    className="w-full px-2.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white"
+                  >
+                    <option value="">-- ลูกค้าทั่วไป (Cash Customer) --</option>
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {c.phone ? `(${c.phone})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex justify-between items-center text-xs font-semibold text-slate-500">
+                  <span>ยอดรวมสินค้า</span>
+                  <span>฿{cartTotal.toFixed(2)}</span>
+                </div>
+
+                <div className="flex justify-between items-center py-1.5 border-t border-b border-slate-200/50">
+                  <span className="text-xs font-bold text-slate-600">ส่วนลด (฿)</span>
+                  <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-0.5 w-28">
+                    <span className="text-slate-400 font-bold text-xs">฿</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max={cartTotal}
+                      value={discount === 0 ? '' : discount}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        if (isNaN(val) || val < 0) {
+                          setDiscount(0);
+                        } else {
+                          setDiscount(Math.min(cartTotal, val));
+                        }
+                      }}
+                      placeholder="0"
+                      className="w-full text-right border-none outline-none p-0 text-xs font-extrabold text-slate-800 bg-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-sm font-bold text-slate-700">ยอดชำระสุทธิ</span>
+                  <span className="text-xl font-black text-slate-950">
+                    ฿{Math.max(0, cartTotal - discount).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMobileCart(false);
+                    handleCheckout();
+                  }}
+                  disabled={cart.length === 0 || checkoutLoading}
+                  className={`w-full text-white font-bold py-3 px-4 rounded-xl flex justify-center items-center gap-2 cursor-pointer ${
+                    cart.length === 0 ? 'bg-slate-300' : 'bg-slate-950 hover:bg-slate-850'
+                  }`}
+                >
+                  <Check className="w-5 h-5" />
+                  <span>ยืนยันการสั่งซื้อ</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmModal
         isOpen={alertOpen}

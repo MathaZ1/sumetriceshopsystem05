@@ -742,6 +742,14 @@ export default function ReceiptView({
   };
 
   const updateItemPrice = (productId: string, priceStr: string) => {
+    if (priceStr === '') {
+      setItems((prev) =>
+        prev.map((i) =>
+          i.product.id === productId ? { ...i, product: { ...i.product, price: 0 } } : i
+        )
+      );
+      return;
+    }
     const price = parseFloat(priceStr);
     if (isNaN(price) || price < 0) return;
     setItems((prev) =>
