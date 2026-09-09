@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { db, handleFirestoreError, OperationType, auth, getNextInvoiceNumber } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, query, orderBy, updateDoc, runTransaction } from 'firebase/firestore';
 import { Product, CartItem, Customer, Sale, SaleItem } from '../types';
-import { Search, Plus, Minus, Trash2, Printer, CheckCircle2, User, MapPin, FileText, Users, Ban, RefreshCw, Eye, Tag, Receipt, Maximize2, X } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, Printer, CheckCircle2, User, MapPin, FileText, Users, Ban, RefreshCw, Eye, Tag, Receipt, Maximize2, X, PackagePlus, Sparkles, AlertTriangle } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 
 function thaiBaht(num: number): string {
@@ -101,23 +101,31 @@ function ContinuousReceiptPaper({
   netTotal,
   isPrintPortal = false,
 }: ContinuousReceiptPaperProps) {
+  const count = items.length;
+  const isSuperDense = count > 18; // 19 - 25 items
+  const isDense = count > 10 && count <= 18; // 11 - 18 items
+
   return (
     <div
       className={`dot-matrix-print-target print-receipt-card bg-[#ffffff] border border-stone-300 ${
         isPrintPortal ? '' : 'rounded-xl shadow-lg'
-      } p-7 font-mono text-[14px] text-black select-all flex flex-col justify-between overflow-visible relative ${
+      } ${
+        isSuperDense ? 'p-3.5 sm:p-4' : isDense ? 'p-5' : 'p-6 sm:p-7'
+      } font-mono text-black select-all flex flex-col justify-between overflow-hidden relative ${
         printPinhole ? 'print-pinholes-visible' : ''
       }`}
       style={{
         width: '912px',
         minHeight: paperSize === '9.5x11' ? '1056px' : '620px',
+        maxHeight: paperSize === '9.5x11' ? '1056px' : '620px',
+        height: paperSize === '9.5x11' ? '1056px' : '620px',
         boxSizing: 'border-box',
       }}
     >
       {/* Continuous Form Pinhole Margins (Left Strip) */}
       {printPinhole && (
         <div className="print-pinholes absolute left-0 top-0 bottom-0 w-8 border-r border-dashed border-stone-300 bg-stone-100/40 flex flex-col justify-around items-center py-4 z-10">
-          {[...Array(paperSize === '9.5x11' ? 12 : 7)].map((_, idx) => (
+          {[...Array(paperSize === '9.5x11' ? 14 : 7)].map((_, idx) => (
             <div
               key={`pin-l-${idx}`}
               className="w-2.5 h-2.5 rounded-full bg-white border border-stone-300 shadow-inner"
@@ -129,7 +137,7 @@ function ContinuousReceiptPaper({
       {/* Continuous Form Pinhole Margins (Right Strip) */}
       {printPinhole && (
         <div className="print-pinholes absolute right-0 top-0 bottom-0 w-8 border-l border-dashed border-stone-300 bg-stone-100/40 flex flex-col justify-around items-center py-4 z-10">
-          {[...Array(paperSize === '9.5x11' ? 12 : 7)].map((_, idx) => (
+          {[...Array(paperSize === '9.5x11' ? 14 : 7)].map((_, idx) => (
             <div
               key={`pin-r-${idx}`}
               className="w-2.5 h-2.5 rounded-full bg-white border border-stone-300 shadow-inner"
@@ -139,115 +147,137 @@ function ContinuousReceiptPaper({
       )}
 
       {/* Main Content */}
-      <div className={`${printPinhole && !isPrintPortal ? 'mx-6' : 'mx-0'} h-full flex flex-col justify-between gap-4 w-full`}>
+      <div className={`${printPinhole && !isPrintPortal ? 'mx-6' : 'mx-0'} h-full flex flex-col justify-between ${isSuperDense ? 'gap-1' : isDense ? 'gap-2' : 'gap-3'} w-full overflow-hidden`}>
         {/* Top Header Block */}
-        <div className="flex justify-between items-start pb-3">
+        <div className={`flex justify-between items-start ${isSuperDense ? 'pb-1' : isDense ? 'pb-2' : 'pb-3'} border-b border-black/15`}>
           <div>
-            <h3 className="font-black text-black text-[20px] tracking-wide">ร้านสุเมธค้าข้าว</h3>
-            <p className="text-[15px] font-bold text-black mt-1 leading-tight">
+            <h3 className={`font-black text-black ${isSuperDense ? 'text-[17px]' : isDense ? 'text-[18.5px]' : 'text-[20px]'} tracking-wide leading-tight`}>
+              ร้านสุเมธค้าข้าว
+            </h3>
+            <p className={`${isSuperDense ? 'text-[12px] mt-0.5' : isDense ? 'text-[13.5px] mt-0.5' : 'text-[15px] mt-1'} font-bold text-black leading-tight`}>
               ถ.จุลจอมเกล้า ต.ท่าข้าม อ.พุนพิน จ.สุราษฎร์ธานี 84130
             </p>
-            <p className="text-[15px] font-bold text-black mt-1 leading-tight">
+            <p className={`${isSuperDense ? 'text-[12px] mt-0.5' : isDense ? 'text-[13.5px] mt-0.5' : 'text-[15px] mt-1'} font-bold text-black leading-tight`}>
               สาขาโค้งวัดดอนกระถิน โทร : <span className="font-black text-black">077-441628</span> / สาขาดอนเนียง โทร :{' '}
               <span className="font-black text-black">098-6785002</span>
             </p>
           </div>
 
-          <div className="text-right flex flex-col items-end gap-1">
-            <div className="font-black text-[20px] text-black tracking-wider">
+          <div className="text-right flex flex-col items-end gap-0.5">
+            <div className={`font-black ${isSuperDense ? 'text-[17px]' : isDense ? 'text-[18.5px]' : 'text-[20px]'} text-black tracking-wider leading-tight`}>
               ใบเสร็จรับเงิน / RECEIPT
             </div>
-            <div className="text-[15px] text-black mt-1 flex flex-col gap-1 items-end font-bold font-mono">
+            <div className={`${isSuperDense ? 'text-[12px] gap-0.5' : isDense ? 'text-[13.5px] gap-0.5' : 'text-[15px] gap-1'} text-black mt-0.5 flex flex-col items-end font-bold font-mono`}>
               <div>
-                เลขที่บิล / Invoice No : <span className="text-black font-black text-[15.5px]">{invoiceNumber}</span>
+                เลขที่บิล / Invoice No : <span className="text-black font-black">{invoiceNumber}</span>
               </div>
               <div>
-                วันที่ / Date : <span className="text-black font-black text-[15.5px]">{todayStr}</span>
+                วันที่ / Date : <span className="text-black font-black">{todayStr}</span>
               </div>
               <div>
-                หน้า / Page : <span className="text-black font-black text-[15.5px]">1 / 1</span>
+                หน้า / Page : <span className="text-black font-black">1 / 1</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Customer Information Block */}
-        <div className="py-2.5 bg-transparent grid grid-cols-12 gap-4 leading-relaxed mb-2">
-          <div className="col-span-7 flex flex-col gap-2 pr-2">
-            <div className="flex items-start gap-2">
-              <span className="text-black font-bold shrink-0 text-[15.5px]">ลูกค้า / Customer :</span>{' '}
-              <span className="text-black font-black text-[16px]">
+        <div className={`${isSuperDense ? 'py-1 gap-1 text-[12px]' : isDense ? 'py-1.5 gap-1.5 text-[13px]' : 'py-2 gap-2 text-[14.5px]'} bg-transparent flex flex-col leading-tight border-b border-black/15 pb-1`}>
+          {/* Row 1: Customer Name, Phone, and Tax ID */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <span className="text-black font-bold shrink-0 whitespace-nowrap">ลูกค้า / Customer :</span>
+              <span className="text-black font-black truncate">
                 {custName || 'ลูกค้าทั่วไป (General Cash Customer)'}
               </span>
             </div>
-            <div className="flex items-start gap-2">
-              <span className="text-black font-bold shrink-0 text-[15px]">ที่อยู่ / Address :</span>{' '}
-              <span className="text-black font-bold text-[15px] leading-normal break-words whitespace-pre-wrap">
-                {custAddress || '..................................................................'}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-black font-bold shrink-0 whitespace-nowrap">เบอร์โทร / Phone :</span>
+              <span className="text-black font-black font-mono">
+                {custPhone || '-'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-black font-bold shrink-0 whitespace-nowrap">เลขผู้เสียภาษี / Tax ID :</span>
+              <span className="text-black font-black font-mono">
+                {custTaxId || '-'}
               </span>
             </div>
           </div>
-          <div className="col-span-5 flex flex-col gap-2 pl-3">
-            <div className="flex items-start gap-2">
-              <span className="text-black font-bold shrink-0 text-[15px]">เบอร์โทร / Phone :</span>{' '}
-              <span className="text-black font-black font-mono text-[15.5px]">
-                {custPhone || '........................'}
-              </span>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="text-black font-bold shrink-0 text-[15px]">เลขผู้เสียภาษี / Tax ID :</span>{' '}
-              <span className="text-black font-black font-mono text-[15.5px]">
-                {custTaxId || '........................'}
-              </span>
-            </div>
+
+          {/* Row 2: Customer Address (Full width for complete information without overflowing into other rows) */}
+          <div className="flex items-center gap-1.5 w-full min-w-0">
+            <span className="text-black font-bold shrink-0 whitespace-nowrap">ที่อยู่ / Address :</span>
+            <span className="text-black font-bold truncate flex-1" title={custAddress || ''}>
+              {custAddress || '................................................................................................................................................'}
+            </span>
           </div>
         </div>
 
-        {/* Items List Table */}
-        <div className="flex-1 min-h-[160px] flex flex-col justify-start my-2">
-          <table className="w-full text-[16px] font-mono border-collapse">
+        {/* Items List Table (Supports up to 25 items on 1 page without row overflowing) */}
+        <div className="flex-1 flex flex-col justify-start my-0.5 overflow-hidden">
+          <table className="w-full font-mono border-collapse table-fixed">
             <thead>
-              <tr className="text-black font-black text-left bg-transparent">
-                <th className="py-2.5 text-center w-14 font-black text-[16px]">ลำดับ</th>
-                <th className="py-2.5 px-3 font-black text-[16px]">รายการสินค้า / Description</th>
-                <th className="py-2.5 text-right w-24 font-black text-[16px]">จำนวน</th>
-                <th className="py-2.5 text-right w-32 font-black text-[16px]">หน่วยละ</th>
-                <th className="py-2.5 text-right w-36 pr-2 font-black text-[16px]">จำนวนเงิน (บาท)</th>
+              <tr className={`text-black font-black text-left bg-transparent border-y-2 border-black ${isSuperDense ? 'text-[12px]' : isDense ? 'text-[13.5px]' : 'text-[15px]'}`}>
+                <th className={`${isSuperDense ? 'py-1' : isDense ? 'py-1.5' : 'py-2'} text-center w-[48px] font-black whitespace-nowrap`}>ลำดับ</th>
+                <th className={`${isSuperDense ? 'py-1 px-2' : isDense ? 'py-1.5 px-3' : 'py-2 px-3'} font-black whitespace-nowrap`}>รายการสินค้า / Description</th>
+                <th className={`${isSuperDense ? 'py-1' : isDense ? 'py-1.5' : 'py-2'} text-right w-[72px] font-black whitespace-nowrap`}>จำนวน</th>
+                <th className={`${isSuperDense ? 'py-1' : isDense ? 'py-1.5' : 'py-2'} text-right w-[110px] font-black whitespace-nowrap`}>หน่วยละ</th>
+                <th className={`${isSuperDense ? 'py-1 pr-1' : isDense ? 'py-1.5 pr-2' : 'py-2 pr-2'} text-right w-[138px] font-black whitespace-nowrap`}>จำนวนเงิน (บาท)</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-12 text-black font-black text-[16px] italic">
+                  <td colSpan={5} className="text-center py-10 text-black font-black text-[15px] italic">
                     ไม่มีรายการในใบเสร็จ (No Items Added)
                   </td>
                 </tr>
               ) : (
                 <>
-                  {items.map((i, index) => (
-                    <tr key={i.product.id || index} className="align-middle">
-                      <td className="text-center py-2.5 text-black font-bold text-[16px]">{index + 1}</td>
-                      <td className="px-3 py-2.5 font-bold text-black break-words whitespace-pre-wrap text-[16px]">
+                  {items.slice(0, 25).map((i, index) => (
+                    <tr
+                      key={i.product.id || index}
+                      className={`align-middle ${
+                        isSuperDense
+                          ? 'text-[11.5px] leading-tight'
+                          : isDense
+                          ? 'text-[13px] leading-tight'
+                          : 'text-[14.5px] leading-normal'
+                      }`}
+                    >
+                      <td className={`text-center ${isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'} text-black font-bold whitespace-nowrap`}>
+                        {index + 1}
+                      </td>
+                      <td className={`px-2 ${isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'} font-bold text-black whitespace-nowrap overflow-hidden text-ellipsis`} title={i.product.name}>
                         {i.product.name}
                       </td>
-                      <td className="text-right py-2.5 font-bold text-black text-[16px]">{i.quantity}</td>
-                      <td className="text-right py-2.5 font-bold text-black text-[16px]">
-                        {i.product.price.toFixed(2)}
+                      <td className={`text-right ${isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'} font-bold text-black whitespace-nowrap font-mono`}>
+                        {i.quantity}
                       </td>
-                      <td className="text-right py-2.5 font-black text-black pr-2 text-[16px]">
-                        {(i.product.price * i.quantity).toFixed(2)}
+                      <td className={`text-right ${isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'} font-bold text-black whitespace-nowrap font-mono`}>
+                        {i.product.price.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className={`text-right ${isSuperDense ? 'py-0.5 pr-1' : isDense ? 'py-1 pr-2' : 'py-2 pr-2'} font-black text-black whitespace-nowrap font-mono`}>
+                        {(i.product.price * i.quantity).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                     </tr>
                   ))}
-                  {/* Pads the table with empty rows to preserve standard paper height without dash lines */}
-                  {items.length < (paperSize === '9.5x11' ? 10 : 4) &&
-                    Array.from({ length: (paperSize === '9.5x11' ? 10 : 4) - items.length }).map((_, idx) => (
-                      <tr key={`empty-row-${idx}`} className="h-[30px]">
-                        <td className="text-center py-1">&nbsp;</td>
-                        <td className="px-3 py-1">&nbsp;</td>
-                        <td className="text-right py-1">&nbsp;</td>
-                        <td className="text-right py-1">&nbsp;</td>
-                        <td className="text-right py-1 pr-2">&nbsp;</td>
+                  {/* Pads the table with empty rows to preserve standard paper layout */}
+                  {items.length < (paperSize === '9.5x11' ? (isSuperDense ? 25 : isDense ? 18 : 10) : 5) &&
+                    Array.from({
+                      length:
+                        (paperSize === '9.5x11' ? (isSuperDense ? 25 : isDense ? 18 : 10) : 5) - items.length,
+                    }).map((_, idx) => (
+                      <tr
+                        key={`empty-row-${idx}`}
+                        className={isSuperDense ? 'h-[20px]' : isDense ? 'h-[24px]' : 'h-[28px]'}
+                      >
+                        <td className="text-center py-0.5 whitespace-nowrap">&nbsp;</td>
+                        <td className="px-2 py-0.5 whitespace-nowrap">&nbsp;</td>
+                        <td className="text-right py-0.5 whitespace-nowrap">&nbsp;</td>
+                        <td className="text-right py-0.5 whitespace-nowrap">&nbsp;</td>
+                        <td className="text-right py-0.5 pr-2 whitespace-nowrap">&nbsp;</td>
                       </tr>
                     ))}
                 </>
@@ -257,48 +287,54 @@ function ContinuousReceiptPaper({
         </div>
 
         {/* Calculations & Baht Text Block */}
-        <div className="grid grid-cols-12 pt-4 pb-2 gap-4">
+        <div className={`grid grid-cols-12 ${isSuperDense ? 'pt-1 pb-1 gap-2' : isDense ? 'pt-2 pb-1 gap-3' : 'pt-3 pb-2 gap-4'} border-t-2 border-black`}>
           <div className="col-span-7 flex flex-col justify-center">
-            <div className="px-1 py-1">
-              <p className="text-[15.5px] text-black font-bold leading-normal">
-                จำนวนเงินตัวอักษร : <span className="text-black font-black">{thaiBaht(netTotal)}</span>
+            <div className="px-1 py-0.5">
+              <p className={`${isSuperDense ? 'text-[12px]' : isDense ? 'text-[13.5px]' : 'text-[15px]'} text-black font-bold leading-tight`}>
+                จำนวนเงินตัวอักษร : <span className="text-black font-black">( {thaiBaht(netTotal)} )</span>
               </p>
             </div>
           </div>
 
-          <div className="col-span-5 pl-4 py-0.5 flex flex-col justify-center gap-2 text-[16px] font-bold text-black font-mono">
-            <div className="flex justify-between">
-              <span className="font-bold">รวมเงิน / Subtotal :</span>
-              <span className="font-black">{total.toFixed(2)}</span>
+          <div className={`col-span-5 pl-3 py-0.5 flex flex-col justify-center ${isSuperDense ? 'gap-1 text-[12px]' : isDense ? 'gap-1.5 text-[13.5px]' : 'gap-1.5 text-[15px]'} font-bold text-black font-mono`}>
+            <div className="flex justify-between items-center">
+              <span className="font-bold whitespace-nowrap">รวมเงิน / Subtotal :</span>
+              <span className="font-black whitespace-nowrap">
+                {total.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
             </div>
             {discount > 0 && (
-              <div className="flex justify-between text-black font-bold">
-                <span>ส่วนลด / Discount :</span>
-                <span className="font-black">-{discount.toFixed(2)}</span>
+              <div className="flex justify-between items-center text-black font-bold">
+                <span className="whitespace-nowrap">ส่วนลด / Discount :</span>
+                <span className="font-black whitespace-nowrap">
+                  -{discount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
               </div>
             )}
-            <div className="flex justify-between border-t-2 border-black pt-2 text-[18px] font-black text-black">
-              <span>ยอดสุทธิ / Net Total :</span>
-              <span className="text-[18px] text-black font-black">{netTotal.toFixed(2)}</span>
+            <div className={`flex justify-between items-center border-t border-black pt-1 ${isSuperDense ? 'text-[14px]' : isDense ? 'text-[15.5px]' : 'text-[17px]'} font-black text-black`}>
+              <span className="whitespace-nowrap">ยอดสุทธิ / Net Total :</span>
+              <span className="text-black font-black whitespace-nowrap">
+                {netTotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
             </div>
           </div>
         </div>
 
         {/* Signature fields strip */}
-        <div className="grid grid-cols-2 gap-12 text-center mt-5 pt-3 text-[14.5px] text-black font-bold">
+        <div className={`grid grid-cols-2 ${isSuperDense ? 'gap-6 mt-1 pt-1 text-[11.5px]' : isDense ? 'gap-8 mt-2 pt-1 text-[13px]' : 'gap-10 mt-3 pt-2 text-[14px]'} text-center text-black font-bold border-t border-dashed border-stone-300`}>
           <div className="flex flex-col items-center">
-            <div className="h-8"></div>
-            <p className="text-black font-bold">
-              ลงชื่อ ............................................................ ผู้รับสินค้า / Recipient
+            <div className={isSuperDense ? 'h-3' : isDense ? 'h-5' : 'h-6'}></div>
+            <p className="text-black font-bold leading-tight whitespace-nowrap">
+              ลงชื่อ .................................................... ผู้รับสินค้า / Recipient
             </p>
-            <p className="mt-1.5 text-black font-bold">วันที่ ......../......../........</p>
+            <p className={`${isSuperDense ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap`}>วันที่ ......../......../........</p>
           </div>
           <div className="flex flex-col items-center">
-            <div className="h-8"></div>
-            <p className="text-black font-bold">
-              ลงชื่อ ............................................................ ผู้รับเงิน / Collector
+            <div className={isSuperDense ? 'h-3' : isDense ? 'h-5' : 'h-6'}></div>
+            <p className="text-black font-bold leading-tight whitespace-nowrap">
+              ลงชื่อ .................................................... ผู้รับเงิน / Collector
             </p>
-            <p className="mt-1.5 text-black font-bold">วันที่ ......../......../........</p>
+            <p className={`${isSuperDense ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap`}>วันที่ ......../......../........</p>
           </div>
         </div>
       </div>
@@ -432,6 +468,12 @@ export default function ReceiptView({
   const [alertOpen, setAlertOpen] = useState<boolean>(false);
   const [alertTitle, setAlertTitle] = useState<string>('');
   const [alertMessage, setAlertMessage] = useState<string>('');
+
+  // Custom Item Modal states
+  const [showCustomItemModal, setShowCustomItemModal] = useState<boolean>(false);
+  const [customName, setCustomName] = useState<string>('');
+  const [customPrice, setCustomPrice] = useState<string>('');
+  const [customQty, setCustomQty] = useState<string>('1');
 
   // Allow both admin and employee to use all subtabs (no restriction)
   useEffect(() => {
@@ -582,6 +624,13 @@ export default function ReceiptView({
   }, [invoiceId, allSales, customers, setItems, setDiscount]);
 
   const handleSelectItem = (product: Product) => {
+    if (items.length >= 25 && !items.some(item => item.product.id === product.id)) {
+      setAlertTitle('ครบจำนวน 25 รายการแล้ว');
+      setAlertMessage('สามารถใส่รายการสินค้าได้สูงสุด 25 รายการต่อ 1 ใบเสร็จ เพื่อให้จัดพิมพ์ลงใน 1 หน้าได้อย่างสมบูรณ์');
+      setAlertOpen(true);
+      return;
+    }
+
     setItems((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing) {
@@ -593,8 +642,121 @@ export default function ReceiptView({
       }
     });
 
+    if (items.length >= 8 && paperSize !== '9.5x11') {
+      handlePaperSizeChange('9.5x11');
+    }
+
     setSearchQuery('');
     setShowDropdown(false);
+  };
+
+  const handleAddCustomItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (items.length >= 25) {
+      setAlertTitle('ครบจำนวน 25 รายการแล้ว');
+      setAlertMessage('สามารถใส่รายการสินค้าได้สูงสุด 25 รายการต่อ 1 ใบเสร็จ เพื่อให้จัดพิมพ์ลงใน 1 หน้าได้อย่างสมบูรณ์');
+      setAlertOpen(true);
+      return;
+    }
+    if (!customName.trim()) {
+      setAlertTitle('กรุณาระบุข้อมูล');
+      setAlertMessage('กรุณาระบุชื่อสินค้าหรือรายการ');
+      setAlertOpen(true);
+      return;
+    }
+    const priceVal = parseFloat(customPrice);
+    if (isNaN(priceVal) || priceVal < 0) {
+      setAlertTitle('ข้อมูลไม่ถูกต้อง');
+      setAlertMessage('กรุณาระบุราคาที่ถูกต้อง');
+      setAlertOpen(true);
+      return;
+    }
+    const qtyVal = parseInt(customQty, 10) || 1;
+    const customProduct: Product = {
+      id: `custom-${Date.now()}`,
+      name: customName.trim(),
+      price: priceVal,
+      stock: 9999,
+      category: 'ทั่วไป',
+      imageUrl: '',
+      status: 'พร้อมขาย',
+    };
+    setItems((prev) => [...prev, { product: customProduct, quantity: qtyVal }]);
+    setCustomName('');
+    setCustomPrice('');
+    setCustomQty('1');
+    setShowCustomItemModal(false);
+    if (items.length >= 8 && paperSize !== '9.5x11') {
+      handlePaperSizeChange('9.5x11');
+    }
+  };
+
+  const handleLoadSample25Items = () => {
+    const sampleNames = [
+      'ข้าวหอมมะลิ 100% สุรินทร์ (50 กก.)',
+      'ข้าวหอมมะลิคัดพิเศษ ตราฉัตรทอง (50 กก.)',
+      'ข้าวสารขาว 5% พิษณุโลก (50 กก.)',
+      'ข้าวสารขาว 15% บรรจุกระสอบ (50 กก.)',
+      'ข้าวเหนียวเขี้ยวงู เชียงราย (50 กก.)',
+      'ข้าวเหนียว กข.6 ขอนแก่น (50 กก.)',
+      'ข้าวกล้องหอมมะลิเพื่อสุขภาพ (5 กก.)',
+      'ข้าวไรซ์เบอร์รี่เกรด A (5 กก.)',
+      'ข้าวหอมปทุมธานี ชั้น 1 (50 กก.)',
+      'ข้าวเสาไห้แท้ สระบุรี (50 กก.)',
+      'ข้าวหอมมะลิเก่าค้างปี (50 กก.)',
+      'ปลายข้าวขาว บีทู สำหรับทำโจ๊ก (50 กก.)',
+      'ปลายข้าวเหนียว สำหรับทำแป้ง (50 กก.)',
+      'รำข้าวสกัดละเอียด (กระสอบ 40 กก.)',
+      'แกลบดิบสำหรับการเกษตร (กระสอบใหญ่)',
+      'ข้าวสารเสาไห้แท้ (15 กก.)',
+      'ข้าวหอมมะลิใหม่ต้นฤดู (15 กก.)',
+      'ข้าวขาวคัดพิเศษ ตราส้มโอ (50 กก.)',
+      'ข้าวเหนียวดำ ลืมผัว อินทรีย์ (1 กก.)',
+      'ข้าวกล้องไรซ์เบอร์รี่ ปลอดสาร (1 กก.)',
+      'ข้าวมันปูแดงคัดพิเศษ (1 กก.)',
+      'ข้าวทับทิมชุมแพ (5 กก.)',
+      'ข้าว กข.43 ดัชนีน้ำตาลต่ำ (5 กก.)',
+      'กระสอบพลาสติกสานบรรจุ 50 กก. (10 ใบ)',
+      'ค่าบริการจัดส่งสินค้าถึงปลายทาง (รอบพิเศษ)',
+    ];
+
+    const sampleItems: CartItem[] = sampleNames.map((name, idx) => ({
+      product: {
+        id: `sample-${idx + 1}`,
+        name,
+        price: 250 + ((idx * 65) % 1100),
+        stock: 50,
+        category: 'ข้าวสาร',
+        imageUrl: '',
+        status: 'พร้อมขาย',
+      },
+      quantity: 1 + (idx % 4),
+    }));
+
+    setItems(sampleItems);
+    handlePaperSizeChange('9.5x11');
+  };
+
+  const handleClearAllItems = () => {
+    setItems([]);
+  };
+
+  const updateItemPrice = (productId: string, priceStr: string) => {
+    const price = parseFloat(priceStr);
+    if (isNaN(price) || price < 0) return;
+    setItems((prev) =>
+      prev.map((i) =>
+        i.product.id === productId ? { ...i, product: { ...i.product, price } } : i
+      )
+    );
+  };
+
+  const updateItemName = (productId: string, name: string) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.product.id === productId ? { ...i, product: { ...i.product, name } } : i
+      )
+    );
   };
 
   const handleCancelReceipt = (sale: Sale) => {
@@ -798,10 +960,14 @@ export default function ReceiptView({
         const prodDataList: { ref: any; newStock: number; newStatus: string }[] = [];
         
         for (const item of items) {
+          // If custom item or sample item, bypass product catalog stock check
+          if (item.product.id.startsWith('custom-') || item.product.id.startsWith('sample-')) {
+            continue;
+          }
           const prodRef = doc(db, 'products', item.product.id);
           const prodDoc = await transaction.get(prodRef);
           if (!prodDoc.exists()) {
-            throw new Error(`ไม่พบสินค้า: ${item.product.name}`);
+            continue;
           }
           const currentStock = prodDoc.data().stock || 0;
           if (currentStock < item.quantity) {
@@ -1093,6 +1259,119 @@ export default function ReceiptView({
           {/* Left Column: Product Search & Cart Editor (Span 6/12) */}
           <div className="lg:col-span-6 flex flex-col gap-6">
             
+            {/* Product Search & Add Panel */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col gap-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Search className="w-4 h-4 text-slate-700" />
+                  <h3 className="text-sm font-bold text-slate-900">ค้นหาและเพิ่มรายการสินค้า</h3>
+                </div>
+                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md ${
+                  items.length >= 25 ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-slate-100 text-slate-700'
+                }`}>
+                  {items.length}/25 รายการ (สูงสุด 1 หน้า)
+                </span>
+              </div>
+
+              {/* Search Bar with live dropdown */}
+              <div className="relative">
+                <div className="relative flex items-center">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => {
+                      if (searchQuery.trim() !== '') setShowDropdown(true);
+                    }}
+                    placeholder="พิมพ์ชื่อสินค้าหรือรหัสสินค้า เพื่อค้นหา..."
+                    className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setShowDropdown(false);
+                      }}
+                      className="absolute right-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Dropdown Results */}
+                {showDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-30 max-h-64 overflow-y-auto divide-y divide-slate-100">
+                    {searchResults.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-500">
+                        ไม่พบสินค้าที่ตรงกับคำค้นหา
+                      </div>
+                    ) : (
+                      searchResults.map((prod) => (
+                        <div
+                          key={prod.id}
+                          onClick={() => handleSelectItem(prod)}
+                          className="px-4 py-2.5 hover:bg-slate-50 flex items-center justify-between cursor-pointer transition-colors"
+                        >
+                          <div className="min-w-0 pr-3">
+                            <p className="text-xs font-bold text-slate-900 truncate">{prod.name}</p>
+                            <p className="text-[10px] text-slate-500">รหัส: {prod.id} • คงเหลือ: {prod.stock} ชิ้น</p>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="text-xs font-black text-slate-900 font-mono">฿{prod.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            <span className="px-2 py-1 rounded bg-slate-950 text-white text-[10px] font-bold">+ เพิ่ม</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Select & Actions */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                <select
+                  onChange={(e) => {
+                    const found = products.find(p => p.id === e.target.value);
+                    if (found) {
+                      handleSelectItem(found);
+                      e.target.value = '';
+                    }
+                  }}
+                  defaultValue=""
+                  className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none bg-white transition-all cursor-pointer"
+                >
+                  <option value="" disabled>-- เลือกจากสินค้าในคลัง --</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} (฿{p.price.toFixed(2)})
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => setShowCustomItemModal(true)}
+                  className="px-3 py-2 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors shrink-0"
+                >
+                  <PackagePlus className="w-3.5 h-3.5 text-slate-600" />
+                  <span>+ รายการเอง</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleLoadSample25Items}
+                  title="ใส่ตัวอย่างสินค้า 25 รายการทันที เพื่อทดสอบการพิมพ์และดูหน้าตา 1 หน้า"
+                  className="px-3 py-2 rounded-xl border border-amber-200 hover:border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-colors shrink-0"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                  <span>ตัวอย่าง 25 รายการ</span>
+                </button>
+              </div>
+            </div>
+
             {/* Customer Information Panel */}
             <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col gap-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -1213,84 +1492,118 @@ export default function ReceiptView({
             {/* List Table of Chosen Items */}
             <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden flex flex-col">
               <div className="px-5 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                <h3 className="text-sm font-bold text-slate-900">รายการสินค้า</h3>
-                <span className="text-xs font-bold text-slate-700 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-                  {items.length} รายการ
-                </span>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-900">รายการสินค้าในบิล</h3>
+                  <span className={`text-xs font-bold px-2.5 py-0.5 rounded-lg border ${
+                    items.length >= 25 
+                      ? 'bg-rose-50 text-rose-700 border-rose-200' 
+                      : 'bg-white text-slate-700 border-slate-200'
+                  }`}>
+                    {items.length} / 25 รายการ
+                  </span>
+                </div>
+                {items.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAllItems}
+                    className="text-xs text-red-600 hover:text-red-700 hover:underline font-bold cursor-pointer transition-colors"
+                  >
+                    ล้างรายการทั้งหมด
+                  </button>
+                )}
               </div>
 
               {items.length === 0 ? (
-                <div className="py-24 text-center text-slate-400 flex flex-col items-center justify-center">
+                <div className="py-20 text-center text-slate-400 flex flex-col items-center justify-center">
                   <Printer className="w-12 h-12 mb-3 stroke-[1.5]" />
-                  <p className="text-sm font-bold text-slate-600">ยังไม่มีรายการสินค้า</p>
-                  <p className="text-xs mt-1 text-slate-400">ค้นหาสินค้าด้านบนเพื่อสร้างรายการใบเสร็จ</p>
+                  <p className="text-sm font-bold text-slate-600">ยังไม่มีรายการสินค้าในบิล</p>
+                  <p className="text-xs mt-1 text-slate-400">ค้นหาหรือเลือกสินค้าด้านบน หรือกด "ตัวอย่าง 25 รายการ" เพื่อทดสอบ</p>
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
                   {/* Table headers */}
-                  <div className="hidden sm:grid grid-cols-12 gap-4 px-5 py-2.5 bg-slate-100/70 text-[11px] font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200">
-                    <div className="col-span-5">สินค้า</div>
+                  <div className="grid grid-cols-12 gap-2 px-4 py-2.5 bg-slate-100/70 text-[11px] font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200">
+                    <div className="col-span-1 text-center">ลำดับ</div>
+                    <div className="col-span-4">สินค้า</div>
                     <div className="col-span-2 text-right">ราคา/หน่วย</div>
                     <div className="col-span-2 text-center">จำนวน</div>
-                    <div className="col-span-2 text-right">รวม</div>
+                    <div className="col-span-2 text-right pr-2">รวมเงิน</div>
                     <div className="col-span-1 text-center">ลบ</div>
                   </div>
 
                   {/* Rows */}
-                  {items.map((i) => (
-                    <div key={i.product.id} className="grid grid-cols-1 sm:grid-cols-12 gap-4 px-5 py-4 items-center hover:bg-slate-50/50 transition-colors">
-                      {/* Product Column */}
-                      <div className="col-span-5 flex items-center">
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold text-slate-900 font-mono truncate">{i.product.name}</p>
-                        </div>
+                  {items.map((i, idx) => (
+                    <div key={i.product.id} className="grid grid-cols-12 gap-2 px-4 py-2 items-center hover:bg-slate-50/70 transition-colors text-xs border-b border-slate-100 last:border-b-0">
+                      {/* Item No */}
+                      <div className="col-span-1 flex justify-center items-center text-slate-400 font-mono font-bold text-[11px]">
+                        {idx + 1}
+                      </div>
+
+                      {/* Product Name */}
+                      <div className="col-span-4 flex items-center min-w-0 pr-1">
+                        <input
+                          type="text"
+                          value={i.product.name}
+                          onChange={(e) => updateItemName(i.product.id, e.target.value)}
+                          className="w-full text-xs font-bold text-slate-900 border-none bg-transparent hover:bg-slate-100/80 focus:bg-white focus:ring-1 focus:ring-slate-400 rounded px-1.5 py-1 transition-colors truncate"
+                          title={i.product.name}
+                        />
                       </div>
 
                       {/* Price Column */}
-                      <div className="col-span-2 flex sm:justify-end justify-between items-center">
-                        <span className="sm:hidden text-xs text-slate-500 font-bold">ราคา:</span>
-                        <span className="text-sm font-bold text-slate-900 font-mono">{i.product.price.toFixed(2)}</span>
+                      <div className="col-span-2 flex justify-end items-center">
+                        <div className="flex items-center gap-0.5 justify-end w-full">
+                          <span className="text-slate-400 text-[10px]">฿</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={i.product.price}
+                            onChange={(e) => updateItemPrice(i.product.id, e.target.value)}
+                            className="w-16 text-right text-xs font-bold font-mono text-slate-900 border-none bg-transparent hover:bg-slate-100/80 focus:bg-white focus:ring-1 focus:ring-slate-400 rounded px-1 py-0.5"
+                          />
+                        </div>
                       </div>
 
                       {/* Quantity Controls */}
                       <div className="col-span-2 flex justify-center items-center">
-                        <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-sm">
+                        <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-xs">
                           <button
                             onClick={() => incrementQuantity(i.product.id, -1)}
-                            className="p-1.5 hover:bg-slate-50 text-slate-700 cursor-pointer transition-colors"
+                            className="p-1 hover:bg-slate-100 text-slate-700 cursor-pointer transition-colors"
                           >
-                            <Minus className="w-3 h-3" />
+                            <Minus className="w-2.5 h-2.5" />
                           </button>
                           <input
                             type="text"
                             value={i.quantity}
                             onChange={(e) => updateQuantity(i.product.id, e.target.value)}
-                            className="w-8 text-center border-none text-sm font-bold text-slate-900 p-0 focus:ring-0 bg-transparent font-mono"
+                            className="w-7 text-center border-none text-xs font-bold text-slate-900 p-0 focus:ring-0 bg-transparent font-mono"
                           />
                           <button
                             onClick={() => incrementQuantity(i.product.id, 1)}
-                            className="p-1.5 hover:bg-slate-50 text-slate-700 cursor-pointer transition-colors"
+                            className="p-1 hover:bg-slate-100 text-slate-700 cursor-pointer transition-colors"
                           >
-                            <Plus className="w-3 h-3" />
+                            <Plus className="w-2.5 h-2.5" />
                           </button>
                         </div>
                       </div>
 
-                      {/* Subtotal Column */}
-                      <div className="col-span-2 flex sm:justify-end justify-between items-center">
-                        <span className="sm:hidden text-xs text-slate-500 font-bold">รวม:</span>
-                        <span className="text-sm font-bold text-slate-900 font-mono">
-                          {(i.product.price * i.quantity).toFixed(2)}
+                      {/* Subtotal Column - allocated 2 columns so numbers never wrap into another line */}
+                      <div className="col-span-2 flex justify-end items-center pr-2">
+                        <span className="text-xs font-bold text-slate-900 font-mono whitespace-nowrap">
+                          {(i.product.price * i.quantity).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
 
                       {/* Delete Action Column */}
-                      <div className="col-span-1 flex justify-end sm:justify-center">
+                      <div className="col-span-1 flex justify-center">
                         <button
                           onClick={() => removeItem(i.product.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg cursor-pointer transition-colors"
+                          className="p-1 text-slate-400 hover:text-red-600 rounded cursor-pointer transition-colors"
+                          title="ลบรายการนี้"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
@@ -1334,6 +1647,26 @@ export default function ReceiptView({
                     <span>9.5" x 5.5" (ครึ่งหน้า)</span>
                   </button>
                 </div>
+
+                {/* Auto recommendation alert if > 8 items on half page */}
+                {items.length > 8 && paperSize === '9.5x5.5' && (
+                  <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-800">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-bold">มีรายการสินค้า {items.length} รายการ (เกิน 8 รายการ)</p>
+                      <p className="text-[11px] text-amber-700 mt-0.5">
+                        แนะนำให้เลือกกระดาษขนาด <strong>9.5" x 11" (เต็มหน้า)</strong> เพื่อให้ทุกรายการแสดงพอดีใน 1 แผ่นโดยไม่ล้น
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handlePaperSizeChange('9.5x11')}
+                        className="mt-2 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-[11px] shadow-xs cursor-pointer transition-colors"
+                      >
+                        สลับเป็นขนาด 9.5" x 11"
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-between py-1.5 border-t border-slate-100">
@@ -1528,12 +1861,15 @@ export default function ReceiptView({
               .dot-matrix-print-target {
                 width: 100% !important;
                 max-width: 100% !important;
-                min-height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
-                height: auto !important;
+                height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
+                max-height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
                 margin: 0 !important;
-                padding: 6mm 10mm !important;
+                padding: ${items.length > 18 ? '4mm 8mm' : items.length > 10 ? '5mm 9mm' : '6mm 10mm'} !important;
                 box-sizing: border-box !important;
-                overflow: visible !important;
+                overflow: hidden !important;
+                page-break-inside: avoid !important;
+                page-break-after: avoid !important;
+                page-break-before: avoid !important;
               }
             }
           `}</style>
@@ -1593,6 +1929,92 @@ export default function ReceiptView({
               netTotal={netTotal}
               isPrintPortal={false}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Custom Item Modal */}
+      {showCustomItemModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-100 flex flex-col gap-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <PackagePlus className="w-5 h-5 text-slate-800" />
+                <h3 className="font-bold text-base text-slate-900">เพิ่มรายการสินค้ากำหนดเอง</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCustomItemModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddCustomItem} className="flex flex-col gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  ชื่อสินค้า / รายการ <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                  placeholder="เช่น ข้าวหอมมะลิคัดพิเศษ, ค่าขนส่งรอบพิเศษ ฯลฯ"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    ราคาต่อหน่วย (บาท) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    required
+                    value={customPrice}
+                    onChange={(e) => setCustomPrice(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold font-mono text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    จำนวน <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={customQty}
+                    onChange={(e) => setCustomQty(e.target.value)}
+                    placeholder="1"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold font-mono text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCustomItemModal(false)}
+                  className="flex-1 py-2.5 border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm transition-colors cursor-pointer"
+                >
+                  + เพิ่มในใบเสร็จ
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
