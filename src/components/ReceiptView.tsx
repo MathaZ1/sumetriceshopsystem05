@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { db, handleFirestoreError, OperationType, auth, getNextInvoiceNumber } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, query, orderBy, updateDoc, runTransaction } from 'firebase/firestore';
 import { Product, CartItem, Customer, Sale, SaleItem } from '../types';
-import { Search, Plus, Minus, Trash2, Printer, CheckCircle2, User, MapPin, FileText, Users, Ban, RefreshCw, Eye, Tag, Receipt } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, Printer, CheckCircle2, User, MapPin, FileText, Users, Ban, RefreshCw, Eye, Tag, Receipt, Maximize2, X } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 
 function thaiBaht(num: number): string {
@@ -70,6 +70,242 @@ function thaiBaht(num: number): string {
   return intResult + decResult;
 }
 
+interface ContinuousReceiptPaperProps {
+  paperSize: '9.5x11' | '9.5x5.5';
+  printPinhole: boolean;
+  invoiceNumber: string;
+  todayStr: string;
+  custName: string;
+  custAddress: string;
+  custPhone: string;
+  custTaxId: string;
+  items: CartItem[];
+  total: number;
+  discount: number;
+  netTotal: number;
+  isPrintPortal?: boolean;
+}
+
+function ContinuousReceiptPaper({
+  paperSize,
+  printPinhole,
+  invoiceNumber,
+  todayStr,
+  custName,
+  custAddress,
+  custPhone,
+  custTaxId,
+  items,
+  total,
+  discount,
+  netTotal,
+  isPrintPortal = false,
+}: ContinuousReceiptPaperProps) {
+  return (
+    <div
+      className={`dot-matrix-print-target print-receipt-card bg-[#ffffff] border border-stone-300 ${
+        isPrintPortal ? '' : 'rounded-xl shadow-lg'
+      } p-6 font-mono text-[14px] text-black select-all flex flex-col justify-between overflow-visible relative ${
+        printPinhole ? 'print-pinholes-visible' : ''
+      }`}
+      style={{
+        width: '912px',
+        minHeight: paperSize === '9.5x11' ? '1056px' : '528px',
+        boxSizing: 'border-box',
+      }}
+    >
+      {/* Continuous Form Pinhole Margins (Left Strip) */}
+      {printPinhole && (
+        <div className="print-pinholes absolute left-0 top-0 bottom-0 w-8 border-r border-dashed border-stone-300 bg-stone-100/40 flex flex-col justify-around items-center py-4 z-10">
+          {[...Array(paperSize === '9.5x11' ? 12 : 6)].map((_, idx) => (
+            <div
+              key={`pin-l-${idx}`}
+              className="w-2.5 h-2.5 rounded-full bg-white border border-stone-300 shadow-inner"
+            ></div>
+          ))}
+        </div>
+      )}
+
+      {/* Continuous Form Pinhole Margins (Right Strip) */}
+      {printPinhole && (
+        <div className="print-pinholes absolute right-0 top-0 bottom-0 w-8 border-l border-dashed border-stone-300 bg-stone-100/40 flex flex-col justify-around items-center py-4 z-10">
+          {[...Array(paperSize === '9.5x11' ? 12 : 6)].map((_, idx) => (
+            <div
+              key={`pin-r-${idx}`}
+              className="w-2.5 h-2.5 rounded-full bg-white border border-stone-300 shadow-inner"
+            ></div>
+          ))}
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className={`${printPinhole && !isPrintPortal ? 'mx-6' : 'mx-0'} h-full flex flex-col justify-between gap-2.5 w-full`}>
+        {/* Top Header Block */}
+        <div className="flex justify-between items-start border-b-2 border-black pb-2.5">
+          <div>
+            <h3 className="font-black text-black text-[18px] tracking-wide">ร้านสุเมธค้าข้าว</h3>
+            <p className="text-[14px] font-bold text-black mt-0.5 leading-tight">
+              ถ.จุลจอมเกล้า ต.ท่าข้าม อ.พุนพิน จ.สุราษฎร์ธานี 84130
+            </p>
+            <p className="text-[14px] font-bold text-black mt-0.5 leading-tight">
+              สาขาโค้งวัดดอนกระถิน โทร : <span className="font-black text-black">077-441628</span> / สาขาดอนเนียง โทร :{' '}
+              <span className="font-black text-black">098-6785002</span>
+            </p>
+          </div>
+
+          <div className="text-right flex flex-col items-end gap-0.5">
+            <div className="font-black text-[18px] text-black tracking-wider">
+              ใบเสร็จรับเงิน / RECEIPT
+            </div>
+            <div className="text-[14px] text-black mt-0.5 flex flex-col gap-0.5 items-end font-bold font-mono">
+              <div>
+                เลขที่บิล / Invoice No : <span className="text-black font-black text-[14px]">{invoiceNumber}</span>
+              </div>
+              <div>
+                วันที่ / Date : <span className="text-black font-black text-[14px]">{todayStr}</span>
+              </div>
+              <div>
+                หน้า / Page : <span className="text-black font-black text-[14px]">1 / 1</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Customer Information Block */}
+        <div className="py-2.5 bg-transparent grid grid-cols-12 gap-2 text-[14px] leading-relaxed border-b-2 border-black mb-1">
+          <div className="col-span-7 flex flex-col gap-1 pr-2">
+            <div className="flex items-start gap-1.5">
+              <span className="text-black font-bold shrink-0">ลูกค้า / Customer :</span>{' '}
+              <span className="text-black font-black text-[14px]">
+                {custName || 'ลูกค้าทั่วไป (General Cash Customer)'}
+              </span>
+            </div>
+            <div className="flex items-start gap-1.5">
+              <span className="text-black font-bold shrink-0">ที่อยู่ / Address :</span>{' '}
+              <span className="text-black font-bold text-[14px] leading-normal break-words whitespace-pre-wrap">
+                {custAddress || '........................................................................................................'}
+              </span>
+            </div>
+          </div>
+          <div className="col-span-5 flex flex-col gap-1 pl-3 border-l border-black/40">
+            <div className="flex items-start gap-1.5">
+              <span className="text-black font-bold shrink-0">เบอร์โทร / Phone :</span>{' '}
+              <span className="text-black font-black font-mono text-[14px]">
+                {custPhone || '........................'}
+              </span>
+            </div>
+            <div className="flex items-start gap-1.5">
+              <span className="text-black font-bold shrink-0">เลขผู้เสียภาษี / Tax ID :</span>{' '}
+              <span className="text-black font-black font-mono text-[14px]">
+                {custTaxId || '........................'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Items List Table */}
+        <div className="flex-1 min-h-[140px] flex flex-col justify-between mt-1">
+          <table className="w-full text-[14.5px] font-mono border-collapse">
+            <thead>
+              <tr className="text-black font-black text-left border-b-2 border-black pb-1.5 bg-stone-100/60">
+                <th className="py-1.5 text-center w-12 font-black">ลำดับ</th>
+                <th className="py-1.5 px-2 font-black">รายการสินค้า / Description</th>
+                <th className="py-1.5 text-right w-20 font-black">จำนวน</th>
+                <th className="py-1.5 text-right w-28 font-black">หน่วยละ</th>
+                <th className="py-1.5 text-right w-32 pr-1 font-black">จำนวนเงิน (บาท)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-10 text-black font-black text-[15px] italic">
+                    -- ไม่มีรายการในใบเสร็จ / No Items Added --
+                  </td>
+                </tr>
+              ) : (
+                <>
+                  {items.map((i, index) => (
+                    <tr key={i.product.id || index} className="align-top border-b border-stone-200/60">
+                      <td className="text-center py-2 text-black font-bold text-[14.5px]">{index + 1}</td>
+                      <td className="px-2 py-2 font-bold text-black break-words whitespace-pre-wrap text-[14.5px]">
+                        {i.product.name}
+                      </td>
+                      <td className="text-right py-2 font-bold text-black text-[14.5px]">{i.quantity}</td>
+                      <td className="text-right py-2 font-bold text-black text-[14.5px]">
+                        {i.product.price.toFixed(2)}
+                      </td>
+                      <td className="text-right py-2 font-black text-black pr-1 text-[14.5px]">
+                        {(i.product.price * i.quantity).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                  {/* Pads the table with empty rows to preserve standard paper height */}
+                  {items.length < (paperSize === '9.5x11' ? 12 : 5) &&
+                    Array.from({ length: (paperSize === '9.5x11' ? 12 : 5) - items.length }).map((_, idx) => (
+                      <tr key={`empty-row-${idx}`} className="h-[26px]">
+                        <td className="text-center py-1 text-stone-300 font-bold">-</td>
+                        <td className="px-2 py-1 text-stone-300 font-bold">-</td>
+                        <td className="text-right py-1 text-stone-300 font-bold">-</td>
+                        <td className="text-right py-1 text-stone-300 font-bold">-</td>
+                        <td className="text-right py-1 text-stone-300 pr-1 font-bold">-</td>
+                      </tr>
+                    ))}
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Calculations & Baht Text Block */}
+        <div className="grid grid-cols-12 border-t-2 border-black pt-2.5 gap-4">
+          <div className="col-span-7 flex flex-col justify-center">
+            <div className="border border-black/40 rounded px-3 py-2 bg-stone-50/60">
+              <p className="text-[14.5px] text-black font-bold leading-normal">
+                จำนวนเงินตัวอักษร : <span className="text-black font-black">{thaiBaht(netTotal)}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="col-span-5 pl-4 py-0.5 flex flex-col justify-center gap-1 text-[14.5px] font-bold text-black font-mono">
+            <div className="flex justify-between">
+              <span className="font-bold">รวมเงิน / Subtotal :</span>
+              <span className="font-black">{total.toFixed(2)}</span>
+            </div>
+            {discount > 0 && (
+              <div className="flex justify-between text-black font-bold">
+                <span>ส่วนลด / Discount :</span>
+                <span className="font-black">-{discount.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between border-t-2 border-black pt-1 text-[16px] font-black text-black">
+              <span>ยอดสุทธิ / Net Total :</span>
+              <span className="text-[16px] text-black font-black">{netTotal.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Signature fields strip */}
+        <div className="grid grid-cols-2 gap-10 text-center mt-3 border-t-2 border-black/30 pt-2 text-[13.5px] text-black font-bold">
+          <div className="flex flex-col items-center">
+            <div className="h-6"></div>
+            <p className="text-black font-bold">
+              ลงชื่อ ............................................................ ผู้รับสินค้า / Recipient
+            </p>
+            <p className="mt-1 text-black font-bold">วันที่ ......../......../........</p>
+          </div>
+          <div className="flex flex-col items-center">
+            <div className="h-6"></div>
+            <p className="text-black font-bold">
+              ลงชื่อ ............................................................ ผู้รับเงิน / Collector
+            </p>
+            <p className="mt-1 text-black font-bold">วันที่ ......../......../........</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface ReceiptViewProps {
   items?: CartItem[];
   setItems?: React.Dispatch<React.SetStateAction<CartItem[]>>;
@@ -113,6 +349,8 @@ export default function ReceiptView({
   const previewContainerRef = React.useRef<HTMLDivElement>(null);
   const receiptCardRef = React.useRef<HTMLDivElement>(null);
   const [previewScale, setPreviewScale] = useState<number>(1);
+  const [previewZoom, setPreviewZoom] = useState<'fit' | '100'>('fit');
+  const [showFullPreviewModal, setShowFullPreviewModal] = useState<boolean>(false);
 
   useEffect(() => {
     if (!previewContainerRef.current) return;
@@ -1100,200 +1338,97 @@ export default function ReceiptView({
             </div>
             
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-                ภาพตัวอย่างใบเสร็จต่อเนื่อง {paperSize === '9.5x11' ? '9.5" x 11"' : '9.5" x 5.5"'}
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                ภาพตัวอย่างใบเสร็จต่อเนื่อง ({paperSize === '9.5x11' ? '9.5" x 11"' : '9.5" x 5.5"'})
               </span>
-              <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full font-bold">Dot Matrix Format</span>
+              <div className="flex items-center gap-1.5">
+                <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewZoom('fit')}
+                    className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                      previewZoom === 'fit' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    พอดีจอ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewZoom('100')}
+                    className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                      previewZoom === '100' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    ขนาดจริง 100%
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowFullPreviewModal(true)}
+                  title="ดูตัวอย่างเต็มจอ 100%"
+                  className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer border border-slate-200 bg-white shadow-xs"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             {/* Paper Bill Lookalike Preview in Continuous Form layout */}
-            <div ref={previewContainerRef} className="w-full relative print:overflow-visible print:h-auto print:static flex justify-center" style={{ minHeight: `${(paperSize === '9.5x11' ? 1056 : 528) * previewScale}px` }}>
+            {previewZoom === 'fit' ? (
               <div
-                ref={receiptCardRef}
-                style={{
-                  width: '912px',
-                  minHeight: paperSize === '9.5x11' ? '1056px' : '528px',
-                  transform: `scale(${previewScale})`,
-                  transformOrigin: 'top center',
-                  position: 'absolute',
-                  left: '50%',
-                  marginLeft: '-456px',
-                  top: 0,
-                }}
-                className={`dot-matrix-print-target print-receipt-card bg-[#fafaf5] border border-stone-250 rounded-xl p-5 shadow-lg font-mono text-[10px] text-stone-800 select-all flex flex-col justify-between overflow-visible ${printPinhole ? 'print-pinholes-visible' : ''}`}
+                ref={previewContainerRef}
+                className="w-full relative flex justify-center overflow-hidden"
+                style={{ minHeight: `${(paperSize === '9.5x11' ? 1056 : 528) * previewScale}px` }}
               >
-                
-                {/* Continuous Form Pinhole Margins (Left Strip) */}
-                {printPinhole && (
-                  <div className="print-pinholes absolute left-0 top-0 bottom-0 w-8 border-r border-dashed border-stone-300 bg-stone-100/40 flex flex-col justify-around items-center py-4 z-10">
-                    {[...Array(paperSize === '9.5x11' ? 12 : 6)].map((_, idx) => (
-                      <div key={`pin-l-${idx}`} className="w-2.5 h-2.5 rounded-full bg-slate-100 border border-stone-250 shadow-inner"></div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Continuous Form Pinhole Margins (Right Strip) */}
-                {printPinhole && (
-                  <div className="print-pinholes absolute right-0 top-0 bottom-0 w-8 border-l border-dashed border-stone-300 bg-stone-100/40 flex flex-col justify-around items-center py-4 z-10">
-                    {[...Array(paperSize === '9.5x11' ? 12 : 6)].map((_, idx) => (
-                      <div key={`pin-r-${idx}`} className="w-2.5 h-2.5 rounded-full bg-slate-100 border border-stone-250 shadow-inner"></div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Main Content (Offset by pinhole strip widths) */}
-                <div className={`${printPinhole ? 'mx-6' : 'mx-1'} h-full flex flex-col justify-between gap-2`}>
-                  
-                  {/* Top Header Block */}
-                  <div className="flex justify-between items-start border-b-2 border-black pb-2">
-                    <div>
-                      <h3 className="font-black text-black text-[16px] tracking-wide">ร้านสุเมธค้าข้าว</h3>
-                      <p className="text-[13px] font-bold text-black mt-0.5 leading-tight">
-                        ถ.จุลจอมเกล้า ต.ท่าข้าม อ.พุนพิน จ.สุราษฎร์ธานี 84130
-                      </p>
-                      <p className="text-[13px] font-bold text-black mt-0.5 leading-tight">
-                        สาขาโค้งวัดดอนกระถิน โทร : <span className="font-black text-black">077-441628</span> / สาขาดอนเนียง โทร : <span className="font-black text-black">098-6785002</span>
-                      </p>
-                    </div>
-
-                    <div className="text-right flex flex-col items-end gap-0.5">
-                      <div className="font-black text-[15px] text-black tracking-wider">
-                        ใบเสร็จรับเงิน / RECEIPT
-                      </div>
-                      <div className="text-[13px] text-black mt-0.5 flex flex-col gap-0.5 items-end font-bold font-mono">
-                        <div>เลขที่บิล / Invoice No : <span className="text-black font-black text-[13px]">{invoiceNumber}</span></div>
-                        <div>วันที่ / Date : <span className="text-black font-black text-[13px]">{todayStr}</span></div>
-                        <div>หน้า / Page : <span className="text-black font-black text-[13px]">1 / 1</span></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Customer Information Block */}
-                  <div className="py-2 bg-transparent grid grid-cols-12 gap-2 text-[13px] leading-relaxed border-b border-black mb-1">
-                    <div className="col-span-7 flex flex-col gap-1 pr-2">
-                      <div className="flex items-start gap-1">
-                        <span className="text-black font-bold shrink-0">ลูกค้า / Customer :</span>{' '}
-                        <span className="text-black font-bold text-[13px]">
-                          {custName || 'ลูกค้าทั่วไป (General Cash Customer)'}
-                        </span>
-                      </div>
-                      <div className="flex items-start gap-1">
-                        <span className="text-black font-bold shrink-0">ที่อยู่ / Address :</span>{' '}
-                        <span className="text-black font-bold text-[13px] leading-normal break-words whitespace-pre-wrap">
-                          {custAddress || '........................................................................................................'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="col-span-5 flex flex-col gap-1 pl-3 border-l border-black/30">
-                      <div className="flex items-start gap-1">
-                        <span className="text-black font-bold shrink-0">เบอร์โทร / Phone :</span>{' '}
-                        <span className="text-black font-bold font-mono text-[13px]">
-                          {custPhone || '........................'}
-                        </span>
-                      </div>
-                      <div className="flex items-start gap-1">
-                        <span className="text-black font-bold shrink-0">เลขผู้เสียภาษี / Tax ID :</span>{' '}
-                        <span className="text-black font-bold font-mono text-[13px]">
-                          {custTaxId || '........................'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Items List Table (Formatted in standard dot matrix table layout) */}
-                  <div className="flex-1 min-h-[140px] flex flex-col justify-between mt-1">
-                    <table className="w-full text-[13px] font-mono border-collapse">
-                      <thead>
-                        <tr className="text-black font-black text-left border-b-2 border-black pb-1">
-                          <th className="py-1 text-center w-8">ลำดับ</th>
-                          <th className="py-1 px-2">รายการสินค้า / Description</th>
-                          <th className="py-1 text-right w-16">จำนวน</th>
-                          <th className="py-1 text-right w-24">หน่วยละ</th>
-                          <th className="py-1 text-right w-28 pr-1">จำนวนเงิน (บาท)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {items.length === 0 ? (
-                          <tr>
-                            <td colSpan={5} className="text-center py-8 text-black font-bold italic">
-                              -- ไม่มีรายการในใบเสร็จ / No Items Added --
-                            </td>
-                          </tr>
-                        ) : (
-                          <>
-                            {items.map((i, index) => (
-                              <tr key={i.product.id || index} className="align-top">
-                                <td className="text-center py-1.5 text-black font-bold text-[13px]">{index + 1}</td>
-                                <td className="px-2 py-1.5 font-bold text-black break-words whitespace-pre-wrap text-[13px]">{i.product.name}</td>
-                                <td className="text-right py-1.5 font-bold text-black text-[13px]">{i.quantity}</td>
-                                <td className="text-right py-1.5 font-bold text-black text-[13px]">{i.product.price.toFixed(2)}</td>
-                                <td className="text-right py-1.5 font-bold text-black pr-1 text-[13px]">{(i.product.price * i.quantity).toFixed(2)}</td>
-                              </tr>
-                            ))}
-                            {/* Pads the table with empty rows to preserve standard paper height */}
-                            {items.length < (paperSize === '9.5x11' ? 12 : 5) && 
-                              Array.from({ length: (paperSize === '9.5x11' ? 12 : 5) - items.length }).map((_, idx) => (
-                                <tr key={`empty-row-${idx}`} className="h-[22px]">
-                                  <td className="text-center py-1 text-stone-300 font-bold">-</td>
-                                  <td className="px-2 py-1 text-stone-300 font-bold">-</td>
-                                  <td className="text-right py-1 text-stone-300 font-bold">-</td>
-                                  <td className="text-right py-1 text-stone-300 font-bold">-</td>
-                                  <td className="text-right py-1 text-stone-300 pr-1 font-bold">-</td>
-                                </tr>
-                              ))
-                            }
-                          </>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Calculations & Words Summary Grid */}
-                  <div className="grid grid-cols-12 border-t-2 border-black pt-2 gap-4">
-                    {/* Left part: Baht text */}
-                    <div className="col-span-7 flex flex-col justify-center py-0.5">
-                      <div className="px-1 py-1 text-[13px] text-black font-bold leading-normal">
-                        จำนวนเงินตัวอักษร : <span className="text-black font-black">{thaiBaht(netTotal)}</span>
-                      </div>
-                    </div>
-
-                    {/* Right part: Price totals */}
-                    <div className="col-span-5 pl-4 py-0.5 flex flex-col justify-center gap-1.5 text-[13px] font-bold text-black font-mono">
-                      <div className="flex justify-between">
-                        <span>รวมเงิน / Subtotal :</span>
-                        <span className="text-black font-bold text-[13px]">{total.toFixed(2)}</span>
-                      </div>
-                      {discount > 0 && (
-                        <div className="flex justify-between text-[13px] text-emerald-800 font-bold">
-                          <span>ส่วนลด / Discount :</span>
-                          <span>-{discount.toFixed(2)}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between border-t border-black pt-1 text-[13.5px] font-black text-black">
-                        <span>ยอดสุทธิ / Net Total :</span>
-                        <span className="text-[14px] text-black font-black">{netTotal.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Signature fields strip */}
-                  <div className="grid grid-cols-2 gap-10 text-center mt-2.5 border-t border-black/20 pt-2 text-[12.5px] text-black font-bold">
-                    <div className="flex flex-col items-center">
-                      <div className="h-5"></div> {/* Space for real physical signature */}
-                      <p className="text-black font-bold">ลงชื่อ ............................................................ ผู้รับสินค้า / Recipient</p>
-                      <p className="mt-0.5 text-black font-bold">วันที่ ......../......../........</p>
-                    </div>
-                    <div className="flex flex-col items-center">
-                      <div className="h-5"></div> {/* Space for real physical signature */}
-                      <p className="text-black font-bold">ลงชื่อ ............................................................ ผู้รับเงิน / Collector</p>
-                      <p className="mt-0.5 text-black font-bold">วันที่ ......../......../........</p>
-                    </div>
-                  </div>
-
+                <div
+                  ref={receiptCardRef}
+                  style={{
+                    width: '912px',
+                    minHeight: paperSize === '9.5x11' ? '1056px' : '528px',
+                    transform: `scale(${previewScale})`,
+                    transformOrigin: 'top center',
+                    position: 'absolute',
+                    left: '50%',
+                    marginLeft: '-456px',
+                    top: 0,
+                  }}
+                >
+                  <ContinuousReceiptPaper
+                    paperSize={paperSize}
+                    printPinhole={printPinhole}
+                    invoiceNumber={invoiceNumber}
+                    todayStr={todayStr}
+                    custName={custName}
+                    custAddress={custAddress}
+                    custPhone={custPhone}
+                    custTaxId={custTaxId}
+                    items={items}
+                    total={total}
+                    discount={discount}
+                    netTotal={netTotal}
+                    isPrintPortal={false}
+                  />
                 </div>
-
               </div>
-            </div>
+            ) : (
+              <div className="w-full overflow-x-auto overflow-y-auto max-h-[620px] border border-slate-200 rounded-2xl bg-slate-100/70 p-4 flex justify-start shadow-inner">
+                <ContinuousReceiptPaper
+                  paperSize={paperSize}
+                  printPinhole={printPinhole}
+                  invoiceNumber={invoiceNumber}
+                  todayStr={todayStr}
+                  custName={custName}
+                  custAddress={custAddress}
+                  custPhone={custPhone}
+                  custTaxId={custTaxId}
+                  items={items}
+                  total={total}
+                  discount={discount}
+                  netTotal={netTotal}
+                  isPrintPortal={false}
+                />
+              </div>
+            )}
 
             {/* Print and Save buttons */}
             <div className="flex flex-col gap-2.5">
@@ -1383,161 +1518,64 @@ export default function ReceiptView({
               }
             }
           `}</style>
-          <div
-            className={`dot-matrix-print-target print-receipt-card bg-[#ffffff] border border-stone-250 p-5 font-mono text-[10px] text-stone-800 flex flex-col justify-between overflow-visible ${printPinhole ? 'print-pinholes-visible' : ''}`}
-          >
-            {/* Main Content */}
-            <div className="mx-0 h-full flex flex-col justify-between gap-2 w-full">
-              
-              {/* Top Header Block */}
-              <div className="flex justify-between items-start border-b-2 border-black pb-2">
-                <div>
-                  <h3 className="font-black text-black text-[16px] tracking-wide">ร้านสุเมธค้าข้าว</h3>
-                  <p className="text-[13px] font-bold text-black mt-0.5 leading-tight">
-                    ถ.จุลจอมเกล้า ต.ท่าข้าม อ.พุนพิน จ.สุราษฎร์ธานี 84130
-                  </p>
-                  <p className="text-[13px] font-bold text-black mt-0.5 leading-tight">
-                    สาขาโค้งวัดดอนกระถิน โทร : <span className="font-black text-black">077-441628</span> / สาขาดอนเนียง โทร : <span className="font-black text-black">098-6785002</span>
-                  </p>
-                </div>
-
-                <div className="text-right flex flex-col items-end gap-0.5">
-                  <div className="font-black text-[15px] text-black tracking-wider">
-                    ใบเสร็จรับเงิน / RECEIPT
-                  </div>
-                  <div className="text-[13px] text-black mt-0.5 flex flex-col gap-0.5 items-end font-bold font-mono">
-                    <div>เลขที่บิล / Invoice No : <span className="text-black font-black text-[13px]">{invoiceNumber}</span></div>
-                    <div>วันที่ / Date : <span className="text-black font-black text-[13px]">{todayStr}</span></div>
-                    <div>หน้า / Page : <span className="text-black font-black text-[13px]">1 / 1</span></div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Customer Information Block */}
-              <div className="py-2 bg-transparent grid grid-cols-12 gap-2 text-[13px] leading-relaxed border-b border-black mb-1">
-                <div className="col-span-7 flex flex-col gap-1 pr-2">
-                  <div className="flex items-start gap-1">
-                    <span className="text-black font-bold shrink-0">ลูกค้า / Customer :</span>{' '}
-                    <span className="text-black font-bold text-[13px]">
-                      {custName || 'ลูกค้าทั่วไป (General Cash Customer)'}
-                    </span>
-                  </div>
-                  <div className="flex items-start gap-1">
-                    <span className="text-black font-bold shrink-0">ที่อยู่ / Address :</span>{' '}
-                    <span className="text-black font-bold text-[13px] leading-normal break-words whitespace-pre-wrap">
-                      {custAddress || '........................................................................................................'}
-                    </span>
-                  </div>
-                </div>
-                <div className="col-span-5 flex flex-col gap-1 pl-3 border-l border-black/30">
-                  <div className="flex items-start gap-1">
-                    <span className="text-black font-bold shrink-0">เบอร์โทร / Phone :</span>{' '}
-                    <span className="text-black font-bold font-mono text-[13px]">
-                      {custPhone || '........................'}
-                    </span>
-                  </div>
-                  <div className="flex items-start gap-1">
-                    <span className="text-black font-bold shrink-0">เลขผู้เสียภาษี / Tax ID :</span>{' '}
-                    <span className="text-black font-bold font-mono text-[13px]">
-                      {custTaxId || '........................'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Items List Table */}
-              <div className="flex-1 min-h-[140px] flex flex-col justify-between mt-1">
-                <table className="w-full text-[13px] font-mono border-collapse">
-                  <thead>
-                    <tr className="text-black font-black text-left border-b-2 border-black pb-1">
-                      <th className="py-1 text-center w-8">ลำดับ</th>
-                      <th className="py-1 px-2">รายการสินค้า / Description</th>
-                      <th className="py-1 text-right w-16">จำนวน</th>
-                      <th className="py-1 text-right w-24">หน่วยละ</th>
-                      <th className="py-1 text-right w-28 pr-1">จำนวนเงิน (บาท)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="text-center py-8 text-black font-bold italic">
-                          -- ไม่มีรายการในใบเสร็จ / No Items Added --
-                        </td>
-                      </tr>
-                    ) : (
-                      <>
-                        {items.map((i, index) => (
-                          <tr key={i.product.id || index} className="align-top">
-                            <td className="text-center py-1.5 text-black font-bold text-[13px]">{index + 1}</td>
-                            <td className="px-2 py-1.5 font-bold text-black break-words whitespace-pre-wrap text-[13px]">{i.product.name}</td>
-                            <td className="text-right py-1.5 font-bold text-black text-[13px]">{i.quantity}</td>
-                            <td className="text-right py-1.5 font-bold text-black text-[13px]">{i.product.price.toFixed(2)}</td>
-                            <td className="text-right py-1.5 font-bold text-black pr-1 text-[13px]">{(i.product.price * i.quantity).toFixed(2)}</td>
-                          </tr>
-                        ))}
-                        {items.length < (paperSize === '9.5x11' ? 12 : 5) && 
-                          Array.from({ length: (paperSize === '9.5x11' ? 12 : 5) - items.length }).map((_, idx) => (
-                            <tr key={`empty-row-portal-${idx}`} className="h-[22px]">
-                              <td className="text-center py-1 text-stone-300 font-bold">-</td>
-                              <td className="px-2 py-1 text-stone-300 font-bold">-</td>
-                              <td className="text-right py-1 text-stone-300 font-bold">-</td>
-                              <td className="text-right py-1 text-stone-300 font-bold">-</td>
-                              <td className="text-right py-1 text-stone-300 pr-1 font-bold">-</td>
-                            </tr>
-                          ))
-                        }
-                      </>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Calculations & Words Summary Grid */}
-              <div className="grid grid-cols-12 border-t-2 border-black pt-2 gap-4">
-                {/* Left part: Baht text */}
-                <div className="col-span-7 flex flex-col justify-center py-0.5">
-                  <div className="px-1 py-1 text-[13px] text-black font-bold leading-normal">
-                    จำนวนเงินตัวอักษร : <span className="text-black font-black">{thaiBaht(netTotal)}</span>
-                  </div>
-                </div>
-
-                {/* Right part: Price totals */}
-                <div className="col-span-5 pl-4 py-0.5 flex flex-col justify-center gap-1.5 text-[13px] font-bold text-black font-mono">
-                  <div className="flex justify-between">
-                    <span>รวมเงิน / Subtotal :</span>
-                    <span className="text-black font-bold text-[13px]">{total.toFixed(2)}</span>
-                  </div>
-                  {discount > 0 && (
-                    <div className="flex justify-between text-[13px] text-emerald-800 font-bold">
-                      <span>ส่วนลด / Discount :</span>
-                      <span>-{discount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between border-t border-black pt-1 text-[13.5px] font-black text-black">
-                    <span>ยอดสุทธิ / Net Total :</span>
-                    <span className="text-[14px] text-black font-black">{netTotal.toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Signature fields strip */}
-              <div className="grid grid-cols-2 gap-10 text-center mt-2.5 border-t border-black/20 pt-2 text-[12.5px] text-black font-bold">
-                <div className="flex flex-col items-center">
-                  <div className="h-5"></div>
-                  <p className="text-black font-bold">ลงชื่อ ............................................................ ผู้รับสินค้า / Recipient</p>
-                  <p className="mt-0.5 text-black font-bold">วันที่ ......../......../........</p>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div className="h-5"></div>
-                  <p className="text-black font-bold">ลงชื่อ ............................................................ ผู้รับเงิน / Collector</p>
-                  <p className="mt-0.5 text-black font-bold">วันที่ ......../......../........</p>
-                </div>
-              </div>
-
-            </div>
-          </div>
+          <ContinuousReceiptPaper
+            paperSize={paperSize}
+            printPinhole={printPinhole}
+            invoiceNumber={invoiceNumber}
+            todayStr={todayStr}
+            custName={custName}
+            custAddress={custAddress}
+            custPhone={custPhone}
+            custTaxId={custTaxId}
+            items={items}
+            total={total}
+            discount={discount}
+            netTotal={netTotal}
+            isPrintPortal={true}
+          />
         </div>,
         document.body
+      )}
+
+      {/* Full 100% Scale Preview Modal */}
+      {showFullPreviewModal && (
+        <div className="fixed inset-0 bg-black/75 z-50 flex flex-col items-center justify-start p-4 sm:p-6 overflow-y-auto backdrop-blur-xs">
+          <div className="w-full max-w-[960px] flex items-center justify-between py-2 text-white mb-3">
+            <div className="flex items-center gap-3">
+              <Receipt className="w-6 h-6 text-emerald-400" />
+              <div>
+                <h3 className="font-bold text-base sm:text-lg">ภาพตัวอย่างใบเสร็จต่อเนื่อง 100% (ตรงตามการพิมพ์จริง 1:1)</h3>
+                <p className="text-xs text-slate-300">
+                  ขนาดกระดาษ {paperSize === '9.5x11' ? '9.5" x 11"' : '9.5" x 5.5"'} • ขนาดตัวหนังสือ ความเข้ม และตำแหน่งตรงตามที่สั่งพิมพ์
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowFullPreviewModal(false)}
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <div className="bg-stone-300/60 p-4 sm:p-6 rounded-2xl shadow-2xl max-w-full overflow-x-auto flex justify-center">
+            <ContinuousReceiptPaper
+              paperSize={paperSize}
+              printPinhole={printPinhole}
+              invoiceNumber={invoiceNumber}
+              todayStr={todayStr}
+              custName={custName}
+              custAddress={custAddress}
+              custPhone={custPhone}
+              custTaxId={custTaxId}
+              items={items}
+              total={total}
+              discount={discount}
+              netTotal={netTotal}
+              isPrintPortal={false}
+            />
+          </div>
+        </div>
       )}
 
       <ConfirmModal
