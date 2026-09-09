@@ -139,64 +139,64 @@ function ContinuousReceiptPaper({
       )}
 
       {/* Main Content */}
-      <div className={`${printPinhole && !isPrintPortal ? 'mx-6' : 'mx-0'} h-full flex flex-col justify-between gap-2.5 w-full`}>
+      <div className={`${printPinhole && !isPrintPortal ? 'mx-6' : 'mx-0'} h-full flex flex-col justify-between gap-3 w-full`}>
         {/* Top Header Block */}
-        <div className="flex justify-between items-start border-b-2 border-black pb-2.5">
+        <div className="flex justify-between items-start pb-2">
           <div>
-            <h3 className="font-black text-black text-[18px] tracking-wide">ร้านสุเมธค้าข้าว</h3>
-            <p className="text-[14px] font-bold text-black mt-0.5 leading-tight">
+            <h3 className="font-black text-black text-[20px] tracking-wide">ร้านสุเมธค้าข้าว</h3>
+            <p className="text-[15px] font-bold text-black mt-0.5 leading-tight">
               ถ.จุลจอมเกล้า ต.ท่าข้าม อ.พุนพิน จ.สุราษฎร์ธานี 84130
             </p>
-            <p className="text-[14px] font-bold text-black mt-0.5 leading-tight">
+            <p className="text-[15px] font-bold text-black mt-0.5 leading-tight">
               สาขาโค้งวัดดอนกระถิน โทร : <span className="font-black text-black">077-441628</span> / สาขาดอนเนียง โทร :{' '}
               <span className="font-black text-black">098-6785002</span>
             </p>
           </div>
 
           <div className="text-right flex flex-col items-end gap-0.5">
-            <div className="font-black text-[18px] text-black tracking-wider">
+            <div className="font-black text-[20px] text-black tracking-wider">
               ใบเสร็จรับเงิน / RECEIPT
             </div>
-            <div className="text-[14px] text-black mt-0.5 flex flex-col gap-0.5 items-end font-bold font-mono">
+            <div className="text-[15px] text-black mt-0.5 flex flex-col gap-0.5 items-end font-bold font-mono">
               <div>
-                เลขที่บิล / Invoice No : <span className="text-black font-black text-[14px]">{invoiceNumber}</span>
+                เลขที่บิล / Invoice No : <span className="text-black font-black text-[15.5px]">{invoiceNumber}</span>
               </div>
               <div>
-                วันที่ / Date : <span className="text-black font-black text-[14px]">{todayStr}</span>
+                วันที่ / Date : <span className="text-black font-black text-[15.5px]">{todayStr}</span>
               </div>
               <div>
-                หน้า / Page : <span className="text-black font-black text-[14px]">1 / 1</span>
+                หน้า / Page : <span className="text-black font-black text-[15.5px]">1 / 1</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Customer Information Block */}
-        <div className="py-2.5 bg-transparent grid grid-cols-12 gap-2 text-[14px] leading-relaxed border-b-2 border-black mb-1">
+        <div className="py-2 bg-transparent grid grid-cols-12 gap-3 leading-relaxed mb-1">
           <div className="col-span-7 flex flex-col gap-1 pr-2">
             <div className="flex items-start gap-1.5">
-              <span className="text-black font-bold shrink-0">ลูกค้า / Customer :</span>{' '}
-              <span className="text-black font-black text-[14px]">
+              <span className="text-black font-bold shrink-0 text-[15.5px]">ลูกค้า / Customer :</span>{' '}
+              <span className="text-black font-black text-[16px]">
                 {custName || 'ลูกค้าทั่วไป (General Cash Customer)'}
               </span>
             </div>
             <div className="flex items-start gap-1.5">
-              <span className="text-black font-bold shrink-0">ที่อยู่ / Address :</span>{' '}
-              <span className="text-black font-bold text-[14px] leading-normal break-words whitespace-pre-wrap">
+              <span className="text-black font-bold shrink-0 text-[15px]">ที่อยู่ / Address :</span>{' '}
+              <span className="text-black font-bold text-[15px] leading-normal break-words whitespace-pre-wrap">
                 {custAddress || '........................................................................................................'}
               </span>
             </div>
           </div>
-          <div className="col-span-5 flex flex-col gap-1 pl-3 border-l border-black/40">
+          <div className="col-span-5 flex flex-col gap-1 pl-3">
             <div className="flex items-start gap-1.5">
-              <span className="text-black font-bold shrink-0">เบอร์โทร / Phone :</span>{' '}
-              <span className="text-black font-black font-mono text-[14px]">
+              <span className="text-black font-bold shrink-0 text-[15px]">เบอร์โทร / Phone :</span>{' '}
+              <span className="text-black font-black font-mono text-[15.5px]">
                 {custPhone || '........................'}
               </span>
             </div>
             <div className="flex items-start gap-1.5">
-              <span className="text-black font-bold shrink-0">เลขผู้เสียภาษี / Tax ID :</span>{' '}
-              <span className="text-black font-black font-mono text-[14px]">
+              <span className="text-black font-bold shrink-0 text-[15px]">เลขผู้เสียภาษี / Tax ID :</span>{' '}
+              <span className="text-black font-black font-mono text-[15.5px]">
                 {custTaxId || '........................'}
               </span>
             </div>
@@ -205,20 +205,20 @@ function ContinuousReceiptPaper({
 
         {/* Items List Table */}
         <div className="flex-1 min-h-[140px] flex flex-col justify-between mt-1">
-          <table className="w-full text-[14.5px] font-mono border-collapse">
+          <table className="w-full text-[16px] font-mono border-collapse">
             <thead>
-              <tr className="text-black font-black text-left border-b-2 border-black pb-1.5 bg-stone-100/60">
-                <th className="py-1.5 text-center w-12 font-black">ลำดับ</th>
-                <th className="py-1.5 px-2 font-black">รายการสินค้า / Description</th>
-                <th className="py-1.5 text-right w-20 font-black">จำนวน</th>
-                <th className="py-1.5 text-right w-28 font-black">หน่วยละ</th>
-                <th className="py-1.5 text-right w-32 pr-1 font-black">จำนวนเงิน (บาท)</th>
+              <tr className="text-black font-black text-left border-y-2 border-black bg-transparent">
+                <th className="py-2 text-center w-14 font-black text-[16px]">ลำดับ</th>
+                <th className="py-2 px-2 font-black text-[16px]">รายการสินค้า / Description</th>
+                <th className="py-2 text-right w-24 font-black text-[16px]">จำนวน</th>
+                <th className="py-2 text-right w-32 font-black text-[16px]">หน่วยละ</th>
+                <th className="py-2 text-right w-36 pr-1 font-black text-[16px]">จำนวนเงิน (บาท)</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-10 text-black font-black text-[15px] italic">
+                  <td colSpan={5} className="text-center py-10 text-black font-black text-[16px] italic">
                     ไม่มีรายการในใบเสร็จ (No Items Added)
                   </td>
                 </tr>
@@ -226,15 +226,15 @@ function ContinuousReceiptPaper({
                 <>
                   {items.map((i, index) => (
                     <tr key={i.product.id || index} className="align-top">
-                      <td className="text-center py-2 text-black font-bold text-[14.5px]">{index + 1}</td>
-                      <td className="px-2 py-2 font-bold text-black break-words whitespace-pre-wrap text-[14.5px]">
+                      <td className="text-center py-2 text-black font-bold text-[16px]">{index + 1}</td>
+                      <td className="px-2 py-2 font-bold text-black break-words whitespace-pre-wrap text-[16px]">
                         {i.product.name}
                       </td>
-                      <td className="text-right py-2 font-bold text-black text-[14.5px]">{i.quantity}</td>
-                      <td className="text-right py-2 font-bold text-black text-[14.5px]">
+                      <td className="text-right py-2 font-bold text-black text-[16px]">{i.quantity}</td>
+                      <td className="text-right py-2 font-bold text-black text-[16px]">
                         {i.product.price.toFixed(2)}
                       </td>
-                      <td className="text-right py-2 font-black text-black pr-1 text-[14.5px]">
+                      <td className="text-right py-2 font-black text-black pr-1 text-[16px]">
                         {(i.product.price * i.quantity).toFixed(2)}
                       </td>
                     </tr>
@@ -242,7 +242,7 @@ function ContinuousReceiptPaper({
                   {/* Pads the table with empty rows to preserve standard paper height without dash lines */}
                   {items.length < (paperSize === '9.5x11' ? 12 : 5) &&
                     Array.from({ length: (paperSize === '9.5x11' ? 12 : 5) - items.length }).map((_, idx) => (
-                      <tr key={`empty-row-${idx}`} className="h-[26px]">
+                      <tr key={`empty-row-${idx}`} className="h-[28px]">
                         <td className="text-center py-1">&nbsp;</td>
                         <td className="px-2 py-1">&nbsp;</td>
                         <td className="text-right py-1">&nbsp;</td>
@@ -257,16 +257,16 @@ function ContinuousReceiptPaper({
         </div>
 
         {/* Calculations & Baht Text Block */}
-        <div className="grid grid-cols-12 border-t-2 border-black pt-2.5 gap-4">
+        <div className="grid grid-cols-12 pt-3 gap-4">
           <div className="col-span-7 flex flex-col justify-center">
-            <div className="border border-black/40 rounded px-3 py-2 bg-stone-50/60">
-              <p className="text-[14.5px] text-black font-bold leading-normal">
+            <div className="px-1 py-1">
+              <p className="text-[15.5px] text-black font-bold leading-normal">
                 จำนวนเงินตัวอักษร : <span className="text-black font-black">{thaiBaht(netTotal)}</span>
               </p>
             </div>
           </div>
 
-          <div className="col-span-5 pl-4 py-0.5 flex flex-col justify-center gap-1 text-[14.5px] font-bold text-black font-mono">
+          <div className="col-span-5 pl-4 py-0.5 flex flex-col justify-center gap-1.5 text-[16px] font-bold text-black font-mono">
             <div className="flex justify-between">
               <span className="font-bold">รวมเงิน / Subtotal :</span>
               <span className="font-black">{total.toFixed(2)}</span>
@@ -277,15 +277,15 @@ function ContinuousReceiptPaper({
                 <span className="font-black">-{discount.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between border-t-2 border-black pt-1 text-[16px] font-black text-black">
+            <div className="flex justify-between border-t-2 border-black pt-1 text-[18px] font-black text-black">
               <span>ยอดสุทธิ / Net Total :</span>
-              <span className="text-[16px] text-black font-black">{netTotal.toFixed(2)}</span>
+              <span className="text-[18px] text-black font-black">{netTotal.toFixed(2)}</span>
             </div>
           </div>
         </div>
 
         {/* Signature fields strip */}
-        <div className="grid grid-cols-2 gap-10 text-center mt-3 border-t-2 border-black/30 pt-2 text-[13.5px] text-black font-bold">
+        <div className="grid grid-cols-2 gap-10 text-center mt-3 pt-2 text-[14.5px] text-black font-bold">
           <div className="flex flex-col items-center">
             <div className="h-6"></div>
             <p className="text-black font-bold">
