@@ -101,243 +101,295 @@ function ContinuousReceiptPaper({
   netTotal,
   isPrintPortal = false,
 }: ContinuousReceiptPaperProps) {
-  const count = items.length;
-  const isSuperDense = count > 18; // 19 - 25 items
-  const isDense = count > 10 && count <= 18; // 11 - 18 items
+  // Number of items fitting on 1 sheet of continuous paper without vertical overflow
+  const itemsPerPage = paperSize === '9.5x11' ? 25 : 12;
+  const totalPages = Math.max(1, Math.ceil(items.length / itemsPerPage));
 
   return (
-    <div
-      className={`dot-matrix-print-target print-receipt-card bg-[#ffffff] border border-stone-300 ${
-        isPrintPortal ? '' : 'rounded-xl shadow-lg'
-      } ${
-        isSuperDense ? 'p-3.5 sm:p-4' : isDense ? 'p-5' : 'p-6 sm:p-7'
-      } font-mono text-black select-all flex flex-col justify-between overflow-hidden relative ${
-        printPinhole ? 'print-pinholes-visible' : ''
-      }`}
-      style={{
-        width: '912px',
-        minHeight: paperSize === '9.5x11' ? '1056px' : '620px',
-        maxHeight: paperSize === '9.5x11' ? '1056px' : '620px',
-        height: paperSize === '9.5x11' ? '1056px' : '620px',
-        boxSizing: 'border-box',
-      }}
-    >
-      {/* Continuous Form Pinhole Margins (Left Strip) */}
-      {printPinhole && (
-        <div className="print-pinholes absolute left-0 top-0 bottom-0 w-8 border-r border-dashed border-stone-300 bg-stone-100/40 flex flex-col justify-around items-center py-4 z-10">
-          {[...Array(paperSize === '9.5x11' ? 14 : 7)].map((_, idx) => (
-            <div
-              key={`pin-l-${idx}`}
-              className="w-2.5 h-2.5 rounded-full bg-white border border-stone-300 shadow-inner"
-            ></div>
-          ))}
-        </div>
-      )}
+    <div className={isPrintPortal ? 'receipt-pages-wrapper' : 'flex flex-col gap-6 w-full'}>
+      {Array.from({ length: totalPages }).map((_, pageIdx) => {
+        const pageItems = items.slice(pageIdx * itemsPerPage, (pageIdx + 1) * itemsPerPage);
+        const isLastPage = pageIdx === totalPages - 1;
+        const count = pageItems.length;
+        const isSuperDense = count > 18;
+        const isDense = count > 10 && count <= 18;
+        const runningSubtotal = items.slice(0, (pageIdx + 1) * itemsPerPage).reduce((sum, it) => sum + (it.product.price * it.quantity), 0);
 
-      {/* Continuous Form Pinhole Margins (Right Strip) */}
-      {printPinhole && (
-        <div className="print-pinholes absolute right-0 top-0 bottom-0 w-8 border-l border-dashed border-stone-300 bg-stone-100/40 flex flex-col justify-around items-center py-4 z-10">
-          {[...Array(paperSize === '9.5x11' ? 14 : 7)].map((_, idx) => (
-            <div
-              key={`pin-r-${idx}`}
-              className="w-2.5 h-2.5 rounded-full bg-white border border-stone-300 shadow-inner"
-            ></div>
-          ))}
-        </div>
-      )}
-
-      {/* Main Content */}
-      <div className={`${printPinhole && !isPrintPortal ? 'mx-6' : 'mx-0'} h-full flex flex-col justify-between ${isSuperDense ? 'gap-1' : isDense ? 'gap-2' : 'gap-3'} w-full overflow-hidden`}>
-        {/* Top Header Block */}
-        <div className={`flex justify-between items-start ${isSuperDense ? 'pb-1' : isDense ? 'pb-2' : 'pb-3'} border-b border-black/15`}>
-          <div>
-            <h3 className={`font-black text-black ${isSuperDense ? 'text-[17px]' : isDense ? 'text-[18.5px]' : 'text-[20px]'} tracking-wide leading-tight`}>
-              ร้านสุเมธค้าข้าว
-            </h3>
-            <p className={`${isSuperDense ? 'text-[12px] mt-0.5' : isDense ? 'text-[13.5px] mt-0.5' : 'text-[15px] mt-1'} font-bold text-black leading-tight`}>
-              ถ.จุลจอมเกล้า ต.ท่าข้าม อ.พุนพิน จ.สุราษฎร์ธานี 84130
-            </p>
-            <p className={`${isSuperDense ? 'text-[12px] mt-0.5' : isDense ? 'text-[13.5px] mt-0.5' : 'text-[15px] mt-1'} font-bold text-black leading-tight`}>
-              สาขาโค้งวัดดอนกระถิน โทร : <span className="font-black text-black">077-441628</span> / สาขาดอนเนียง โทร :{' '}
-              <span className="font-black text-black">098-6785002</span>
-            </p>
-          </div>
-
-          <div className="text-right flex flex-col items-end gap-0.5">
-            <div className={`font-black ${isSuperDense ? 'text-[17px]' : isDense ? 'text-[18.5px]' : 'text-[20px]'} text-black tracking-wider leading-tight`}>
-              ใบเสร็จรับเงิน / RECEIPT
-            </div>
-            <div className={`${isSuperDense ? 'text-[12px] gap-0.5' : isDense ? 'text-[13.5px] gap-0.5' : 'text-[15px] gap-1'} text-black mt-0.5 flex flex-col items-end font-bold font-mono`}>
-              <div>
-                เลขที่บิล / Invoice No : <span className="text-black font-black">{invoiceNumber}</span>
-              </div>
-              <div>
-                วันที่ / Date : <span className="text-black font-black">{todayStr}</span>
-              </div>
-              <div>
-                หน้า / Page : <span className="text-black font-black">1 / 1</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Customer Information Block */}
-        <div className={`${isSuperDense ? 'py-1 gap-1 text-[12px]' : isDense ? 'py-1.5 gap-1.5 text-[13px]' : 'py-2 gap-2 text-[14.5px]'} bg-transparent flex flex-col leading-tight border-b border-black/15 pb-1`}>
-          {/* Row 1: Customer Name, Phone, and Tax ID */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-1.5 flex-1 min-w-0">
-              <span className="text-black font-bold shrink-0 whitespace-nowrap">ลูกค้า / Customer :</span>
-              <span className="text-black font-black truncate">
-                {custName || 'ลูกค้าทั่วไป (General Cash Customer)'}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-black font-bold shrink-0 whitespace-nowrap">เบอร์โทร / Phone :</span>
-              <span className="text-black font-black font-mono">
-                {custPhone || '-'}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-black font-bold shrink-0 whitespace-nowrap">เลขผู้เสียภาษี / Tax ID :</span>
-              <span className="text-black font-black font-mono">
-                {custTaxId || '-'}
-              </span>
-            </div>
-          </div>
-
-          {/* Row 2: Customer Address (Full width for complete information without overflowing into other rows) */}
-          <div className="flex items-start gap-1.5 w-full min-w-0">
-            <span className="text-black font-bold shrink-0 whitespace-nowrap">ที่อยู่ / Address :</span>
-            <span className="text-black font-bold break-words flex-1 leading-snug" title={custAddress || ''}>
-              {custAddress || '................................................................................................................................................'}
-            </span>
-          </div>
-        </div>
-
-        {/* Items List Table (Supports up to 25 items on 1 page without row overflowing) */}
-        <div className="flex-1 flex flex-col justify-start my-0.5 overflow-hidden">
-          <table className="w-full font-mono border-collapse table-fixed">
-            <thead>
-              <tr className={`text-black font-black text-left bg-transparent border-y-2 border-black ${isSuperDense ? 'text-[12px]' : isDense ? 'text-[13.5px]' : 'text-[15px]'}`}>
-                <th className={`${isSuperDense ? 'py-1' : isDense ? 'py-1.5' : 'py-2'} text-center w-[48px] font-black whitespace-nowrap`}>ลำดับ</th>
-                <th className={`${isSuperDense ? 'py-1 px-2' : isDense ? 'py-1.5 px-3' : 'py-2 px-3'} font-black whitespace-nowrap`}>รายการสินค้า / Description</th>
-                <th className={`${isSuperDense ? 'py-1' : isDense ? 'py-1.5' : 'py-2'} text-right w-[72px] font-black whitespace-nowrap`}>จำนวน</th>
-                <th className={`${isSuperDense ? 'py-1' : isDense ? 'py-1.5' : 'py-2'} text-right w-[110px] font-black whitespace-nowrap`}>หน่วยละ</th>
-                <th className={`${isSuperDense ? 'py-1 pr-1' : isDense ? 'py-1.5 pr-2' : 'py-2 pr-2'} text-right w-[138px] font-black whitespace-nowrap`}>จำนวนเงิน (บาท)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="text-center py-10 text-black font-black text-[15px] italic">
-                    ไม่มีรายการในใบเสร็จ (No Items Added)
-                  </td>
-                </tr>
-              ) : (
-                <>
-                  {items.slice(0, 25).map((i, index) => (
-                    <tr
-                      key={i.product.id || index}
-                      className={`align-middle ${
-                        isSuperDense
-                          ? 'text-[11.5px] leading-tight'
-                          : isDense
-                          ? 'text-[13px] leading-tight'
-                          : 'text-[14.5px] leading-normal'
-                      }`}
-                    >
-                      <td className={`text-center ${isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'} text-black font-bold whitespace-nowrap`}>
-                        {index + 1}
-                      </td>
-                      <td className={`px-2 ${isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'} font-bold text-black whitespace-nowrap overflow-hidden text-ellipsis`} title={i.product.name}>
-                        {i.product.name}
-                      </td>
-                      <td className={`text-right ${isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'} font-bold text-black whitespace-nowrap font-mono`}>
-                        {i.quantity}
-                      </td>
-                      <td className={`text-right ${isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'} font-bold text-black whitespace-nowrap font-mono`}>
-                        {i.product.price.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className={`text-right ${isSuperDense ? 'py-0.5 pr-1' : isDense ? 'py-1 pr-2' : 'py-2 pr-2'} font-black text-black whitespace-nowrap font-mono`}>
-                        {(i.product.price * i.quantity).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  ))}
-                  {/* Pads the table with empty rows to preserve standard paper layout */}
-                  {items.length < (paperSize === '9.5x11' ? (isSuperDense ? 25 : isDense ? 18 : 10) : 5) &&
-                    Array.from({
-                      length:
-                        (paperSize === '9.5x11' ? (isSuperDense ? 25 : isDense ? 18 : 10) : 5) - items.length,
-                    }).map((_, idx) => (
-                      <tr
-                        key={`empty-row-${idx}`}
-                        className={isSuperDense ? 'h-[20px]' : isDense ? 'h-[24px]' : 'h-[28px]'}
-                      >
-                        <td className="text-center py-0.5 whitespace-nowrap">&nbsp;</td>
-                        <td className="px-2 py-0.5 whitespace-nowrap">&nbsp;</td>
-                        <td className="text-right py-0.5 whitespace-nowrap">&nbsp;</td>
-                        <td className="text-right py-0.5 whitespace-nowrap">&nbsp;</td>
-                        <td className="text-right py-0.5 pr-2 whitespace-nowrap">&nbsp;</td>
-                      </tr>
-                    ))}
-                </>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Calculations & Baht Text Block */}
-        <div className={`grid grid-cols-12 ${isSuperDense ? 'pt-1 pb-1 gap-2' : isDense ? 'pt-2 pb-1 gap-3' : 'pt-3 pb-2 gap-4'} border-t-2 border-black`}>
-          <div className="col-span-7 flex flex-col justify-center">
-            <div className="px-1 py-0.5">
-              <p className={`${isSuperDense ? 'text-[12px]' : isDense ? 'text-[13.5px]' : 'text-[15px]'} text-black font-bold leading-tight`}>
-                จำนวนเงินตัวอักษร : <span className="text-black font-black">( {thaiBaht(netTotal)} )</span>
-              </p>
-            </div>
-          </div>
-
-          <div className={`col-span-5 pl-3 py-0.5 flex flex-col justify-center ${isSuperDense ? 'gap-1 text-[12px]' : isDense ? 'gap-1.5 text-[13.5px]' : 'gap-1.5 text-[15px]'} font-bold text-black font-mono`}>
-            <div className="flex justify-between items-center">
-              <span className="font-bold whitespace-nowrap">รวมเงิน / Subtotal :</span>
-              <span className="font-black whitespace-nowrap">
-                {total.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-            {discount > 0 && (
-              <div className="flex justify-between items-center text-black font-bold">
-                <span className="whitespace-nowrap">ส่วนลด / Discount :</span>
-                <span className="font-black whitespace-nowrap">
-                  -{discount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+        return (
+          <div
+            key={`receipt-page-${pageIdx}`}
+            className={`dot-matrix-print-target print-receipt-card bg-[#ffffff] border border-stone-300 ${
+              isPrintPortal ? '' : 'rounded-xl shadow-lg'
+            } ${
+              isSuperDense ? 'p-3.5 sm:p-4' : isDense ? 'p-5' : 'p-6 sm:p-7'
+            } font-mono text-black select-all flex flex-col justify-between overflow-hidden relative ${
+              printPinhole ? 'print-pinholes-visible' : ''
+            } ${!isLastPage ? 'page-break' : ''}`}
+            style={{
+              width: '912px',
+              minHeight: paperSize === '9.5x11' ? '1056px' : '620px',
+              maxHeight: paperSize === '9.5x11' ? '1056px' : '620px',
+              height: paperSize === '9.5x11' ? '1056px' : '620px',
+              boxSizing: 'border-box',
+              pageBreakAfter: isLastPage ? 'auto' : 'always',
+              breakAfter: isLastPage ? 'auto' : 'page',
+            }}
+          >
+            {/* Continuous Form Pinhole Margins (Left Strip) */}
+            {printPinhole && (
+              <div className="print-pinholes absolute left-0 top-0 bottom-0 w-8 border-r border-dashed border-stone-300 bg-stone-100/40 flex flex-col justify-around items-center py-4 z-10">
+                {[...Array(paperSize === '9.5x11' ? 14 : 7)].map((_, idx) => (
+                  <div
+                    key={`pin-l-${pageIdx}-${idx}`}
+                    className="w-2.5 h-2.5 rounded-full bg-white border border-stone-300 shadow-inner"
+                  ></div>
+                ))}
               </div>
             )}
-            <div className={`flex justify-between items-center border-t border-black pt-1 ${isSuperDense ? 'text-[14px]' : isDense ? 'text-[15.5px]' : 'text-[17px]'} font-black text-black`}>
-              <span className="whitespace-nowrap">ยอดสุทธิ / Net Total :</span>
-              <span className="text-black font-black whitespace-nowrap">
-                {netTotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
+
+            {/* Continuous Form Pinhole Margins (Right Strip) */}
+            {printPinhole && (
+              <div className="print-pinholes absolute right-0 top-0 bottom-0 w-8 border-l border-dashed border-stone-300 bg-stone-100/40 flex flex-col justify-around items-center py-4 z-10">
+                {[...Array(paperSize === '9.5x11' ? 14 : 7)].map((_, idx) => (
+                  <div
+                    key={`pin-r-${pageIdx}-${idx}`}
+                    className="w-2.5 h-2.5 rounded-full bg-white border border-stone-300 shadow-inner"
+                  ></div>
+                ))}
+              </div>
+            )}
+
+            {/* Main Content */}
+            <div className={`${printPinhole && !isPrintPortal ? 'mx-6' : 'mx-0'} h-full flex flex-col justify-between ${isSuperDense ? 'gap-1' : isDense ? 'gap-2' : 'gap-3'} w-full overflow-hidden`}>
+              {/* Top Header Block */}
+              <div className={`flex justify-between items-start ${isSuperDense ? 'pb-1' : isDense ? 'pb-2' : 'pb-3'} border-b border-black/15`}>
+                <div>
+                  <h3 className={`font-black text-black ${isSuperDense ? 'text-[17px]' : isDense ? 'text-[18.5px]' : 'text-[20px]'} tracking-wide leading-tight`}>
+                    ร้านสุเมธค้าข้าว
+                  </h3>
+                  <p className={`${isSuperDense ? 'text-[12px] mt-0.5' : isDense ? 'text-[13.5px] mt-0.5' : 'text-[15px] mt-1'} font-bold text-black leading-tight`}>
+                    ถ.จุลจอมเกล้า ต.ท่าข้าม อ.พุนพิน จ.สุราษฎร์ธานี 84130
+                  </p>
+                  <p className={`${isSuperDense ? 'text-[12px] mt-0.5' : isDense ? 'text-[13.5px] mt-0.5' : 'text-[15px] mt-1'} font-bold text-black leading-tight`}>
+                    สาขาโค้งวัดดอนกระถิน โทร : <span className="font-black text-black">077-441628</span> / สาขาดอนเนียง โทร :{' '}
+                    <span className="font-black text-black">098-6785002</span>
+                  </p>
+                </div>
+
+                <div className="text-right flex flex-col items-end gap-0.5">
+                  <div className={`font-black ${isSuperDense ? 'text-[17px]' : isDense ? 'text-[18.5px]' : 'text-[20px]'} text-black tracking-wider leading-tight`}>
+                    ใบเสร็จรับเงิน / RECEIPT
+                  </div>
+                  <div className={`${isSuperDense ? 'text-[12px] gap-0.5' : isDense ? 'text-[13.5px] gap-0.5' : 'text-[15px] gap-1'} text-black mt-0.5 flex flex-col items-end font-bold font-mono`}>
+                    <div>
+                      เลขที่บิล / Invoice No : <span className="text-black font-black">{invoiceNumber}</span>
+                    </div>
+                    <div>
+                      วันที่ / Date : <span className="text-black font-black">{todayStr}</span>
+                    </div>
+                    <div>
+                      หน้า / Page : <span className="text-black font-black">{pageIdx + 1} / {totalPages}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Information Block */}
+              <div className={`${isSuperDense ? 'py-1 gap-1 text-[12px]' : isDense ? 'py-1.5 gap-1.5 text-[13px]' : 'py-2 gap-2 text-[14.5px]'} bg-transparent flex flex-col leading-tight border-b border-black/15 pb-1`}>
+                {/* Row 1: Customer Name, Phone, and Tax ID */}
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <span className="text-black font-bold shrink-0 whitespace-nowrap">ลูกค้า / Customer :</span>
+                    <span className="text-black font-black truncate">
+                      {custName || 'ลูกค้าทั่วไป (General Cash Customer)'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-black font-bold shrink-0 whitespace-nowrap">เบอร์โทร / Phone :</span>
+                    <span className="text-black font-black font-mono">
+                      {custPhone || '-'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-black font-bold shrink-0 whitespace-nowrap">เลขผู้เสียภาษี / Tax ID :</span>
+                    <span className="text-black font-black font-mono">
+                      {custTaxId || '-'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Row 2: Customer Address (Full width for complete information without overflowing into other rows) */}
+                <div className="flex items-start gap-1.5 w-full min-w-0">
+                  <span className="text-black font-bold shrink-0 whitespace-nowrap">ที่อยู่ / Address :</span>
+                  <span className="text-black font-bold break-words flex-1 leading-snug" title={custAddress || ''}>
+                    {custAddress || '................................................................................................................................................'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Items List Table */}
+              <div className="flex-1 flex flex-col justify-start my-0.5 overflow-hidden">
+                <table className="w-full font-mono border-collapse table-fixed">
+                  <thead>
+                    <tr className={`text-black font-black text-left bg-transparent border-y-2 border-black ${isSuperDense ? 'text-[12px]' : isDense ? 'text-[13.5px]' : 'text-[15px]'}`}>
+                      <th className={`${isSuperDense ? 'py-1' : isDense ? 'py-1.5' : 'py-2'} text-center w-[48px] font-black whitespace-nowrap`}>ลำดับ</th>
+                      <th className={`${isSuperDense ? 'py-1 px-2' : isDense ? 'py-1.5 px-3' : 'py-2 px-3'} font-black whitespace-nowrap`}>รายการสินค้า / Description</th>
+                      <th className={`${isSuperDense ? 'py-1' : isDense ? 'py-1.5' : 'py-2'} text-right w-[72px] font-black whitespace-nowrap`}>จำนวน</th>
+                      <th className={`${isSuperDense ? 'py-1' : isDense ? 'py-1.5' : 'py-2'} text-right w-[110px] font-black whitespace-nowrap`}>หน่วยละ</th>
+                      <th className={`${isSuperDense ? 'py-1 pr-1' : isDense ? 'py-1.5 pr-2' : 'py-2 pr-2'} text-right w-[138px] font-black whitespace-nowrap`}>จำนวนเงิน (บาท)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="text-center py-10 text-black font-black text-[15px] italic">
+                          ไม่มีรายการในใบเสร็จ (No Items Added)
+                        </td>
+                      </tr>
+                    ) : (
+                      <>
+                        {pageItems.map((i, index) => {
+                          const globalSeq = pageIdx * itemsPerPage + index + 1;
+                          return (
+                            <tr
+                              key={i.product.id || `${pageIdx}-${index}`}
+                              className={`align-middle ${
+                                isSuperDense
+                                  ? 'text-[11.5px] leading-tight'
+                                  : isDense
+                                  ? 'text-[13px] leading-tight'
+                                  : 'text-[14.5px] leading-normal'
+                              }`}
+                            >
+                              <td className={`text-center ${isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'} text-black font-bold whitespace-nowrap`}>
+                                {globalSeq}
+                              </td>
+                              <td className={`px-2 ${isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'} font-bold text-black whitespace-nowrap overflow-hidden text-ellipsis`} title={i.product.name}>
+                                {i.product.name}
+                              </td>
+                              <td className={`text-right ${isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'} font-bold text-black whitespace-nowrap font-mono`}>
+                                {i.quantity}
+                              </td>
+                              <td className={`text-right ${isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'} font-bold text-black whitespace-nowrap font-mono`}>
+                                {i.product.price.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className={`text-right ${isSuperDense ? 'py-0.5 pr-1' : isDense ? 'py-1 pr-2' : 'py-2 pr-2'} font-black text-black whitespace-nowrap font-mono`}>
+                                {(i.product.price * i.quantity).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {/* Pads the table with empty rows to preserve standard paper layout */}
+                        {pageItems.length < (paperSize === '9.5x11' ? (isSuperDense ? 25 : isDense ? 18 : 10) : (isDense ? 12 : 6)) &&
+                          Array.from({
+                            length:
+                              (paperSize === '9.5x11' ? (isSuperDense ? 25 : isDense ? 18 : 10) : (isDense ? 12 : 6)) - pageItems.length,
+                          }).map((_, idx) => (
+                            <tr
+                              key={`empty-row-${pageIdx}-${idx}`}
+                              className={isSuperDense ? 'h-[20px]' : isDense ? 'h-[24px]' : 'h-[28px]'}
+                            >
+                              <td className="text-center py-0.5 whitespace-nowrap">&nbsp;</td>
+                              <td className="px-2 py-0.5 whitespace-nowrap">&nbsp;</td>
+                              <td className="text-right py-0.5 whitespace-nowrap">&nbsp;</td>
+                              <td className="text-right py-0.5 whitespace-nowrap">&nbsp;</td>
+                              <td className="text-right py-0.5 pr-2 whitespace-nowrap">&nbsp;</td>
+                            </tr>
+                          ))}
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Bottom Section: Calculations on last page, Carry forward on intermediate pages */}
+              {isLastPage ? (
+                <>
+                  {/* Calculations & Baht Text Block */}
+                  <div className={`grid grid-cols-12 ${isSuperDense ? 'pt-1 pb-1 gap-2' : isDense ? 'pt-2 pb-1 gap-3' : 'pt-3 pb-2 gap-4'} border-t-2 border-black`}>
+                    <div className="col-span-7 flex flex-col justify-center">
+                      <div className="px-1 py-0.5">
+                        <p className={`${isSuperDense ? 'text-[12px]' : isDense ? 'text-[13.5px]' : 'text-[15px]'} text-black font-bold leading-tight`}>
+                          จำนวนเงินตัวอักษร : <span className="text-black font-black">( {thaiBaht(netTotal)} )</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className={`col-span-5 pl-3 py-0.5 flex flex-col justify-center ${isSuperDense ? 'gap-1 text-[12px]' : isDense ? 'gap-1.5 text-[13.5px]' : 'gap-1.5 text-[15px]'} font-bold text-black font-mono`}>
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold whitespace-nowrap">รวมเงิน / Subtotal :</span>
+                        <span className="font-black whitespace-nowrap">
+                          {total.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      {discount > 0 && (
+                        <div className="flex justify-between items-center text-black font-bold">
+                          <span className="whitespace-nowrap">ส่วนลด / Discount :</span>
+                          <span className="font-black whitespace-nowrap">
+                            -{discount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      )}
+                      <div className={`flex justify-between items-center border-t border-black pt-1 ${isSuperDense ? 'text-[14px]' : isDense ? 'text-[15.5px]' : 'text-[17px]'} font-black text-black`}>
+                        <span className="whitespace-nowrap">ยอดสุทธิ / Net Total :</span>
+                        <span className="text-black font-black whitespace-nowrap">
+                          {netTotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Signature fields strip */}
+                  <div className={`grid grid-cols-2 ${isSuperDense ? 'gap-6 mt-1 pt-1 text-[11.5px]' : isDense ? 'gap-8 mt-2 pt-1 text-[13px]' : 'gap-10 mt-3 pt-2 text-[14px]'} text-center text-black font-bold border-t border-dashed border-stone-300`}>
+                    <div className="flex flex-col items-center">
+                      <div className={isSuperDense ? 'h-3' : isDense ? 'h-5' : 'h-6'}></div>
+                      <p className="text-black font-bold leading-tight whitespace-nowrap">
+                        ลงชื่อ .................................................... ผู้รับสินค้า / Recipient
+                      </p>
+                      <p className={`${isSuperDense ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap`}>วันที่ ......../......../........</p>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <div className={isSuperDense ? 'h-3' : isDense ? 'h-5' : 'h-6'}></div>
+                      <p className="text-black font-bold leading-tight whitespace-nowrap">
+                        ลงชื่อ .................................................... ผู้รับเงิน / Collector
+                      </p>
+                      <p className={`${isSuperDense ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap`}>วันที่ ......../......../........</p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Intermediate Page Carry Forward Block */}
+                  <div className={`grid grid-cols-12 ${isSuperDense ? 'pt-1.5 pb-1 gap-2' : isDense ? 'pt-2 pb-1 gap-3' : 'pt-3 pb-2 gap-4'} border-t-2 border-black`}>
+                    <div className="col-span-7 flex flex-col justify-center">
+                      <div className="px-1 py-0.5">
+                        <p className={`${isSuperDense ? 'text-[12px]' : isDense ? 'text-[13.5px]' : 'text-[15px]'} text-black font-black leading-tight italic`}>
+                          *** มีต่อหน้าที่ {pageIdx + 2} (Continued on Page {pageIdx + 2}) ***
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className={`col-span-5 pl-3 py-0.5 flex flex-col justify-center ${isSuperDense ? 'gap-1 text-[12px]' : isDense ? 'gap-1.5 text-[13.5px]' : 'gap-1.5 text-[15px]'} font-bold text-black font-mono`}>
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold whitespace-nowrap">ยอดยกไป / Carry Forward :</span>
+                        <span className="font-black whitespace-nowrap">
+                          {runningSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Note for intermediate page */}
+                  <div className={`flex justify-between items-center ${isSuperDense ? 'mt-1 pt-1 text-[11px]' : isDense ? 'mt-2 pt-1 text-[12px]' : 'mt-3 pt-2 text-[13px]'} text-slate-800 font-bold border-t border-dashed border-stone-300 px-1`}>
+                    <span>ใบเสร็จรับเงินต่อเนื่อง (หน้าที่ {pageIdx + 1} จาก {totalPages} หน้า)</span>
+                    <span className="font-black text-black">โปรดดูยอดรวมสุทธิและลายเซ็นต์ที่หน้า {totalPages}</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
-        </div>
-
-        {/* Signature fields strip */}
-        <div className={`grid grid-cols-2 ${isSuperDense ? 'gap-6 mt-1 pt-1 text-[11.5px]' : isDense ? 'gap-8 mt-2 pt-1 text-[13px]' : 'gap-10 mt-3 pt-2 text-[14px]'} text-center text-black font-bold border-t border-dashed border-stone-300`}>
-          <div className="flex flex-col items-center">
-            <div className={isSuperDense ? 'h-3' : isDense ? 'h-5' : 'h-6'}></div>
-            <p className="text-black font-bold leading-tight whitespace-nowrap">
-              ลงชื่อ .................................................... ผู้รับสินค้า / Recipient
-            </p>
-            <p className={`${isSuperDense ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap`}>วันที่ ......../......../........</p>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className={isSuperDense ? 'h-3' : isDense ? 'h-5' : 'h-6'}></div>
-            <p className="text-black font-bold leading-tight whitespace-nowrap">
-              ลงชื่อ .................................................... ผู้รับเงิน / Collector
-            </p>
-            <p className={`${isSuperDense ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap`}>วันที่ ......../......../........</p>
-          </div>
-        </div>
-      </div>
+        );
+      })}
     </div>
   );
 }
@@ -629,12 +681,6 @@ export default function ReceiptView({
 
   const handleAddCustomItem = (e: React.FormEvent) => {
     e.preventDefault();
-    if (items.length >= 25) {
-      setAlertTitle('ครบจำนวน 25 รายการแล้ว');
-      setAlertMessage('สามารถใส่รายการสินค้าได้สูงสุด 25 รายการต่อ 1 ใบเสร็จ เพื่อให้จัดพิมพ์ลงใน 1 หน้าได้อย่างสมบูรณ์');
-      setAlertOpen(true);
-      return;
-    }
     if (!customName.trim()) {
       setAlertTitle('กรุณาระบุข้อมูล');
       setAlertMessage('กรุณาระบุชื่อสินค้าหรือรายการ');
@@ -1366,11 +1412,11 @@ export default function ReceiptView({
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-slate-900">รายการสินค้าในบิล</h3>
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-lg border ${
-                    items.length >= 25 
-                      ? 'bg-rose-50 text-rose-700 border-rose-200' 
+                    items.length > (paperSize === '9.5x11' ? 25 : 12)
+                      ? 'bg-blue-50 text-blue-700 border-blue-200' 
                       : 'bg-white text-slate-700 border-slate-200'
                   }`}>
-                    {items.length} / 25
+                    {items.length} รายการ {items.length > 0 && `(${Math.max(1, Math.ceil(items.length / (paperSize === '9.5x11' ? 25 : 12)))} หน้า)`}
                   </span>
                 </div>
                 
@@ -1728,14 +1774,19 @@ export default function ReceiptView({
               }
               html, body {
                 width: 100% !important;
-                height: 100% !important;
+                height: auto !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 display: block !important;
               }
               .print-portal-container {
                 width: 100% !important;
-                height: 100% !important;
+                height: auto !important;
+                display: block !important;
+                margin: 0 !important;
+                padding: 0 !important;
+              }
+              .receipt-pages-wrapper {
                 display: block !important;
                 margin: 0 !important;
                 padding: 0 !important;
@@ -1750,8 +1801,15 @@ export default function ReceiptView({
                 box-sizing: border-box !important;
                 overflow: hidden !important;
                 page-break-inside: avoid !important;
+                break-inside: avoid !important;
+              }
+              .dot-matrix-print-target.page-break {
+                page-break-after: always !important;
+                break-after: page !important;
+              }
+              .dot-matrix-print-target:last-child {
                 page-break-after: avoid !important;
-                page-break-before: avoid !important;
+                break-after: avoid !important;
               }
             }
           `}</style>
