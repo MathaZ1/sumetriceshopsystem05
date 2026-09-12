@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { db, handleFirestoreError, OperationType, auth, getNextInvoiceNumber } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, query, orderBy, updateDoc, runTransaction } from 'firebase/firestore';
 import { Product, CartItem, Customer, Sale, SaleItem } from '../types';
-import { Search, Plus, Minus, Trash2, Printer, CheckCircle2, User, MapPin, FileText, Users, Ban, RefreshCw, Eye, Tag, Receipt, Maximize2, X, PackagePlus, Sparkles, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, Printer, CheckCircle2, User, MapPin, FileText, Users, Ban, RefreshCw, Eye, Tag, Receipt, Maximize2, X, PackagePlus, Sparkles, AlertTriangle, ShoppingCart } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 
 function thaiBaht(num: number): string {
@@ -206,9 +206,9 @@ function ContinuousReceiptPaper({
           </div>
 
           {/* Row 2: Customer Address (Full width for complete information without overflowing into other rows) */}
-          <div className="flex items-center gap-1.5 w-full min-w-0">
+          <div className="flex items-start gap-1.5 w-full min-w-0">
             <span className="text-black font-bold shrink-0 whitespace-nowrap">ที่อยู่ / Address :</span>
-            <span className="text-black font-bold truncate flex-1" title={custAddress || ''}>
+            <span className="text-black font-bold break-words flex-1 leading-snug" title={custAddress || ''}>
               {custAddress || '................................................................................................................................................'}
             </span>
           </div>
@@ -350,6 +350,19 @@ interface ReceiptViewProps {
   invoiceId?: string;
   setInvoiceId?: React.Dispatch<React.SetStateAction<string>>;
   role?: 'admin' | 'employee';
+  customers?: Customer[];
+  selectedCustId?: string;
+  onSelectCustomer?: (id: string) => void;
+  customerName?: string;
+  setCustomerName?: React.Dispatch<React.SetStateAction<string>>;
+  customerPhone?: string;
+  setCustomerPhone?: React.Dispatch<React.SetStateAction<string>>;
+  customerAddress?: string;
+  setCustomerAddress?: React.Dispatch<React.SetStateAction<string>>;
+  customerTaxId?: string;
+  setCustomerTaxId?: React.Dispatch<React.SetStateAction<string>>;
+  onStartNewSale?: () => void;
+  setActiveTab?: (tab: string) => void;
 }
 
 export default function ReceiptView({
@@ -359,7 +372,20 @@ export default function ReceiptView({
   setDiscount: propSetDiscount,
   invoiceId,
   setInvoiceId,
-  role = 'employee'
+  role = 'employee',
+  customers: propCustomers,
+  selectedCustId: propSelectedCustId,
+  onSelectCustomer: propOnSelectCustomer,
+  customerName: propCustomerName,
+  setCustomerName: propSetCustomerName,
+  customerPhone: propCustomerPhone,
+  setCustomerPhone: propSetCustomerPhone,
+  customerAddress: propCustomerAddress,
+  setCustomerAddress: propSetCustomerAddress,
+  customerTaxId: propCustomerTaxId,
+  setCustomerTaxId: propSetCustomerTaxId,
+  onStartNewSale,
+  setActiveTab,
 }: ReceiptViewProps = {}) {
   const [localItems, setLocalItems] = useState<CartItem[]>([]);
   const [localDiscount, setLocalDiscount] = useState<number>(0);
@@ -408,13 +434,32 @@ export default function ReceiptView({
   const [salesLoading, setSalesLoading] = useState<boolean>(true);
   const [manageSearch, setManageSearch] = useState<string>('');
 
-  // Customer/Buyer Info States
-  const [custName, setCustName] = useState<string>('');
-  const [custAddress, setCustAddress] = useState<string>('');
-  const [custTaxId, setCustTaxId] = useState<string>('');
-  const [custPhone, setCustPhone] = useState<string>('');
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [selectedCustId, setSelectedCustId] = useState<string>('');
+  // Customer/Buyer Info States & Fallbacks
+  const [localCustName, setLocalCustName] = useState<string>('');
+  const [localCustAddress, setLocalCustAddress] = useState<string>('');
+  const [localCustTaxId, setLocalCustTaxId] = useState<string>('');
+  const [localCustPhone, setLocalCustPhone] = useState<string>('');
+  const [localCustomers, setLocalCustomers] = useState<Customer[]>([]);
+  const [localSelectedCustId, setLocalSelectedCustId] = useState<string>('');
+
+  const customers = propCustomers && propCustomers.length > 0 ? propCustomers : localCustomers;
+  const selectedCustId = propSelectedCustId !== undefined ? propSelectedCustId : localSelectedCustId;
+  const custName = propCustomerName !== undefined ? propCustomerName : localCustName;
+  const setCustName = propSetCustomerName !== undefined ? propSetCustomerName : setLocalCustName;
+  const custPhone = propCustomerPhone !== undefined ? propCustomerPhone : localCustPhone;
+  const setCustPhone = propSetCustomerPhone !== undefined ? propSetCustomerPhone : setLocalCustPhone;
+  const custAddress = propCustomerAddress !== undefined ? propCustomerAddress : localCustAddress;
+  const setCustAddress = propSetCustomerAddress !== undefined ? propSetCustomerAddress : setLocalCustAddress;
+  const custTaxId = propCustomerTaxId !== undefined ? propCustomerTaxId : localCustTaxId;
+  const setCustTaxId = propSetCustomerTaxId !== undefined ? propSetCustomerTaxId : setLocalCustTaxId;
+
+  const setSelectedCustId = (id: string) => {
+    if (propOnSelectCustomer) {
+      propOnSelectCustomer(id);
+    } else {
+      setLocalSelectedCustId(id);
+    }
+  };
 
   const items = propItems !== undefined ? propItems : localItems;
   const setItems = propSetItems !== undefined ? propSetItems : setLocalItems;
@@ -498,35 +543,40 @@ export default function ReceiptView({
     return () => unsubscribe();
   }, []);
 
-  // Load customer lists from Firestore
+  // Load customer lists from Firestore if not provided from parent
   useEffect(() => {
+    if (propCustomers && propCustomers.length > 0) return;
     const customersCol = collection(db, 'customers');
     const unsubscribe = onSnapshot(customersCol, (snapshot) => {
       const list: Customer[] = [];
       snapshot.forEach((docSnap) => {
         list.push({ id: docSnap.id, ...docSnap.data() } as Customer);
       });
-      setCustomers(list);
+      setLocalCustomers(list);
     }, (error) => {
       console.error('Error loading customers in receipt view:', error);
     });
     return () => unsubscribe();
-  }, []);
+  }, [propCustomers]);
 
   const handleSelectCustomer = (id: string) => {
-    setSelectedCustId(id);
-    if (id === '') {
-      setCustName('');
-      setCustAddress('');
-      setCustTaxId('');
-      setCustPhone('');
+    if (propOnSelectCustomer) {
+      propOnSelectCustomer(id);
     } else {
-      const found = customers.find(c => c.id === id);
-      if (found) {
-        setCustName(found.name || '');
-        setCustAddress(found.address || '');
-        setCustTaxId(found.taxId || '');
-        setCustPhone(found.phone || '');
+      setLocalSelectedCustId(id);
+      if (id === '') {
+        setCustName('');
+        setCustAddress('');
+        setCustTaxId('');
+        setCustPhone('');
+      } else {
+        const found = customers.find(c => c.id === id);
+        if (found) {
+          setCustName(found.name || '');
+          setCustAddress(found.address || '');
+          setCustTaxId(found.taxId || '');
+          setCustPhone(found.phone || '');
+        }
       }
     }
   };
@@ -1122,7 +1172,72 @@ export default function ReceiptView({
             )}
           </div>
         ) : (
-          <div className="flex flex-col gap-6 w-full">
+          <div className="flex flex-col gap-5 w-full">
+            {/* Status & Sync Banner */}
+            {invoiceId ? (
+              <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
+                  <div className="text-xs">
+                    <span className="font-semibold text-slate-700">กำลังแสดงบิลที่ออกแล้ว: </span>
+                    <span className="font-mono font-black text-amber-950 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300 mr-2">{invoiceId}</span>
+                    <span className="text-[11px] text-amber-800 font-medium">(มี {items.length} รายการ | ยอดสุทธิ ฿{netTotal.toFixed(2)})</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (setInvoiceId) setInvoiceId('');
+                      if (onStartNewSale) onStartNewSale();
+                    }}
+                    className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-amber-300 hover:bg-amber-100 active:bg-amber-200 text-amber-900 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>เริ่มบิลใหม่</span>
+                  </button>
+                  {setActiveTab && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('pos')}
+                      className="flex-1 sm:flex-none px-3 py-1.5 bg-amber-900 hover:bg-amber-950 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <ShoppingCart className="w-3.5 h-3.5" />
+                      <span>กลับไปหน้าขาย</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
+                  <div className="text-xs">
+                    <span className="font-semibold text-slate-700">
+                      {items.length > 0
+                        ? `เชื่อมโยงสินค้าจากตะกร้าขาย (POS) ครบถ้วน ${items.length} รายการ`
+                        : 'ออกใบเสร็จรับเงินใหม่ (ยังไม่มีรายการสินค้า)'}
+                    </span>
+                    {items.length > 0 && (
+                      <span className="text-[11px] text-slate-500 ml-2 font-medium">
+                        (ยอดสุทธิ ฿{netTotal.toFixed(2)})
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {setActiveTab && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('pos')}
+                    className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <ShoppingCart className="w-3.5 h-3.5" />
+                    <span>ไปยังหน้าขาย (POS) เพื่อเลือกสินค้าเพิ่ม</span>
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           {/* Left Column: Customer Details & Items in Bill (Span 5/12 on desktop for ideal balance) */}

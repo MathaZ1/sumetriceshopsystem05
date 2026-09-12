@@ -10,8 +10,8 @@ import LoginView from './components/LoginView';
 import ConfirmModal from './components/ConfirmModal';
 import { seedInitialData, auth, db } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { CartItem, Sale } from './types';
+import { doc, getDoc, setDoc, collection, onSnapshot } from 'firebase/firestore';
+import { CartItem, Sale, Customer } from './types';
 
 // รายชื่ออีเมลที่มีสิทธิ์เข้าถึงในฐานะแอดมิน (Admin)
 // คุณสามารถแก้ไข คัดแยก หรือเพิ่มอีเมลอื่นๆ ของผู้ใช้งานที่ต้องการให้เป็นแอดมินในอาเรย์นี้ได้เลย
@@ -54,6 +54,47 @@ export default function App() {
   const [posDiscount, setPosDiscount] = useState<number>(0);
   const [receiptDiscount, setReceiptDiscount] = useState<number>(0);
   const [receiptInvoiceNumber, setReceiptInvoiceNumber] = useState<string>('');
+
+  // Shared Customer Information for POS and Receipt (ชื่อลูกค้า, เบอร์โทร, ที่อยู่, เลขผู้เสียภาษี)
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  const [customerName, setCustomerName] = useState<string>('');
+  const [customerPhone, setCustomerPhone] = useState<string>('');
+  const [customerAddress, setCustomerAddress] = useState<string>('');
+  const [customerTaxId, setCustomerTaxId] = useState<string>('');
+
+  // Load customer lists from Firestore
+  useEffect(() => {
+    const customersCol = collection(db, 'customers');
+    const unsubscribe = onSnapshot(customersCol, (snapshot) => {
+      const list: Customer[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() } as Customer);
+      });
+      setCustomers(list);
+    }, (error) => {
+      console.error('Error loading customers in App:', error);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleCustomerSelect = (id: string) => {
+    setSelectedCustomerId(id);
+    if (!id) {
+      setCustomerName('');
+      setCustomerPhone('');
+      setCustomerAddress('');
+      setCustomerTaxId('');
+    } else {
+      const found = customers.find((c) => c.id === id);
+      if (found) {
+        setCustomerName(found.name || '');
+        setCustomerPhone(found.phone || '');
+        setCustomerAddress(found.address || '');
+        setCustomerTaxId(found.taxId || '');
+      }
+    }
+  };
 
   // Confirmation Modal states
   const [confirmOpen, setConfirmOpen] = useState<boolean>(false);
@@ -195,10 +236,14 @@ export default function App() {
   }, [activeTab]);
 
   const handleCheckoutSuccess = (sale: Sale, cartItems: CartItem[]) => {
-    // Populate the receipt items
+    // Populate the receipt items with the exact sale items and customer data
     setReceiptItems(cartItems);
-    setReceiptDiscount(posDiscount);
+    setReceiptDiscount(sale.discount || 0);
     setReceiptInvoiceNumber(sale.id);
+    setCustomerName(sale.customerName || 'ลูกค้าทั่วไป');
+    setCustomerPhone(sale.customerPhone || '');
+    setCustomerAddress(sale.customerAddress || '');
+    setCustomerTaxId(sale.customerTaxId || '');
     // When checkout succeeds, automatically direct to receipt page!
     setActiveTab('receipt');
     setAlertTitle('สั่งซื้อเสร็จสมบูรณ์');
@@ -206,19 +251,31 @@ export default function App() {
     setAlertOpen(true);
   };
 
+  const handleStartNewSale = () => {
+    setCart([]);
+    setReceiptItems([]);
+    setPosDiscount(0);
+    setReceiptDiscount(0);
+    setReceiptInvoiceNumber('');
+    setSelectedCustomerId('');
+    setCustomerName('');
+    setCustomerPhone('');
+    setCustomerAddress('');
+    setCustomerTaxId('');
+    setActiveTab('pos');
+  };
+
   const handleResetPOS = () => {
-    if (cart.length > 0) {
+    if (cart.length > 0 || receiptInvoiceNumber) {
       setConfirmTitle('ยกเลิกรายการปัจจุบัน');
       setConfirmMessage('คุณต้องการยกเลิกการขายปัจจุบันและล้างตะกร้าสินค้าใช่หรือไม่?');
       setConfirmText('ล้างตะกร้า');
       setPendingAction(() => () => {
-        setCart([]);
-        setPosDiscount(0);
-        setActiveTab('pos');
+        handleStartNewSale();
       });
       setConfirmOpen(true);
     } else {
-      setActiveTab('pos');
+      handleStartNewSale();
     }
   };
 
@@ -242,6 +299,17 @@ export default function App() {
             discount={posDiscount}
             setDiscount={setPosDiscount}
             onExportToReceipt={handleExportToReceipt}
+            customers={customers}
+            selectedCustId={selectedCustomerId}
+            onSelectCustomer={handleCustomerSelect}
+            customerName={customerName}
+            setCustomerName={setCustomerName}
+            customerPhone={customerPhone}
+            setCustomerPhone={setCustomerPhone}
+            customerAddress={customerAddress}
+            setCustomerAddress={setCustomerAddress}
+            customerTaxId={customerTaxId}
+            setCustomerTaxId={setCustomerTaxId}
           />
         );
       case 'products':
@@ -251,13 +319,26 @@ export default function App() {
       case 'receipt':
         return (
           <ReceiptView
-            items={receiptItems}
-            setItems={setReceiptItems}
-            discount={receiptDiscount}
-            setDiscount={setReceiptDiscount}
+            items={receiptInvoiceNumber ? receiptItems : cart}
+            setItems={receiptInvoiceNumber ? setReceiptItems : setCart}
+            discount={receiptInvoiceNumber ? receiptDiscount : posDiscount}
+            setDiscount={receiptInvoiceNumber ? setReceiptDiscount : setPosDiscount}
             invoiceId={receiptInvoiceNumber}
             setInvoiceId={setReceiptInvoiceNumber}
             role={role}
+            customers={customers}
+            selectedCustId={selectedCustomerId}
+            onSelectCustomer={handleCustomerSelect}
+            customerName={customerName}
+            setCustomerName={setCustomerName}
+            customerPhone={customerPhone}
+            setCustomerPhone={setCustomerPhone}
+            customerAddress={customerAddress}
+            setCustomerAddress={setCustomerAddress}
+            customerTaxId={customerTaxId}
+            setCustomerTaxId={setCustomerTaxId}
+            onStartNewSale={handleStartNewSale}
+            setActiveTab={setActiveTab}
           />
         );
       case 'customers':
@@ -274,6 +355,17 @@ export default function App() {
             discount={posDiscount}
             setDiscount={setPosDiscount}
             onExportToReceipt={handleExportToReceipt}
+            customers={customers}
+            selectedCustId={selectedCustomerId}
+            onSelectCustomer={handleCustomerSelect}
+            customerName={customerName}
+            setCustomerName={setCustomerName}
+            customerPhone={customerPhone}
+            setCustomerPhone={setCustomerPhone}
+            customerAddress={customerAddress}
+            setCustomerAddress={setCustomerAddress}
+            customerTaxId={customerTaxId}
+            setCustomerTaxId={setCustomerTaxId}
           />
         );
     }

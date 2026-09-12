@@ -10,11 +10,22 @@ interface POSViewProps {
   cart: CartItem[];
   setCart: React.Dispatch<React.SetStateAction<CartItem[]>>;
   onCheckoutSuccess: (sale: Sale, cartItems: CartItem[]) => void;
-  setReceiptItems: React.Dispatch<React.SetStateAction<CartItem[]>>;
+  setReceiptItems?: React.Dispatch<React.SetStateAction<CartItem[]>>;
   setActiveTab: React.Dispatch<React.SetStateAction<string>>;
   discount: number;
   setDiscount: React.Dispatch<React.SetStateAction<number>>;
   onExportToReceipt?: (items: CartItem[], discount: number) => void;
+  customers?: Customer[];
+  selectedCustId?: string;
+  onSelectCustomer?: (id: string) => void;
+  customerName?: string;
+  setCustomerName?: React.Dispatch<React.SetStateAction<string>>;
+  customerPhone?: string;
+  setCustomerPhone?: React.Dispatch<React.SetStateAction<string>>;
+  customerAddress?: string;
+  setCustomerAddress?: React.Dispatch<React.SetStateAction<string>>;
+  customerTaxId?: string;
+  setCustomerTaxId?: React.Dispatch<React.SetStateAction<string>>;
 }
 
 export default function POSView({
@@ -26,44 +37,87 @@ export default function POSView({
   setActiveTab,
   discount,
   setDiscount,
-  onExportToReceipt
+  onExportToReceipt,
+  customers: propCustomers,
+  selectedCustId: propSelectedCustId,
+  onSelectCustomer: propOnSelectCustomer,
+  customerName: propCustomerName,
+  setCustomerName: propSetCustomerName,
+  customerPhone: propCustomerPhone,
+  setCustomerPhone: propSetCustomerPhone,
+  customerAddress: propCustomerAddress,
+  setCustomerAddress: propSetCustomerAddress,
+  customerTaxId: propCustomerTaxId,
+  setCustomerTaxId: propSetCustomerTaxId,
 }: POSViewProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('ทั้งหมด');
   const [localSearchQuery, setLocalSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [checkoutLoading, setCheckoutLoading] = useState<boolean>(false);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [selectedCustId, setSelectedCustId] = useState<string>('');
+  const [localCustomers, setLocalCustomers] = useState<Customer[]>([]);
+  const [localSelectedCustId, setLocalSelectedCustId] = useState<string>('');
+  const [localCustName, setLocalCustName] = useState<string>('');
+  const [localCustPhone, setLocalCustPhone] = useState<string>('');
+  const [localCustAddress, setLocalCustAddress] = useState<string>('');
+  const [localCustTaxId, setLocalCustTaxId] = useState<string>('');
   const [showMobileCart, setShowMobileCart] = useState<boolean>(false);
+  const [showCustomerDetails, setShowCustomerDetails] = useState<boolean>(false);
+
+  // Resolved Customer States & Props
+  const customers = propCustomers || localCustomers;
+  const selectedCustId = propSelectedCustId !== undefined ? propSelectedCustId : localSelectedCustId;
+  const customerName = propCustomerName !== undefined ? propCustomerName : localCustName;
+  const setCustomerName = propSetCustomerName !== undefined ? propSetCustomerName : setLocalCustName;
+  const customerPhone = propCustomerPhone !== undefined ? propCustomerPhone : localCustPhone;
+  const setCustomerPhone = propSetCustomerPhone !== undefined ? propSetCustomerPhone : setLocalCustPhone;
+  const customerAddress = propCustomerAddress !== undefined ? propCustomerAddress : localCustAddress;
+  const setCustomerAddress = propSetCustomerAddress !== undefined ? propSetCustomerAddress : setLocalCustAddress;
+  const customerTaxId = propCustomerTaxId !== undefined ? propCustomerTaxId : localCustTaxId;
+  const setCustomerTaxId = propSetCustomerTaxId !== undefined ? propSetCustomerTaxId : setLocalCustTaxId;
+
+  const handleSelectCustomer = (id: string) => {
+    if (propOnSelectCustomer) {
+      propOnSelectCustomer(id);
+    } else {
+      setLocalSelectedCustId(id);
+      if (!id) {
+        setCustomerName('');
+        setCustomerPhone('');
+        setCustomerAddress('');
+        setCustomerTaxId('');
+      } else {
+        const found = customers.find((c) => c.id === id);
+        if (found) {
+          setCustomerName(found.name || '');
+          setCustomerPhone(found.phone || '');
+          setCustomerAddress(found.address || '');
+          setCustomerTaxId(found.taxId || '');
+        }
+      }
+    }
+  };
 
   // Alert modal states
   const [alertOpen, setAlertOpen] = useState<boolean>(false);
   const [alertTitle, setAlertTitle] = useState<string>('');
   const [alertMessage, setAlertMessage] = useState<string>('');
 
-  // Load customer lists from Firestore for POS dropdown
+  // Fallback load customer lists from Firestore if not provided from parent
   useEffect(() => {
+    if (propCustomers && propCustomers.length > 0) return;
     const customersCol = collection(db, 'customers');
     const unsubscribe = onSnapshot(customersCol, (snapshot) => {
       const list: Customer[] = [];
       snapshot.forEach((docSnap) => {
         list.push({ id: docSnap.id, ...docSnap.data() } as Customer);
       });
-      setCustomers(list);
+      setLocalCustomers(list);
     }, (error) => {
       console.error('Error loading customers in POSView:', error);
     });
     return () => unsubscribe();
-  }, []);
-
-  // Reset discount and customer if cart is empty
-  useEffect(() => {
-    if (cart.length === 0) {
-      setDiscount(0);
-      setSelectedCustId('');
-    }
-  }, [cart.length, setDiscount]);
+  }, [propCustomers]);
 
   // Categories listed in the design
   const categories = ['ทั้งหมด'];
@@ -186,8 +240,12 @@ export default function POSView({
       }));
 
       const selectedCust = customers.find(c => c.id === selectedCustId);
+      const finalCustomerName = (customerName || '').trim() || (selectedCust ? selectedCust.name : 'ลูกค้าทั่วไป');
+      const finalCustomerPhone = (customerPhone || '').trim() || (selectedCust ? selectedCust.phone : '');
+      const finalCustomerAddress = (customerAddress || '').trim() || (selectedCust ? selectedCust.address : '');
+      const finalCustomerTaxId = (customerTaxId || '').trim() || (selectedCust ? selectedCust.taxId : '');
 
-      // Create new Sale object
+      // Create new Sale object with COMPLETE customer and item information
       const newSale: Sale = {
         id: invoiceNumber,
         timestamp: new Date().toISOString(),
@@ -196,8 +254,10 @@ export default function POSView({
         status: 'สำเร็จ',
         items: saleItems,
         discount: discount,
-        customerName: selectedCust ? selectedCust.name : 'ลูกค้าทั่วไป',
-        customerPhone: selectedCust ? selectedCust.phone : '',
+        customerName: finalCustomerName,
+        customerPhone: finalCustomerPhone,
+        customerAddress: finalCustomerAddress,
+        customerTaxId: finalCustomerTaxId,
       };
 
       await runTransaction(db, async (transaction) => {
@@ -413,10 +473,19 @@ export default function POSView({
           <div className="flex flex-col gap-2 mb-4">
             {/* Customer Select Dropdown */}
             <div className="flex flex-col gap-1 pb-2 border-b border-slate-200/50 mb-1">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">เลือกสมาชิก / Customer</span>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">เลือกสมาชิก / Customer</span>
+                <button
+                  type="button"
+                  onClick={() => setShowCustomerDetails(!showCustomerDetails)}
+                  className="text-[10px] text-slate-600 hover:text-slate-900 font-bold underline cursor-pointer"
+                >
+                  {showCustomerDetails ? 'ซ่อนข้อมูล' : '+ ระบุข้อมูลผู้ซื้อ'}
+                </button>
+              </div>
               <select
                 value={selectedCustId}
-                onChange={(e) => setSelectedCustId(e.target.value)}
+                onChange={(e) => handleSelectCustomer(e.target.value)}
                 className="w-full px-2.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:border-slate-400 outline-none bg-white transition-all cursor-pointer shadow-sm"
               >
                 <option value="">-- ลูกค้าทั่วไป (Cash Customer) --</option>
@@ -426,6 +495,62 @@ export default function POSView({
                   </option>
                 ))}
               </select>
+
+              {/* Customer details view or custom input */}
+              {showCustomerDetails ? (
+                <div className="mt-1.5 p-2.5 bg-white border border-slate-200 rounded-xl space-y-1.5 shadow-sm">
+                  <div className="text-[11px] font-bold text-slate-700 pb-1 border-b border-slate-100">
+                    ข้อมูลผู้ซื้อสำหรับพิมพ์ใบเสร็จ
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-medium text-slate-500">ชื่อลูกค้า / ผู้ซื้อ:</span>
+                    <input
+                      type="text"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="ชื่อลูกค้า"
+                      className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none focus:border-slate-400"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <div>
+                      <span className="text-[10px] font-medium text-slate-500">เบอร์โทร:</span>
+                      <input
+                        type="text"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        placeholder="เบอร์โทรศัพท์"
+                        className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none focus:border-slate-400"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-medium text-slate-500">เลขผู้เสียภาษี:</span>
+                      <input
+                        type="text"
+                        value={customerTaxId}
+                        onChange={(e) => setCustomerTaxId(e.target.value)}
+                        placeholder="Tax ID"
+                        className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none focus:border-slate-400"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-medium text-slate-500">ที่อยู่:</span>
+                    <textarea
+                      rows={2}
+                      value={customerAddress}
+                      onChange={(e) => setCustomerAddress(e.target.value)}
+                      placeholder="ที่อยู่ลูกค้า"
+                      className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none focus:border-slate-400 resize-none"
+                    />
+                  </div>
+                </div>
+              ) : customerName ? (
+                <div className="mt-1 px-2 py-1 bg-white border border-slate-200/80 rounded-lg text-[11px] text-slate-700 flex justify-between items-center">
+                  <span className="truncate font-semibold">👤 {customerName}</span>
+                  {customerPhone && <span className="text-slate-400 text-[10px] ml-1">{customerPhone}</span>}
+                </div>
+              ) : null}
             </div>
 
             <div className="flex justify-between items-center text-xs font-semibold text-slate-500">
@@ -619,10 +744,19 @@ export default function POSView({
             <div className="p-4 bg-slate-50 border-t border-slate-100">
               <div className="flex flex-col gap-2 mb-3">
                 <div className="flex flex-col gap-1 pb-2 border-b border-slate-200/50">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">เลือกสมาชิก / Customer</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">เลือกสมาชิก / Customer</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomerDetails(!showCustomerDetails)}
+                      className="text-[10px] text-slate-600 hover:text-slate-900 font-bold underline cursor-pointer"
+                    >
+                      {showCustomerDetails ? 'ซ่อน' : '+ ระบุข้อมูลผู้ซื้อ'}
+                    </button>
+                  </div>
                   <select
                     value={selectedCustId}
-                    onChange={(e) => setSelectedCustId(e.target.value)}
+                    onChange={(e) => handleSelectCustomer(e.target.value)}
                     className="w-full px-2.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white"
                   >
                     <option value="">-- ลูกค้าทั่วไป (Cash Customer) --</option>
@@ -632,6 +766,62 @@ export default function POSView({
                       </option>
                     ))}
                   </select>
+
+                  {/* Mobile Customer Details Form */}
+                  {showCustomerDetails ? (
+                    <div className="mt-1.5 p-2 bg-white border border-slate-200 rounded-xl space-y-1.5 shadow-sm">
+                      <div className="text-[11px] font-bold text-slate-700 pb-1 border-b border-slate-100">
+                        ข้อมูลผู้ซื้อสำหรับพิมพ์ใบเสร็จ
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-medium text-slate-500">ชื่อลูกค้า / ผู้ซื้อ:</span>
+                        <input
+                          type="text"
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          placeholder="ชื่อลูกค้า"
+                          className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <div>
+                          <span className="text-[10px] font-medium text-slate-500">เบอร์โทร:</span>
+                          <input
+                            type="text"
+                            value={customerPhone}
+                            onChange={(e) => setCustomerPhone(e.target.value)}
+                            placeholder="เบอร์โทรศัพท์"
+                            className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-medium text-slate-500">เลขผู้เสียภาษี:</span>
+                          <input
+                            type="text"
+                            value={customerTaxId}
+                            onChange={(e) => setCustomerTaxId(e.target.value)}
+                            placeholder="Tax ID"
+                            className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-medium text-slate-500">ที่อยู่:</span>
+                        <textarea
+                          rows={2}
+                          value={customerAddress}
+                          onChange={(e) => setCustomerAddress(e.target.value)}
+                          placeholder="ที่อยู่ลูกค้า"
+                          className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none resize-none"
+                        />
+                      </div>
+                    </div>
+                  ) : customerName ? (
+                    <div className="mt-1 px-2 py-1 bg-white border border-slate-200/80 rounded-lg text-[11px] text-slate-700 flex justify-between items-center">
+                      <span className="truncate font-semibold">👤 {customerName}</span>
+                      {customerPhone && <span className="text-slate-400 text-[10px] ml-1">{customerPhone}</span>}
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="flex justify-between items-center text-xs font-semibold text-slate-500">
