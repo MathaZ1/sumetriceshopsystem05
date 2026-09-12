@@ -53,9 +53,9 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
 
   // Filter products
   const filteredProducts = products.filter((p) => {
-    // Filter by search query
-    const searchVal = localSearchQuery.trim().toLowerCase();
-    const matchesSearch = p.name.toLowerCase().includes(searchVal) || p.id.toLowerCase().includes(searchVal);
+    // Filter by search query (supports both local and parent searchQuery)
+    const searchVal = (localSearchQuery || searchQuery || '').trim().toLowerCase();
+    const matchesSearch = !searchVal || p.name.toLowerCase().includes(searchVal) || p.id.toLowerCase().includes(searchVal);
     
     return matchesSearch;
   });

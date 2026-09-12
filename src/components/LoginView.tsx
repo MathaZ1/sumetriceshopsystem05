@@ -136,7 +136,7 @@ export default function LoginView() {
               <li>
                 ไปที่หน้าตั้งค่าความปลอดภัยของ Firebase:
                 <a
-                  href="https://console.firebase.google.com/project/dev-apparatus-t2t1j/authentication/settings"
+                  href="https://console.firebase.google.com/project/sumetriceshopsystem05/authentication/settings"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-1.5 inline-flex items-center gap-1 bg-slate-900 hover:bg-slate-850 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold shadow-sm transition-all cursor-pointer"

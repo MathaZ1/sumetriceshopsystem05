@@ -139,11 +139,11 @@ export default function POSView({
     return () => unsubscribe();
   }, []);
 
-  // Filter products by category and local search query
+  // Filter products by category and search query
   const filteredProducts = products.filter((p) => {
     const matchesCategory = selectedCategory === 'ทั้งหมด' || p.category === selectedCategory;
-    const searchVal = localSearchQuery.trim().toLowerCase();
-    const matchesSearch = p.name.toLowerCase().includes(searchVal) || p.id.toLowerCase().includes(searchVal);
+    const searchVal = (localSearchQuery || searchQuery || '').trim().toLowerCase();
+    const matchesSearch = !searchVal || p.name.toLowerCase().includes(searchVal) || p.id.toLowerCase().includes(searchVal);
     return matchesCategory && matchesSearch;
   });
 

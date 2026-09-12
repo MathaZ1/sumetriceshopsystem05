@@ -131,7 +131,7 @@ function ContinuousReceiptPaper({
                 : 'p-6 sm:p-7'
             } font-mono text-black select-all flex flex-col justify-between overflow-hidden relative ${
               printPinhole ? 'print-pinholes-visible' : ''
-            } ${!isLastPage ? 'page-break' : ''}`}
+            } ${!isLastPage ? 'page-break' : 'last-page'}`}
             style={{
               width: '912px',
               minHeight: paperSize === '9.5x11' ? '1056px' : '620px',
@@ -1873,7 +1873,7 @@ export default function ReceiptView({
                 height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
                 max-height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
                 margin: 0 !important;
-                padding: ${items.length > 18 ? '4mm 8mm' : items.length > 10 ? '5mm 9mm' : '6mm 10mm'} !important;
+                padding: ${items.length > 35 ? '2.5mm 6mm' : items.length > 18 ? '4mm 8mm' : items.length > 10 ? '5mm 9mm' : '6mm 10mm'} !important;
                 box-sizing: border-box !important;
                 overflow: hidden !important;
                 page-break-inside: avoid !important;
