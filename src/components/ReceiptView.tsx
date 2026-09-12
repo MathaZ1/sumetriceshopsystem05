@@ -1111,42 +1111,78 @@ export default function ReceiptView({
       <div className="max-w-7xl mx-auto flex flex-col gap-6">
         
         {/* Page Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-200 pb-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200 pb-4">
           <div>
-            <h2 className="text-xl font-bold text-slate-900">ออกใบเสร็จรับเงิน</h2>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h2 className="text-xl font-bold text-slate-900">ออกใบเสร็จรับเงิน</h2>
+              {invoiceId && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                  เลขที่บิล: #{invoiceId}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-slate-500 mt-1 font-medium">สร้างรายการขาย พิมพ์ใบเสร็จ และจัดการยกเลิกบิล</p>
           </div>
           
-          {/* Sub-tab Selection */}
-          {(role === 'admin' || role === 'employee') && (
-            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {invoiceId && (
               <button
-                onClick={() => setSubTab('create')}
-                className={`px-4 py-2 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
-                  subTab === 'create'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-900'
-                }`}
+                type="button"
+                onClick={() => {
+                  if (setInvoiceId) setInvoiceId('');
+                  if (onStartNewSale) onStartNewSale();
+                }}
+                className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                title="ล้างบิลนี้และเริ่มเปิดบิลใหม่"
               >
-                <FileText className="w-3.5 h-3.5" />
-                <span>ออกใบเสร็จรับเงินใหม่</span>
+                <Plus className="w-3.5 h-3.5 text-slate-600" />
+                <span>เริ่มบิลใหม่</span>
               </button>
+            )}
+
+            {setActiveTab && (
               <button
-                onClick={() => setSubTab('manage')}
-                className={`px-4 py-2 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
-                  subTab === 'manage'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-900'
-                }`}
+                type="button"
+                onClick={() => setActiveTab('pos')}
+                className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
               >
-                <Ban className="w-3.5 h-3.5" />
-                <span>ยกเลิกออกใบเสร็จรับเงิน</span>
-                <span className="bg-slate-200 text-slate-700 text-[10px] px-1.5 py-0.5 rounded-full font-extrabold">
-                  {allSales.length}
-                </span>
+                <ShoppingCart className="w-3.5 h-3.5 text-slate-600" />
+                <span>ไปยังหน้าขาย (POS)</span>
               </button>
-            </div>
-          )}
+            )}
+
+            {/* Sub-tab Selection */}
+            {(role === 'admin' || role === 'employee') && (
+              <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <button
+                  onClick={() => setSubTab('create')}
+                  className={`px-3.5 py-1.5 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                    subTab === 'create'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>ออกใบเสร็จใหม่</span>
+                </button>
+                <button
+                  onClick={() => setSubTab('manage')}
+                  className={`px-3.5 py-1.5 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                    subTab === 'manage'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  <Ban className="w-3.5 h-3.5" />
+                  <span>ยกเลิกบิล</span>
+                  <span className="bg-slate-200 text-slate-700 text-[10px] px-1.5 py-0.5 rounded-full font-extrabold">
+                    {allSales.length}
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Conditional Workspace */}
@@ -1295,71 +1331,6 @@ export default function ReceiptView({
           </div>
         ) : (
           <div className="flex flex-col gap-5 w-full">
-            {/* Status & Sync Banner */}
-            {invoiceId ? (
-              <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shrink-0"></span>
-                  <div className="text-xs">
-                    <span className="font-semibold text-slate-700">กำลังแสดงบิลที่ออกแล้ว: </span>
-                    <span className="font-mono font-black text-amber-950 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300 mr-2">{invoiceId}</span>
-                    <span className="text-[11px] text-amber-800 font-medium">(มี {items.length} รายการ | ยอดสุทธิ ฿{netTotal.toFixed(2)})</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (setInvoiceId) setInvoiceId('');
-                      if (onStartNewSale) onStartNewSale();
-                    }}
-                    className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-amber-300 hover:bg-amber-100 active:bg-amber-200 text-amber-900 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>เริ่มบิลใหม่</span>
-                  </button>
-                  {setActiveTab && (
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('pos')}
-                      className="flex-1 sm:flex-none px-3 py-1.5 bg-amber-900 hover:bg-amber-950 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
-                    >
-                      <ShoppingCart className="w-3.5 h-3.5" />
-                      <span>กลับไปหน้าขาย</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
-                  <div className="text-xs">
-                    <span className="font-semibold text-slate-700">
-                      {items.length > 0
-                        ? `เชื่อมโยงสินค้าจากตะกร้าขาย (POS) ครบถ้วน ${items.length} รายการ`
-                        : 'ออกใบเสร็จรับเงินใหม่ (ยังไม่มีรายการสินค้า)'}
-                    </span>
-                    {items.length > 0 && (
-                      <span className="text-[11px] text-slate-500 ml-2 font-medium">
-                        (ยอดสุทธิ ฿{netTotal.toFixed(2)})
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {setActiveTab && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('pos')}
-                    className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
-                  >
-                    <ShoppingCart className="w-3.5 h-3.5" />
-                    <span>ไปยังหน้าขาย (POS) เพื่อเลือกสินค้าเพิ่ม</span>
-                  </button>
-                )}
-              </div>
-            )}
-
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           {/* Left Column: Customer Details & Items in Bill (Span 5/12 on desktop for ideal balance) */}
