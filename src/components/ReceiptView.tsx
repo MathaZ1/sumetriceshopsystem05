@@ -228,19 +228,19 @@ function ContinuousReceiptPaper({
                 {/* Row 1: Customer Name, Phone, and Tax ID */}
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                    <span className="text-black font-bold shrink-0 whitespace-nowrap">ลูกค้า / Customer :</span>
+                    <span className="text-black font-bold shrink-0 whitespace-nowrap">ลูกค้า :</span>
                     <span className="text-black font-black truncate">
-                      {custName || 'ลูกค้าทั่วไป (General Cash Customer)'}
+                      {custName || 'ลูกค้าทั่วไป'}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-black font-bold shrink-0 whitespace-nowrap">เบอร์โทร / Phone :</span>
+                    <span className="text-black font-bold shrink-0 whitespace-nowrap">เบอร์โทร :</span>
                     <span className="text-black font-black font-mono">
                       {custPhone || '-'}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-black font-bold shrink-0 whitespace-nowrap">เลขผู้เสียภาษี / Tax ID :</span>
+                    <span className="text-black font-bold shrink-0 whitespace-nowrap">เลขผู้เสียภาษี :</span>
                     <span className="text-black font-black font-mono">
                       {custTaxId || '-'}
                     </span>
@@ -249,7 +249,7 @@ function ContinuousReceiptPaper({
 
                 {/* Row 2: Customer Address (Full width for complete information without overflowing into other rows) */}
                 <div className="flex items-start gap-1.5 w-full min-w-0">
-                  <span className="text-black font-bold shrink-0 whitespace-nowrap">ที่อยู่ / Address :</span>
+                  <span className="text-black font-bold shrink-0 whitespace-nowrap">ที่อยู่ :</span>
                   <span className={`text-black font-bold break-words flex-1 ${isUltraDense ? 'text-[10px]' : ''} leading-snug`} title={custAddress || ''}>
                     {custAddress || '................................................................................................................................................'}
                   </span>
@@ -268,7 +268,7 @@ function ContinuousReceiptPaper({
                       } text-center w-[48px] font-black whitespace-nowrap`}>ลำดับ</th>
                       <th className={`${
                         isUltraDense ? 'py-0.5 px-2' : isSuperDense ? 'py-1 px-2' : isDense ? 'py-1.5 px-3' : 'py-2 px-3'
-                      } font-black whitespace-nowrap`}>รายการสินค้า / Description</th>
+                      } font-black whitespace-nowrap`}>รายการสินค้า</th>
                       <th className={`${
                         isUltraDense ? 'py-0.5' : isSuperDense ? 'py-1' : isDense ? 'py-1.5' : 'py-2'
                       } text-right w-[72px] font-black whitespace-nowrap`}>จำนวน</th>
@@ -284,7 +284,7 @@ function ContinuousReceiptPaper({
                     {pageItems.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="text-center py-10 text-black font-black text-[15px] italic">
-                          ไม่มีรายการในใบเสร็จ (No Items Added)
+                          ไม่มีรายการในใบเสร็จ
                         </td>
                       </tr>
                     ) : (
@@ -356,7 +356,7 @@ function ContinuousReceiptPaper({
 
               {/* Bottom Section: Calculations on last page, Carry forward on intermediate pages */}
               {isLastPage ? (
-                <>
+                <div className="mt-auto shrink-0 flex flex-col">
                   {/* Calculations & Baht Text Block */}
                   <div className={`grid grid-cols-12 ${
                     isUltraDense ? 'pt-1 pb-0.5 gap-2' : isSuperDense ? 'pt-1 pb-1 gap-2' : isDense ? 'pt-2 pb-1 gap-3' : 'pt-3 pb-2 gap-4'
@@ -375,14 +375,14 @@ function ContinuousReceiptPaper({
                       isUltraDense ? 'gap-0.5 text-[11px]' : isSuperDense ? 'gap-1 text-[12px]' : isDense ? 'gap-1.5 text-[13.5px]' : 'gap-1.5 text-[15px]'
                     } font-bold text-black font-mono`}>
                       <div className="flex justify-between items-center">
-                        <span className="font-bold whitespace-nowrap">รวมเงิน / Subtotal :</span>
+                        <span className="font-bold whitespace-nowrap">รวมเงิน :</span>
                         <span className="font-black whitespace-nowrap">
                           {total.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
                       {discount > 0 && (
                         <div className="flex justify-between items-center text-black font-bold">
-                          <span className="whitespace-nowrap">ส่วนลด / Discount :</span>
+                          <span className="whitespace-nowrap">ส่วนลด :</span>
                           <span className="font-black whitespace-nowrap">
                             -{discount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
@@ -391,7 +391,7 @@ function ContinuousReceiptPaper({
                       <div className={`flex justify-between items-center border-t border-black pt-1 ${
                         isUltraDense ? 'text-[13px]' : isSuperDense ? 'text-[14px]' : isDense ? 'text-[15.5px]' : 'text-[17px]'
                       } font-black text-black`}>
-                        <span className="whitespace-nowrap">ยอดสุทธิ / Net Total :</span>
+                        <span className="whitespace-nowrap">ยอดสุทธิ :</span>
                         <span className="text-black font-black whitespace-nowrap">
                           {netTotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
@@ -412,21 +412,21 @@ function ContinuousReceiptPaper({
                     <div className="flex flex-col items-center">
                       <div className={isUltraDense ? 'h-2' : isSuperDense ? 'h-3' : isDense ? 'h-5' : 'h-6'}></div>
                       <p className="text-black font-bold leading-tight whitespace-nowrap">
-                        ลงชื่อ .................................................... ผู้รับสินค้า / Recipient
+                        ลงชื่อ .................................................... ผู้รับสินค้า
                       </p>
                       <p className={`${isUltraDense ? 'mt-0' : isSuperDense ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap`}>วันที่ ......../......../........</p>
                     </div>
                     <div className="flex flex-col items-center">
                       <div className={isUltraDense ? 'h-2' : isSuperDense ? 'h-3' : isDense ? 'h-5' : 'h-6'}></div>
                       <p className="text-black font-bold leading-tight whitespace-nowrap">
-                        ลงชื่อ .................................................... ผู้รับเงิน / Collector
+                        ลงชื่อ .................................................... ผู้รับเงิน
                       </p>
                       <p className={`${isUltraDense ? 'mt-0' : isSuperDense ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap`}>วันที่ ......../......../........</p>
                     </div>
                   </div>
-                </>
+                </div>
               ) : (
-                <>
+                <div className="mt-auto shrink-0 flex flex-col">
                   {/* Intermediate Page Carry Forward Block */}
                   <div className={`grid grid-cols-12 ${
                     isUltraDense ? 'pt-1 pb-0.5 gap-2' : isSuperDense ? 'pt-1.5 pb-1 gap-2' : isDense ? 'pt-2 pb-1 gap-3' : 'pt-3 pb-2 gap-4'
@@ -436,7 +436,7 @@ function ContinuousReceiptPaper({
                         <p className={`${
                           isUltraDense ? 'text-[11px]' : isSuperDense ? 'text-[12px]' : isDense ? 'text-[13.5px]' : 'text-[15px]'
                         } text-black font-black leading-tight italic`}>
-                          *** มีต่อหน้าที่ {pageIdx + 2} (Continued on Page {pageIdx + 2}) ***
+                          *** มีต่อหน้าที่ {pageIdx + 2} ***
                         </p>
                       </div>
                     </div>
@@ -445,7 +445,7 @@ function ContinuousReceiptPaper({
                       isUltraDense ? 'gap-0.5 text-[11px]' : isSuperDense ? 'gap-1 text-[12px]' : isDense ? 'gap-1.5 text-[13.5px]' : 'gap-1.5 text-[15px]'
                     } font-bold text-black font-mono`}>
                       <div className="flex justify-between items-center">
-                        <span className="font-bold whitespace-nowrap">ยอดยกไป / Carry Forward :</span>
+                        <span className="font-bold whitespace-nowrap">ยอดยกไป :</span>
                         <span className="font-black whitespace-nowrap">
                           {runningSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
@@ -460,7 +460,7 @@ function ContinuousReceiptPaper({
                     <span>ใบเสร็จรับเงินต่อเนื่อง (หน้าที่ {pageIdx + 1} จาก {totalPages} หน้า)</span>
                     <span className="font-black text-black">โปรดดูยอดรวมสุทธิและลายเซ็นต์ที่หน้า {totalPages}</span>
                   </div>
-                </>
+                </div>
               )}
             </div>
           </div>
@@ -1341,7 +1341,7 @@ export default function ReceiptView({
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4 text-slate-700" />
-                  <h3 className="text-sm font-bold text-slate-900">ข้อมูลผู้ซื้อ / Customer Info</h3>
+                  <h3 className="text-sm font-bold text-slate-900">ข้อมูลผู้ซื้อ</h3>
                 </div>
                 <span className="text-[10px] bg-slate-100 px-2 py-1 rounded-md text-slate-700 font-bold">เลือกลูกค้า</span>
               </div>
@@ -1398,7 +1398,7 @@ export default function ReceiptView({
               {/* Tax ID */}
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1.5 uppercase tracking-wide">
-                  เลขประจำตัวผู้เสียภาษี (Tax ID)
+                  เลขประจำตัวผู้เสียภาษี
                 </label>
                 <input
                   type="text"
@@ -1426,7 +1426,7 @@ export default function ReceiptView({
             {/* Discount Panel */}
             <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col gap-3">
               <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
-                <h3 className="text-sm font-bold text-slate-900">ส่วนลดใบเสร็จ / Discount</h3>
+                <h3 className="text-sm font-bold text-slate-900">ส่วนลดใบเสร็จ</h3>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1.5 uppercase tracking-wide">
