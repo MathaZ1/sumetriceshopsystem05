@@ -251,7 +251,7 @@ function ContinuousReceiptPaper({
                 <div className="flex items-start gap-1.5 w-full min-w-0">
                   <span className="text-black font-bold shrink-0 whitespace-nowrap">ที่อยู่ :</span>
                   <span className={`text-black font-bold break-words flex-1 ${isUltraDense ? 'text-[10px]' : ''} leading-snug`} title={custAddress || ''}>
-                    {custAddress || '................................................................................................................................................'}
+                    {custAddress || '-'}
                   </span>
                 </div>
               </div>
@@ -402,26 +402,39 @@ function ContinuousReceiptPaper({
                   {/* Signature fields strip */}
                   <div className={`grid grid-cols-2 ${
                     isUltraDense
-                      ? 'gap-4 mt-0.5 pt-0.5 text-[10.5px]'
+                      ? 'gap-6 mt-0.5 pt-0.5 text-[10.5px]'
                       : isSuperDense
-                      ? 'gap-6 mt-1 pt-1 text-[11.5px]'
+                      ? 'gap-8 mt-1 pt-1 text-[11.5px]'
                       : isDense
-                      ? 'gap-8 mt-2 pt-1 text-[13px]'
-                      : 'gap-10 mt-3 pt-2 text-[14px]'
-                  } text-center text-black font-bold border-t border-dashed border-stone-300`}>
-                    <div className="flex flex-col items-center">
-                      <div className={isUltraDense ? 'h-2' : isSuperDense ? 'h-3' : isDense ? 'h-5' : 'h-6'}></div>
-                      <p className="text-black font-bold leading-tight whitespace-nowrap">
-                        ลงชื่อ .................................................... ผู้รับสินค้า
+                      ? 'gap-10 mt-2 pt-1 text-[13px]'
+                      : 'gap-12 mt-3 pt-2 text-[14px]'
+                  } text-black font-bold border-t border-dashed border-stone-300`}>
+                    <div className="flex flex-col items-center justify-center w-full px-2">
+                      <div className={isUltraDense ? 'h-1.5' : isSuperDense ? 'h-2.5' : isDense ? 'h-4' : 'h-5'}></div>
+                      <div className="w-full max-w-[280px] flex items-baseline justify-center gap-1 leading-tight">
+                        <span className="shrink-0 whitespace-nowrap">ลงชื่อ</span>
+                        <span className="flex-1 overflow-hidden whitespace-nowrap text-center tracking-wider font-mono select-none">
+                          ................................
+                        </span>
+                        <span className="shrink-0 whitespace-nowrap">ผู้รับสินค้า</span>
+                      </div>
+                      <p className={`${isUltraDense ? 'mt-0' : isSuperDense ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap text-center`}>
+                        วันที่ ......../......../........
                       </p>
-                      <p className={`${isUltraDense ? 'mt-0' : isSuperDense ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap`}>วันที่ ......../......../........</p>
                     </div>
-                    <div className="flex flex-col items-center">
-                      <div className={isUltraDense ? 'h-2' : isSuperDense ? 'h-3' : isDense ? 'h-5' : 'h-6'}></div>
-                      <p className="text-black font-bold leading-tight whitespace-nowrap">
-                        ลงชื่อ .................................................... ผู้รับเงิน
+
+                    <div className="flex flex-col items-center justify-center w-full px-2">
+                      <div className={isUltraDense ? 'h-1.5' : isSuperDense ? 'h-2.5' : isDense ? 'h-4' : 'h-5'}></div>
+                      <div className="w-full max-w-[280px] flex items-baseline justify-center gap-1 leading-tight">
+                        <span className="shrink-0 whitespace-nowrap">ลงชื่อ</span>
+                        <span className="flex-1 overflow-hidden whitespace-nowrap text-center tracking-wider font-mono select-none">
+                          ................................
+                        </span>
+                        <span className="shrink-0 whitespace-nowrap">ผู้รับเงิน</span>
+                      </div>
+                      <p className={`${isUltraDense ? 'mt-0' : isSuperDense ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap text-center`}>
+                        วันที่ ......../......../........
                       </p>
-                      <p className={`${isUltraDense ? 'mt-0' : isSuperDense ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap`}>วันที่ ......../......../........</p>
                     </div>
                   </div>
                 </div>
