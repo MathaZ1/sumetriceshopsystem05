@@ -81,11 +81,11 @@ export default function CustomersView() {
     try {
       const id = editingCustomer ? editingCustomer.id : 'CUST-' + Math.floor(10000 + Math.random() * 90000);
       const customerData: Customer = {
-        id,
-        name: name.trim(),
-        phone: phone.trim(),
-        address: address.trim(),
-        taxId: taxId.trim()
+        id: id.slice(0, 128),
+        name: name.trim().slice(0, 200),
+        phone: phone.trim().slice(0, 50),
+        address: address.trim().slice(0, 500),
+        taxId: taxId.trim().slice(0, 32)
       };
 
       await setDoc(doc(db, 'customers', id), customerData);
@@ -134,12 +134,12 @@ export default function CustomersView() {
         {/* Header Block */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
           <div>
-            <h2 className="text-xl font-bold text-slate-900 md:text-2xl">ข้อมูลสมาชิกลูกค้า</h2>
-            <p className="text-sm text-slate-500 mt-1 font-medium">บันทึกและจัดการรายชื่อ ข้อมูลการติดต่อ และเลขผู้เสียภาษีของลูกค้า</p>
+            <h2 className="text-2xl font-extrabold text-slate-900">ข้อมูลสมาชิกลูกค้า</h2>
+            <p className="text-base text-slate-600 mt-1 font-medium">บันทึกและจัดการรายชื่อ ข้อมูลการติดต่อ และเลขผู้เสียภาษีของลูกค้า</p>
           </div>
           <button
             onClick={handleOpenAdd}
-            className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-slate-950 text-white rounded-xl px-4 py-2.5 hover:bg-slate-850 font-semibold text-xs cursor-pointer shadow-sm transition-colors"
+            className="w-full sm:w-auto flex items-center justify-center gap-1.5 bg-slate-950 text-white rounded-xl px-4.5 py-2.5 hover:bg-slate-850 font-bold text-sm cursor-pointer shadow-sm transition-colors"
           >
             <Plus className="w-4 h-4" />
             <span>เพิ่มรายชื่อลูกค้า</span>
@@ -154,7 +154,7 @@ export default function CustomersView() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder-slate-400 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all duration-200"
+              className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-base text-slate-800 placeholder-slate-400 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all duration-200"
               placeholder="ค้นหาลูกค้าด้วย ชื่อ, เบอร์โทรศัพท์, ที่อยู่ หรือเลขประจำตัวผู้เสียภาษี..."
             />
           </div>
@@ -164,35 +164,35 @@ export default function CustomersView() {
         {loading ? (
           <div className="bg-white border border-slate-100 rounded-2xl p-12 text-center shadow-sm">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-950 mx-auto"></div>
-            <p className="text-xs text-slate-400 mt-4 font-semibold">กำลังโหลดข้อมูลลูกค้า...</p>
+            <p className="text-sm text-slate-500 mt-4 font-semibold">กำลังโหลดข้อมูลลูกค้า...</p>
           </div>
         ) : filteredCustomers.length === 0 ? (
           <div className="bg-white border border-slate-100 rounded-2xl p-16 text-center shadow-sm flex flex-col items-center">
             <Users className="w-12 h-12 text-slate-300 stroke-[1.5] mb-3" />
-            <p className="text-sm font-bold text-slate-700">ไม่พบข้อมูลลูกค้า</p>
-            <p className="text-xs text-slate-400 mt-1">คุณสามารถเพิ่มรายชื่อลูกค้าสมาชิกใหม่ได้โดยคลิกปุ่ม "เพิ่มรายชื่อลูกค้า"</p>
+            <p className="text-base font-bold text-slate-700">ไม่พบข้อมูลลูกค้า</p>
+            <p className="text-sm text-slate-500 mt-1">คุณสามารถเพิ่มรายชื่อลูกค้าสมาชิกใหม่ได้โดยคลิกปุ่ม "เพิ่มรายชื่อลูกค้า"</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredCustomers.map((c) => (
               <div key={c.id} className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between">
                 <div>
-                  <div className="flex justify-between items-start gap-2 border-b border-slate-50 pb-3 mb-3">
+                  <div className="flex justify-between items-start gap-2 border-b border-slate-100 pb-3 mb-3">
                     <div>
-                      <h4 className="font-bold text-slate-900 text-base">{c.name}</h4>
-                      <span className="text-[10px] text-slate-400 font-mono font-bold uppercase tracking-wider">{c.id}</span>
+                      <h4 className="font-extrabold text-slate-900 text-lg leading-snug">{c.name}</h4>
+                      <span className="text-xs text-slate-400 font-mono font-bold uppercase tracking-wider">{c.id}</span>
                     </div>
                     <div className="flex gap-1 shrink-0">
                       <button
                         onClick={() => handleOpenEdit(c)}
-                        className="p-1.5 hover:bg-slate-50 text-slate-500 hover:text-slate-900 rounded-lg transition-colors cursor-pointer"
+                        className="p-2 hover:bg-slate-50 text-slate-500 hover:text-slate-900 rounded-lg transition-colors cursor-pointer"
                         title="แก้ไขข้อมูล"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteClick(c.id, c.name)}
-                        className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
+                        className="p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
                         title="ลบข้อมูล"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -200,23 +200,23 @@ export default function CustomersView() {
                     </div>
                   </div>
 
-                  <div className="space-y-2 text-xs font-semibold text-slate-600">
+                  <div className="space-y-2.5 text-sm font-semibold text-slate-700">
                     <div className="flex items-center gap-2">
-                      <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>{c.phone || '-'}</span>
+                      <Phone className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span className="tabular-nums">{c.phone || '-'}</span>
                     </div>
 
                     {c.taxId && (
                       <div className="flex items-center gap-2">
-                        <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>เลขผู้เสียภาษี: <span className="font-mono text-slate-900">{c.taxId}</span></span>
+                        <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                        <span>เลขผู้เสียภาษี: <span className="font-mono text-slate-900 tabular-nums">{c.taxId}</span></span>
                       </div>
                     )}
 
                     {c.address && (
                       <div className="flex items-start gap-2">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
-                        <span className="line-clamp-2 text-slate-500">{c.address}</span>
+                        <MapPin className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                        <span className="line-clamp-2 text-slate-600">{c.address}</span>
                       </div>
                     )}
                   </div>
@@ -231,76 +231,80 @@ export default function CustomersView() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-150">
             <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
               <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                <h3 className="text-base font-bold text-slate-800">
+                <h3 className="text-lg font-bold text-slate-900">
                   {editingCustomer ? 'แก้ไขข้อมูลลูกค้า' : 'เพิ่มรายชื่อลูกค้าสมาชิก'}
                 </h3>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="p-1 hover:bg-slate-200 text-slate-500 rounded-lg transition-colors cursor-pointer"
+                  className="p-1.5 hover:bg-slate-200 text-slate-500 rounded-lg transition-colors cursor-pointer"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
               <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5">
                 {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-bold px-4 py-2.5 rounded-xl">
+                  <div className="bg-red-50 border border-red-200 text-red-700 text-sm font-bold px-4 py-2.5 rounded-xl">
                     {error}
                   </div>
                 )}
                 {/* Name */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
+                  <label className="block text-sm font-bold text-slate-700 mb-1.5">
                     ชื่อลูกค้า *
                   </label>
                   <input
                     type="text"
                     required
+                    maxLength={200}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-base text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
                     placeholder="กรอกชื่อ-นามสกุล หรือชื่อร้านค้า..."
                   />
                 </div>
 
                 {/* Phone */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
+                  <label className="block text-sm font-bold text-slate-700 mb-1.5">
                     เบอร์โทรศัพท์
                   </label>
                   <input
                     type="tel"
+                    maxLength={50}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-base text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
                     placeholder="เช่น 089-XXXXXXX"
                   />
                 </div>
 
                 {/* Tax ID */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
+                  <label className="block text-sm font-bold text-slate-700 mb-1.5">
                     เลขประจำตัวผู้เสียภาษี
                   </label>
                   <input
                     type="text"
+                    maxLength={32}
                     value={taxId}
                     onChange={(e) => setTaxId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-850 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-base text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
                     placeholder="13 หลัก เช่น 084351001529"
                   />
                 </div>
 
                 {/* Address */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
+                  <label className="block text-sm font-bold text-slate-700 mb-1.5">
                     ที่อยู่สำหรับออกบิล
                   </label>
                   <textarea
+                    maxLength={500}
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all resize-none h-20"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-base text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all resize-none h-24"
                     placeholder="กรอกที่อยู่ของลูกค้า..."
                   />
                 </div>

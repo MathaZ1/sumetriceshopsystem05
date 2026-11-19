@@ -433,37 +433,37 @@ export default function ReportsView() {
         {/* Title and Action Buttons */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-4">
           <div>
-            <h2 className="text-xl font-bold text-slate-900 md:text-2xl">รายงานสรุปยอดขาย</h2>
-            <p className="text-sm text-slate-500 mt-1 font-medium">ข้อมูลภาพรวมยอดขายและการทำรายการล่าสุด (กรองตาม: {activeStats.label})</p>
+            <h2 className="text-2xl font-extrabold text-slate-900">รายงานสรุปยอดขาย</h2>
+            <p className="text-base text-slate-600 mt-1 font-medium">ข้อมูลภาพรวมยอดขายและการทำรายการล่าสุด (กรองตาม: {activeStats.label})</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            <div className="flex bg-slate-100 rounded-xl p-1 shrink-0 border border-slate-200/50">
+          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+            <div className="flex bg-slate-100 rounded-xl p-1 shrink-0 border border-slate-200/70">
               <button
                 onClick={() => setTimeFilter('today')}
-                className={`font-semibold text-xs px-4 py-2 rounded-lg transition-all cursor-pointer ${
+                className={`font-semibold text-sm px-4 py-2 rounded-lg transition-all cursor-pointer ${
                   timeFilter === 'today'
                     ? 'bg-white shadow-sm text-slate-950 font-black'
-                    : 'text-slate-500 hover:text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 วันนี้
               </button>
               <button
                 onClick={() => setTimeFilter('week')}
-                className={`font-semibold text-xs px-4 py-2 rounded-lg transition-all cursor-pointer ${
+                className={`font-semibold text-sm px-4 py-2 rounded-lg transition-all cursor-pointer ${
                   timeFilter === 'week'
                     ? 'bg-white shadow-sm text-slate-950 font-black'
-                    : 'text-slate-500 hover:text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 สัปดาห์นี้
               </button>
               <button
                 onClick={() => setTimeFilter('month')}
-                className={`font-semibold text-xs px-4 py-2 rounded-lg transition-all cursor-pointer ${
+                className={`font-semibold text-sm px-4 py-2 rounded-lg transition-all cursor-pointer ${
                   timeFilter === 'month'
                     ? 'bg-white shadow-sm text-slate-950 font-black'
-                    : 'text-slate-500 hover:text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 เดือนนี้
@@ -474,7 +474,7 @@ export default function ReportsView() {
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-700 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none shadow-sm transition-all cursor-pointer h-[38px]"
+                className="bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-bold text-slate-800 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none shadow-sm transition-all cursor-pointer h-[42px]"
               >
                 {getAvailableMonths().map((m) => (
                   <option key={m} value={m}>
@@ -486,7 +486,7 @@ export default function ReportsView() {
             
             <button
               onClick={handleExportCSV}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl px-4 py-2.5 font-semibold text-xs cursor-pointer shadow-sm transition-all duration-200"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl px-4.5 py-2.5 font-bold text-sm cursor-pointer shadow-sm transition-all duration-200"
             >
               <Download className="w-4 h-4" />
               <span>ส่งออกรายงาน</span>
@@ -508,9 +508,9 @@ export default function ReportsView() {
             <div className="absolute top-0 right-0 p-4 opacity-15 text-blue-900">
               <TrendingUp className="w-14 h-14" />
             </div>
-            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-2">ยอดขายวันนี้</p>
-            <p className="text-2xl font-black text-blue-950 mb-1">฿{totalSalesToday.toLocaleString('th-TH')}</p>
-            <div className="flex items-center gap-1 text-blue-600 font-semibold text-[11px]">
+            <p className="text-xs sm:text-sm font-bold text-blue-700 mb-2">ยอดขายวันนี้</p>
+            <p className="text-2xl sm:text-3xl font-black text-blue-950 mb-1.5 tabular-nums">฿{totalSalesToday.toLocaleString('th-TH')}</p>
+            <div className="flex items-center gap-1 text-blue-700 font-semibold text-xs">
               <span>คลิกเพื่อกรองรายละเอียดวันนี้</span>
             </div>
           </div>
@@ -527,9 +527,9 @@ export default function ReportsView() {
             <div className="absolute top-0 right-0 p-4 opacity-15 text-blue-900">
               <TrendingUp className="w-14 h-14" />
             </div>
-            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-2">ยอดขายสัปดาห์นี้</p>
-            <p className="text-2xl font-black text-blue-950 mb-1">฿{totalSalesWeek.toLocaleString('th-TH')}</p>
-            <div className="flex items-center gap-1 text-blue-600 font-semibold text-[11px]">
+            <p className="text-xs sm:text-sm font-bold text-blue-700 mb-2">ยอดขายสัปดาห์นี้</p>
+            <p className="text-2xl sm:text-3xl font-black text-blue-950 mb-1.5 tabular-nums">฿{totalSalesWeek.toLocaleString('th-TH')}</p>
+            <div className="flex items-center gap-1 text-blue-700 font-semibold text-xs">
               <span>คลิกเพื่อกรองรายละเอียดสัปดาห์นี้</span>
             </div>
           </div>
@@ -546,9 +546,9 @@ export default function ReportsView() {
             <div className="absolute top-0 right-0 p-4 opacity-15 text-blue-900">
               <FileText className="w-14 h-14" />
             </div>
-            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-2">ยอดขายเดือนนี้</p>
-            <p className="text-2xl font-black text-blue-950 mb-1">฿{totalSalesMonth.toLocaleString('th-TH')}</p>
-            <div className="flex items-center gap-1 text-blue-600 font-semibold text-[11px]">
+            <p className="text-xs sm:text-sm font-bold text-blue-700 mb-2">ยอดขายเดือนนี้</p>
+            <p className="text-2xl sm:text-3xl font-black text-blue-950 mb-1.5 tabular-nums">฿{totalSalesMonth.toLocaleString('th-TH')}</p>
+            <div className="flex items-center gap-1 text-blue-700 font-semibold text-xs">
               <span>คลิกเพื่อกรองรายละเอียดเดือนนี้</span>
             </div>
           </div>
@@ -556,29 +556,29 @@ export default function ReportsView() {
           {/* Card 4: Avg Order Value for Selected Period */}
           <div className="bg-white border border-slate-100 rounded-2xl p-5 flex flex-col justify-between shadow-sm transition-all duration-200 hover:shadow-md">
             <div>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">สถิติสำหรับ ({activeStats.label})</p>
+              <p className="text-xs sm:text-sm font-bold text-slate-600 mb-1">สถิติสำหรับ ({activeStats.label})</p>
               <div className="flex items-end justify-between mt-2">
-                <p className="text-xl font-black text-slate-900 leading-none">฿{avgOrderValue.toFixed(2)}</p>
-                <span className="text-[10px] font-semibold text-slate-400">เฉลี่ย/บิล</span>
+                <p className="text-2xl font-black text-slate-950 leading-none tabular-nums">฿{avgOrderValue.toFixed(2)}</p>
+                <span className="text-xs font-semibold text-slate-500">เฉลี่ย/บิล</span>
               </div>
             </div>
-            <div className="border-t border-slate-100 pt-2 mt-2 flex items-end justify-between">
-              <p className="text-xl font-black text-slate-900 leading-none">{activeStats.count}</p>
-              <span className="text-[10px] font-semibold text-slate-400">จำนวนบิล</span>
+            <div className="border-t border-slate-100 pt-2.5 mt-2.5 flex items-end justify-between">
+              <p className="text-2xl font-black text-slate-950 leading-none tabular-nums">{activeStats.count}</p>
+              <span className="text-xs font-semibold text-slate-500">จำนวนบิล</span>
             </div>
           </div>
         </div>
 
         {/* Sales Trend Chart Area */}
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-sm font-bold text-slate-900">แนวโน้มยอดขาย ({activeStats.label})</h3>
-            <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+            <h3 className="text-base font-bold text-slate-900">แนวโน้มยอดขาย ({activeStats.label})</h3>
+            <div className="flex items-center gap-2">
               {timeFilter === 'month' && (
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-[10px] font-bold text-slate-700 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none shadow-sm transition-all cursor-pointer h-[28px]"
+                  className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none shadow-sm transition-all cursor-pointer h-[32px]"
                 >
                   {getAvailableMonths().map((m) => (
                     <option key={m} value={m}>
@@ -590,24 +590,24 @@ export default function ReportsView() {
               <div className="flex gap-1 bg-slate-100 rounded-lg p-1 shrink-0">
                 <button 
                   onClick={() => setTimeFilter('today')}
-                  className={`font-semibold text-[10px] px-2.5 py-1.5 rounded-md transition-all cursor-pointer ${
-                    timeFilter === 'today' ? 'bg-white shadow-sm text-slate-900 font-bold' : 'text-slate-500 hover:text-slate-900'
+                  className={`font-semibold text-xs px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                    timeFilter === 'today' ? 'bg-white shadow-sm text-slate-900 font-bold' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   วันนี้
                 </button>
                 <button 
                   onClick={() => setTimeFilter('week')}
-                  className={`font-semibold text-[10px] px-2.5 py-1.5 rounded-md transition-all cursor-pointer ${
-                    timeFilter === 'week' ? 'bg-white shadow-sm text-slate-900 font-bold' : 'text-slate-500 hover:text-slate-900'
+                  className={`font-semibold text-xs px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                    timeFilter === 'week' ? 'bg-white shadow-sm text-slate-900 font-bold' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   สัปดาห์นี้
                 </button>
                 <button 
                   onClick={() => setTimeFilter('month')}
-                  className={`font-semibold text-[10px] px-2.5 py-1.5 rounded-md transition-all cursor-pointer ${
-                    timeFilter === 'month' ? 'bg-white shadow-sm text-slate-900 font-bold' : 'text-slate-500 hover:text-slate-900'
+                  className={`font-semibold text-xs px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                    timeFilter === 'month' ? 'bg-white shadow-sm text-slate-900 font-bold' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   เดือนนี้
@@ -619,7 +619,7 @@ export default function ReportsView() {
           {/* Chart Wrapper Container */}
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dynamicChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={dynamicChartData} margin={{ top: 10, right: 10, left: -12, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#1e293b" stopOpacity={0.25} />
@@ -631,12 +631,12 @@ export default function ReportsView() {
                   dataKey="day"
                   tickLine={false}
                   axisLine={false}
-                  tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }}
+                  tick={{ fontSize: 12, fill: '#475569', fontWeight: 600 }}
                 />
                 <YAxis
                   tickLine={false}
                   axisLine={false}
-                  tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }}
+                  tick={{ fontSize: 12, fill: '#475569', fontWeight: 600 }}
                   tickFormatter={(v) => `฿${v}`}
                 />
                 <Tooltip
@@ -646,7 +646,7 @@ export default function ReportsView() {
                     borderRadius: '12px',
                     border: '1px solid #f1f5f9',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                    fontSize: '11px',
+                    fontSize: '13px',
                     fontWeight: 'bold',
                     color: '#0f172a'
                   }}
@@ -667,13 +667,13 @@ export default function ReportsView() {
         {/* Latest Transactions Table Log */}
         <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
           <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-            <h3 className="text-sm font-bold text-slate-900">รายการขายล่าสุด ({activeStats.label})</h3>
-            <span className="text-xs font-semibold text-slate-500">รวมทั้งหมด: {filteredSalesTable.length} บิล</span>
+            <h3 className="text-base font-bold text-slate-900">รายการขายล่าสุด ({activeStats.label})</h3>
+            <span className="text-sm font-semibold text-slate-600 tabular-nums">รวมทั้งหมด: {filteredSalesTable.length} บิล</span>
           </div>
           <div className="overflow-x-auto w-full">
             <table className="w-full text-left border-collapse min-w-[600px]">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs sm:text-sm font-bold text-slate-600">
                   <th className="p-4">เวลา / วันที่</th>
                   <th className="p-4">เลขที่บิล</th>
                   <th className="p-4">สินค้า</th>
@@ -681,7 +681,7 @@ export default function ReportsView() {
                   <th className="p-4 text-center">สถานะ</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50 text-xs">
+              <tbody className="divide-y divide-slate-100 text-sm">
                 {loading ? (
                   <tr>
                     <td colSpan={5} className="py-12 text-center">
@@ -690,7 +690,7 @@ export default function ReportsView() {
                   </tr>
                 ) : filteredSalesTable.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-10 text-center text-slate-400">
+                    <td colSpan={5} className="py-10 text-center text-slate-400 text-base">
                       ยังไม่มีรายการขายในระบบ ({activeStats.label})
                     </td>
                   </tr>
@@ -704,20 +704,20 @@ export default function ReportsView() {
                     const itemSummary = s.items.map(item => `${item.name} (x${item.quantity})`).join(', ');
 
                     return (
-                      <tr key={s.id} className={`hover:bg-slate-50/50 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/20' : ''}`}>
-                        <td className="p-4 text-slate-500 font-medium whitespace-nowrap">{displayTime}</td>
-                        <td className="p-4 font-bold text-slate-900 whitespace-nowrap">{s.id}</td>
-                        <td className="p-4 text-slate-500 font-medium truncate max-w-xs" title={itemSummary}>
+                      <tr key={s.id} className={`hover:bg-slate-50/70 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/30' : ''}`}>
+                        <td className="p-4 text-slate-600 font-medium whitespace-nowrap tabular-nums">{displayTime}</td>
+                        <td className="p-4 font-bold text-slate-900 whitespace-nowrap font-mono tabular-nums">{s.id}</td>
+                        <td className="p-4 text-slate-600 font-medium truncate max-w-xs" title={itemSummary}>
                           {itemSummary}
                         </td>
-                        <td className="p-4 text-right font-extrabold text-slate-900 whitespace-nowrap">฿{s.total.toFixed(2)}</td>
+                        <td className="p-4 text-right font-extrabold text-slate-950 whitespace-nowrap font-mono tabular-nums">฿{s.total.toFixed(2)}</td>
                         <td className="p-4 text-center whitespace-nowrap">
                           <button
                             onClick={() => toggleInvoiceStatus(s)}
-                            className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer ${
+                            className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-bold border transition-all cursor-pointer ${
                               isSuccess
-                                ? 'bg-green-50 text-green-600 border-green-100 hover:bg-red-50 hover:text-red-600 hover:border-red-100'
-                                : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-green-50 hover:text-green-600 hover:border-green-100'
+                                ? 'bg-green-50 text-green-700 border-green-200 hover:bg-red-50 hover:text-red-700 hover:border-red-200'
+                                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-green-50 hover:text-green-700 hover:border-green-200'
                             }`}
                             title="คลิกเพื่อสลับสถานะบิล"
                           >
@@ -736,69 +736,69 @@ export default function ReportsView() {
         {/* System Administration & Data Reset Section */}
         <div className="bg-white border border-slate-200/60 rounded-2xl overflow-hidden shadow-sm p-6 space-y-6">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Database className="w-4 h-4 text-slate-700" />
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Database className="w-5 h-5 text-slate-700" />
               การจัดการฐานข้อมูลและรีเซ็ตระบบ
             </h3>
-            <p className="text-xs text-slate-500 mt-1 font-medium">เคลียร์ประวัติและรีเซ็ตข้อมูลในระบบแยกตามส่วน หรือรีเซ็ตทั้งหมดเพื่อให้พร้อมเริ่มต้นใช้งานใหม่</p>
+            <p className="text-sm text-slate-600 mt-1 font-medium">เคลียร์ประวัติและรีเซ็ตข้อมูลในระบบแยกตามส่วน หรือรีเซ็ตทั้งหมดเพื่อให้พร้อมเริ่มต้นใช้งานใหม่</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Clear Sales History Card */}
-            <div className="border border-slate-100 rounded-xl p-4 bg-slate-50/50 flex flex-col justify-between space-y-4">
+            <div className="border border-slate-200/80 rounded-xl p-4 bg-slate-50/50 flex flex-col justify-between space-y-4">
               <div className="space-y-1.5">
-                <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                   <RefreshCw className="w-4 h-4 text-amber-500 shrink-0" />
                   ล้างประวัติรายการขาย
                 </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
                   เคลียร์ประวัติรายการขาย บิลใบเสร็จทั้งหมด ยอดขายรวม และรายงานสรุปสถิติเพื่อเริ่มต้นระบบใหม่ โดยยังคงรายชื่อสินค้าในคลังและสมาชิกไว้
                 </p>
               </div>
               <button
                 disabled={resetting}
                 onClick={triggerClearSales}
-                className="w-full bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-xs py-2 px-3 rounded-lg border border-amber-200/50 transition-colors cursor-pointer disabled:opacity-50"
+                className="w-full bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-sm py-2.5 px-3 rounded-lg border border-amber-200/70 transition-colors cursor-pointer disabled:opacity-50"
               >
                 ล้างประวัติรายการขาย
               </button>
             </div>
 
             {/* Clear Stock Card */}
-            <div className="border border-slate-100 rounded-xl p-4 bg-slate-50/50 flex flex-col justify-between space-y-4">
+            <div className="border border-slate-200/80 rounded-xl p-4 bg-slate-50/50 flex flex-col justify-between space-y-4">
               <div className="space-y-1.5">
-                <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                   <Trash2 className="w-4 h-4 text-red-500 shrink-0" />
                   ลบสินค้าและสต็อกทั้งหมด
                 </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
                   ลบรายการสินค้าและสต็อกสินค้าทั้งหมดออกจากระบบอย่างถาวร เพื่อให้คุณเพิ่มข้อมูลสินค้าแบรนด์และหมวดหมู่ของคุณเองทั้งหมดตั้งแต่เริ่มต้น
                 </p>
               </div>
               <button
                 disabled={resetting}
                 onClick={triggerClearProducts}
-                className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs py-2 px-3 rounded-lg border border-red-200/50 transition-colors cursor-pointer disabled:opacity-50"
+                className="w-full bg-red-50 hover:bg-red-100 text-red-700 font-bold text-sm py-2.5 px-3 rounded-lg border border-red-200/70 transition-colors cursor-pointer disabled:opacity-50"
               >
                 ลบสินค้าและสต็อกทั้งหมด
               </button>
             </div>
 
             {/* Clear Customers Card */}
-            <div className="border border-slate-100 rounded-xl p-4 bg-slate-50/50 flex flex-col justify-between space-y-4">
+            <div className="border border-slate-200/80 rounded-xl p-4 bg-slate-50/50 flex flex-col justify-between space-y-4">
               <div className="space-y-1.5">
-                <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                   <Trash2 className="w-4 h-4 text-rose-500 shrink-0" />
                   ลบรายชื่อสมาชิกทั้งหมด
                 </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
                   ลบรายชื่อสมาชิกของร้านค้า ข้อมูลส่วนตัว เบอร์โทรศัพท์ และรายละเอียดที่อยู่สมาชิกทั้งหมดเพื่อเริ่มเก็บบันทึกประวัติสมาชิกกลุ่มใหม่
                 </p>
               </div>
               <button
                 disabled={resetting}
                 onClick={triggerClearCustomers}
-                className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs py-2 px-3 rounded-lg border border-rose-200/50 transition-colors cursor-pointer disabled:opacity-50"
+                className="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-sm py-2.5 px-3 rounded-lg border border-rose-200/70 transition-colors cursor-pointer disabled:opacity-50"
               >
                 ลบรายชื่อสมาชิกทั้งหมด
               </button>
@@ -806,12 +806,12 @@ export default function ReportsView() {
           </div>
 
           {/* Master Reset Card */}
-          <div className="border border-red-100 bg-red-50/20 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-2">
+          <div className="border border-red-200 bg-red-50/30 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-2">
             <div className="flex gap-3 items-start">
               <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-xs font-bold text-red-800">รีเซ็ตข้อมูลทั้งหมดและเริ่มต้นใหม่ (Master System Reset)</h4>
-                <p className="text-[11px] text-red-600 mt-1 leading-relaxed font-semibold">
+                <h4 className="text-sm sm:text-base font-bold text-red-900">รีเซ็ตข้อมูลทั้งหมดและเริ่มต้นใหม่ (Master System Reset)</h4>
+                <p className="text-xs sm:text-sm text-red-700 mt-1 leading-relaxed font-medium">
                   ลบประวัติรายการขาย สินค้าและคลังสต็อก และสมาชิกลูกค้าทั้งหมดอย่างถาวรพร้อมๆ กัน เพื่อล้างระบบสุเมธค้าข้าวให้พร้อมเริ่มต้นใหม่เอี่ยม
                 </p>
               </div>
@@ -819,7 +819,7 @@ export default function ReportsView() {
             <button
               disabled={resetting}
               onClick={triggerClearEverything}
-              className="sm:shrink-0 bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-2.5 px-5 rounded-lg transition-all cursor-pointer disabled:opacity-50 shadow-sm"
+              className="sm:shrink-0 bg-red-600 hover:bg-red-700 text-white font-bold text-sm py-2.5 px-5 rounded-lg transition-all cursor-pointer disabled:opacity-50 shadow-sm"
             >
               {resetting ? 'กำลังดำเนินการรีเซ็ต...' : 'ล้างข้อมูลทั้งหมดและรีเซ็ตระบบ'}
             </button>

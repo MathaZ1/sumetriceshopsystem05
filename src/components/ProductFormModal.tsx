@@ -59,12 +59,12 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
       const status = 'พร้อมขาย';
 
       const productData = {
-        id: id.trim().toUpperCase(),
-        name: name.trim(),
-        category,
+        id: id.trim().toUpperCase().slice(0, 128),
+        name: name.trim().slice(0, 200),
+        category: (category || 'ทั่วไป').slice(0, 100),
         price: numPrice,
         stock: Number(stock) || 999999,
-        imageUrl: finalImageUrl,
+        imageUrl: finalImageUrl.slice(0, 1000),
         status
       };
 
@@ -83,7 +83,7 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
       <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <h2 className="text-base font-bold text-slate-800">
+          <h2 className="text-lg font-bold text-slate-900">
             {product ? 'แก้ไขข้อมูลสินค้า' : 'เพิ่มสินค้าใหม่'}
           </h2>
           <button
@@ -97,7 +97,7 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-xs font-bold px-4 py-2.5 rounded-xl animate-shake">
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm font-bold px-4 py-2.5 rounded-xl animate-shake">
               {error}
             </div>
           )}
@@ -106,23 +106,24 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
 
           {/* Product Name */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
+            <label className="block text-sm font-bold text-slate-700 mb-1.5">
               ชื่อสินค้า
             </label>
             <input
               type="text"
               required
+              maxLength={200}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-base text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
               placeholder="กรอกชื่อสินค้า..."
             />
           </div>
 
           {/* Price */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wide">
-              ราคา (฿) <span className="text-slate-400 font-normal lowercase">(สามารถใส่ 0 ได้)</span>
+            <label className="block text-sm font-bold text-slate-700 mb-1.5">
+              ราคา (฿) <span className="text-slate-400 font-normal">(สามารถใส่ 0 ได้)</span>
             </label>
             <input
               type="number"
@@ -130,7 +131,7 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
               step="any"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono text-slate-800 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-base font-mono tabular-nums text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
               placeholder="0.00"
             />
           </div>

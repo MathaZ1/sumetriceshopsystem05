@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db, handleFirestoreError, OperationType, auth, getNextInvoiceNumber } from '../firebase';
 import { collection, onSnapshot, addDoc, doc, updateDoc, runTransaction } from 'firebase/firestore';
 import { Product, CartItem, Sale, SaleItem, Customer } from '../types';
@@ -63,6 +63,13 @@ export default function POSView({
   const [localCustTaxId, setLocalCustTaxId] = useState<string>('');
   const [showMobileCart, setShowMobileCart] = useState<boolean>(false);
   const [showCustomerDetails, setShowCustomerDetails] = useState<boolean>(false);
+  const [lastAddedId, setLastAddedId] = useState<string | null>(null);
+  const [lastAddedTick, setLastAddedTick] = useState<number>(0);
+
+  const cartListRef = useRef<HTMLDivElement>(null);
+  const mobileCartListRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const mobileItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Resolved Customer States & Props
   const customers = propCustomers || localCustomers;
@@ -105,7 +112,7 @@ export default function POSView({
 
   // Fallback load customer lists from Firestore if not provided from parent
   useEffect(() => {
-    if (propCustomers && propCustomers.length > 0) return;
+    if ((propCustomers && propCustomers.length > 0) || !auth.currentUser) return;
     const customersCol = collection(db, 'customers');
     const unsubscribe = onSnapshot(customersCol, (snapshot) => {
       const list: Customer[] = [];
@@ -114,7 +121,7 @@ export default function POSView({
       });
       setLocalCustomers(list);
     }, (error) => {
-      console.error('Error loading customers in POSView:', error);
+      handleFirestoreError(error, OperationType.GET, 'customers');
     });
     return () => unsubscribe();
   }, [propCustomers]);
@@ -147,6 +154,52 @@ export default function POSView({
     return matchesCategory && matchesSearch;
   });
 
+  // Auto-scroll cart list to the newly added / incremented item
+  useEffect(() => {
+    if (!lastAddedId || lastAddedTick === 0) return;
+
+    const scrollContainerToItem = (
+      container: HTMLDivElement | null,
+      el: HTMLDivElement | null
+    ) => {
+      if (!container || !el) return;
+      const cRect = container.getBoundingClientRect();
+      const eRect = el.getBoundingClientRect();
+      const elTop = eRect.top - cRect.top + container.scrollTop;
+      const elBottom = elTop + eRect.height;
+      const viewTop = container.scrollTop;
+      const viewBottom = viewTop + container.clientHeight;
+
+      if (elBottom > viewBottom) {
+        container.scrollTo({
+          top: elBottom - container.clientHeight + 12,
+          behavior: 'smooth',
+        });
+      } else if (elTop < viewTop) {
+        container.scrollTo({
+          top: Math.max(0, elTop - 12),
+          behavior: 'smooth',
+        });
+      }
+    };
+
+    const raf = requestAnimationFrame(() => {
+      scrollContainerToItem(cartListRef.current, itemRefs.current[lastAddedId] || null);
+      if (showMobileCart) {
+        scrollContainerToItem(mobileCartListRef.current, mobileItemRefs.current[lastAddedId] || null);
+      }
+    });
+
+    const timer = setTimeout(() => {
+      setLastAddedId(null);
+    }, 900);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+    };
+  }, [lastAddedTick, cart.length, lastAddedId, showMobileCart]);
+
   const addToCart = (product: Product) => {
     setCart((prev) => {
       const isExist = prev.some((item) => item.product.id === product.id);
@@ -158,6 +211,8 @@ export default function POSView({
         return [...prev, { product, quantity: 1 }];
       }
     });
+    setLastAddedId(product.id);
+    setLastAddedTick((t) => t + 1);
   };
 
   const updateQuantity = (productId: string, delta: number) => {
@@ -174,6 +229,11 @@ export default function POSView({
         })
         .filter((item) => item.quantity > 0);
     });
+
+    if (delta > 0) {
+      setLastAddedId(productId);
+      setLastAddedTick((t) => t + 1);
+    }
   };
 
   const updateQuantityDirect = (productId: string, qtyStr: string) => {
@@ -232,28 +292,28 @@ export default function POSView({
       const invoiceNumber = await getNextInvoiceNumber();
 
       const saleItems: SaleItem[] = cart.map((item) => ({
-        productId: item.product.id,
-        name: item.product.name,
+        productId: String(item.product.id).slice(0, 128),
+        name: String(item.product.name || 'สินค้า').slice(0, 200),
         price: item.product.price,
         quantity: item.quantity,
         subtotal: item.product.price * item.quantity,
       }));
 
       const selectedCust = customers.find(c => c.id === selectedCustId);
-      const finalCustomerName = (customerName || '').trim() || (selectedCust ? selectedCust.name : 'ลูกค้าทั่วไป');
-      const finalCustomerPhone = (customerPhone || '').trim() || (selectedCust ? selectedCust.phone : '');
-      const finalCustomerAddress = (customerAddress || '').trim() || (selectedCust ? selectedCust.address : '');
-      const finalCustomerTaxId = (customerTaxId || '').trim() || (selectedCust ? selectedCust.taxId : '');
+      const finalCustomerName = ((customerName || '').trim() || (selectedCust ? selectedCust.name : 'ลูกค้าทั่วไป')).slice(0, 200);
+      const finalCustomerPhone = ((customerPhone || '').trim() || (selectedCust ? selectedCust.phone : '')).slice(0, 50);
+      const finalCustomerAddress = ((customerAddress || '').trim() || (selectedCust ? selectedCust.address : '')).slice(0, 500);
+      const finalCustomerTaxId = ((customerTaxId || '').trim() || (selectedCust ? selectedCust.taxId : '')).slice(0, 32);
 
       // Create new Sale object with COMPLETE customer and item information
       const newSale: Sale = {
-        id: invoiceNumber,
+        id: invoiceNumber.slice(0, 128),
         timestamp: new Date().toISOString(),
-        employee: auth.currentUser?.displayName || 'พนักงานหน้าร้าน', // Dynamic employee name from Gmail login
+        employee: (auth.currentUser?.displayName || 'พนักงานหน้าร้าน').slice(0, 120), // Dynamic employee name from Gmail login
         total: Math.max(0, cartTotal - discount),
         status: 'สำเร็จ',
         items: saleItems,
-        discount: discount,
+        discount: Math.max(0, discount || 0),
         customerName: finalCustomerName,
         customerPhone: finalCustomerPhone,
         customerAddress: finalCustomerAddress,
@@ -310,20 +370,20 @@ export default function POSView({
   };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row overflow-hidden h-full relative">
+    <div className="flex-1 flex flex-col md:flex-row items-stretch min-h-[calc(100vh-4.5rem)] relative">
       {/* Product Catalog Column */}
-      <div className="flex-1 overflow-y-auto p-4 lg:p-6 pb-24 md:pb-6 flex flex-col gap-4 bg-slate-50">
+      <div className="flex-1 p-4 lg:p-6 pb-28 md:pb-8 flex flex-col gap-5 bg-slate-50">
         {/* Search Input Field */}
         <div className="relative w-full">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-            <Search className="w-4 h-4" />
+          <span className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-slate-400">
+            <Search className="w-5 h-5" />
           </span>
           <input
             type="text"
             placeholder="ค้นหาชื่อหรือรหัสสินค้า..."
             value={localSearchQuery}
             onChange={(e) => setLocalSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 bg-white placeholder-slate-400 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all shadow-sm"
+            className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl text-base font-semibold text-slate-800 bg-white placeholder-slate-400 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all shadow-sm"
           />
         </div>
 
@@ -335,7 +395,7 @@ export default function POSView({
         ) : filteredProducts.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-400 py-20">
             <ShoppingCart className="w-12 h-12 mb-3 stroke-[1.5]" />
-            <p className="text-sm">ไม่พบสินค้าในระบบ</p>
+            <p className="text-base font-semibold">ไม่พบสินค้าในระบบ</p>
           </div>
         ) : (
           /* Products Grid */
@@ -345,11 +405,11 @@ export default function POSView({
                 <div
                   key={p.id}
                   onClick={() => addToCart(p)}
-                  className="bg-white rounded-2xl border border-slate-100 p-4 hover:border-slate-450 hover:shadow-md cursor-pointer transition-all duration-200 flex flex-col justify-between min-h-[120px] shadow-sm relative group"
+                  className="bg-white rounded-2xl border border-slate-200/80 p-4 lg:p-5 hover:border-slate-400 hover:shadow-md cursor-pointer transition-all duration-200 flex flex-col justify-between min-h-[144px] shadow-sm relative group active:scale-[0.98]"
                 >
                   {/* Product Name */}
-                  <div className="flex-1 flex items-center min-h-[40px] my-1">
-                    <p className="text-sm font-extrabold text-slate-900 group-hover:text-slate-700 transition-colors line-clamp-2 leading-snug">
+                  <div className="flex-1 flex items-center min-h-[48px] my-1">
+                    <p className="text-base font-extrabold text-slate-900 group-hover:text-slate-700 transition-colors line-clamp-2 leading-snug">
                       {p.name}
                     </p>
                   </div>
@@ -357,8 +417,8 @@ export default function POSView({
                   {/* Price Footer */}
                   <div className="mt-3 pt-2.5 border-t border-slate-100 flex justify-between items-center">
                     <div>
-                      <span className="text-[10px] text-slate-400 block font-bold">ราคา</span>
-                      <p className="text-base font-black text-slate-950">
+                      <span className="text-xs text-slate-500 block font-bold">ราคา</span>
+                      <p className="text-xl font-black text-slate-950 tabular-nums">
                         ฿{p.price.toFixed(2)}
                       </p>
                     </div>
@@ -370,115 +430,132 @@ export default function POSView({
         )}
       </div>
 
-      {/* Checkout/Cart Sidebar Column */}
-      <div className="hidden md:flex flex-col w-80 lg:w-96 bg-white border-l border-slate-200 h-full shadow-sm shrink-0">
+      {/* Checkout/Cart Sidebar Column — Sticky Top-Right Rail */}
+      <div className="hidden md:flex flex-col w-[390px] lg:w-[450px] xl:w-[470px] bg-white border-l border-slate-200 md:sticky md:top-[72px] md:h-[calc(100vh-4.5rem)] shadow-sm shrink-0">
         {/* Cart Header */}
-        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-            <ShoppingCart className="w-5 h-5 text-slate-700" />
+        <div className="px-4 py-3 border-b border-slate-200 flex justify-between items-center bg-slate-50 shrink-0">
+          <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+            <ShoppingCart className="w-5 h-5 text-slate-800" />
             <span>ตะกร้าสินค้า</span>
           </h2>
-          <span className="text-xs font-semibold text-slate-900 bg-slate-200 px-2.5 py-1 rounded-full">
+          <span className="text-sm font-bold text-slate-900 bg-slate-200/80 px-3 py-1 rounded-full tabular-nums">
             {cartItemsCount} รายการ
           </span>
         </div>
 
-        {/* Cart Items List */}
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+        {/* Cart Items List (Anchored at Top, Scrolls Smoothly on Add) */}
+        <div
+          ref={cartListRef}
+          className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-3 relative"
+        >
           {cart.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-slate-400 py-10">
-              <ShoppingCart className="w-10 h-10 mb-2 stroke-[1.5]" />
-              <p className="text-xs">ยังไม่มีสินค้าในตะกร้า</p>
+              <ShoppingCart className="w-12 h-12 mb-3 stroke-[1.5]" />
+              <p className="text-base font-semibold">ยังไม่มีสินค้าในตะกร้า</p>
+              <p className="text-xs text-slate-400 mt-1">คลิกเลือกสินค้าทางซ้ายเพื่อเพิ่มลงตะกร้า</p>
             </div>
           ) : (
-            cart.map((item) => (
-              <div key={item.product.id} className="flex justify-between items-start border-b border-slate-100 pb-3">
-                <div className="flex-1 min-w-0 pr-2">
-                  <p className="text-sm font-medium text-slate-900 truncate">
-                    {item.product.name}
-                  </p>
-                  
-                  {/* Editable Price per unit */}
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <div className="inline-flex items-center bg-slate-50 hover:bg-slate-100/80 focus-within:bg-white border border-slate-200 focus-within:border-slate-500 focus-within:ring-1 focus-within:ring-slate-500 rounded-lg px-2 py-0.5 transition-all shadow-xs group">
-                      <span className="text-xs font-bold text-slate-400">฿</span>
+            cart.map((item) => {
+              const isHighlighted = lastAddedId === item.product.id;
+              return (
+                <div
+                  key={item.product.id}
+                  ref={(el) => {
+                    itemRefs.current[item.product.id] = el;
+                  }}
+                  className={`flex justify-between items-start transition-colors duration-300 ${
+                    isHighlighted
+                      ? 'bg-amber-50/90 border border-amber-200 ring-1 ring-amber-200 rounded-xl p-3'
+                      : 'border-b border-slate-100 pb-3 px-1'
+                  }`}
+                >
+                  <div className="flex-1 min-w-0 pr-2">
+                    <p className="text-base font-bold text-slate-900 leading-snug">
+                      {item.product.name}
+                    </p>
+
+                    {/* Editable Price per unit */}
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <div className="inline-flex items-center bg-slate-50 hover:bg-slate-100/80 focus-within:bg-white border border-slate-200 focus-within:border-slate-500 focus-within:ring-1 focus-within:ring-slate-500 rounded-lg px-2.5 py-1 transition-all shadow-xs group">
+                        <span className="text-sm font-bold text-slate-500">฿</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={item.product.price}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => updateItemPrice(item.product.id, e.target.value)}
+                          className="w-24 text-sm font-bold font-mono tabular-nums text-slate-900 bg-transparent border-none outline-none pl-1 focus:ring-0"
+                          placeholder="0.00"
+                          title="คลิกเพื่อแก้ไขหรือเปลี่ยนราคาต่อชิ้น"
+                        />
+                        <Edit2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-colors ml-0.5 pointer-events-none" />
+                      </div>
+                      <span className="text-xs text-slate-500 font-semibold">/ ชิ้น</span>
+                    </div>
+
+                    {/* Quantity controls */}
+                    <div className="flex items-center gap-2 mt-2.5">
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(item.product.id, -1)}
+                        className="w-8 h-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-100 hover:border-slate-400 active:bg-slate-200 transition-colors cursor-pointer"
+                        title="ลดจำนวน"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
                       <input
                         type="number"
-                        min="0"
-                        step="any"
-                        value={item.product.price}
+                        min="1"
+                        value={item.quantity}
                         onFocus={(e) => e.target.select()}
-                        onChange={(e) => updateItemPrice(item.product.id, e.target.value)}
-                        className="w-20 text-xs font-bold font-mono text-slate-900 bg-transparent border-none outline-none pl-1 focus:ring-0"
-                        placeholder="0.00"
-                        title="คลิกเพื่อแก้ไขหรือเปลี่ยนราคาต่อชิ้น"
+                        onChange={(e) => updateQuantityDirect(item.product.id, e.target.value)}
+                        className="w-12 text-center text-sm font-bold font-mono tabular-nums text-slate-900 border border-slate-200 focus:border-slate-400 rounded-lg py-1 px-1 outline-none bg-white"
+                        title="ระบุจำนวน"
                       />
-                      <Edit2 className="w-3 h-3 text-slate-400 group-hover:text-slate-600 transition-colors ml-0.5 pointer-events-none" />
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(item.product.id, 1)}
+                        className="w-8 h-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-700 hover:bg-slate-100 hover:border-slate-400 active:bg-slate-200 transition-colors cursor-pointer"
+                        title="เพิ่มจำนวน"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.product.id)}
+                        className="ml-auto p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                        title="ลบออกจากตะกร้า"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-                    <span className="text-xs text-slate-500 font-medium">/ ชิ้น</span>
                   </div>
-                  
-                  {/* Quantity controls */}
-                  <div className="flex items-center gap-2 mt-2">
-                    <button
-                      type="button"
-                      onClick={() => updateQuantity(item.product.id, -1)}
-                      className="w-6 h-6 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 hover:border-slate-400 active:bg-slate-100 transition-colors cursor-pointer"
-                      title="ลดจำนวน"
-                    >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.quantity}
-                      onFocus={(e) => e.target.select()}
-                      onChange={(e) => updateQuantityDirect(item.product.id, e.target.value)}
-                      className="w-10 text-center text-xs font-bold font-mono text-slate-800 border border-slate-200 focus:border-slate-400 rounded-md py-0.5 px-0.5 outline-none bg-white"
-                      title="ระบุจำนวน"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => updateQuantity(item.product.id, 1)}
-                      className="w-6 h-6 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 hover:border-slate-400 active:bg-slate-100 transition-colors cursor-pointer"
-                      title="เพิ่มจำนวน"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
 
-                    <button
-                      type="button"
-                      onClick={() => removeItem(item.product.id)}
-                      className="ml-auto p-1 text-slate-300 hover:text-red-500 rounded transition-colors cursor-pointer"
-                      title="ลบออกจากตะกร้า"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                  {/* Subtotal price */}
+                  <div className="text-right shrink-0">
+                    <p className="text-base font-extrabold text-slate-950 font-mono tabular-nums">
+                      ฿{(item.product.price * item.quantity).toFixed(2)}
+                    </p>
                   </div>
                 </div>
-
-                {/* Subtotal price */}
-                <div className="text-right">
-                  <p className="text-sm font-bold text-slate-900 font-mono">
-                    ฿{(item.product.price * item.quantity).toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
-        {/* Summary & Checkout Button */}
-        <div className="p-4 bg-slate-50 border-t border-slate-100">
-          <div className="flex flex-col gap-2 mb-4">
+        {/* Summary & Checkout Button (Pinned at Bottom of Sticky Rail) */}
+        <div className="p-3.5 bg-slate-50 border-t border-slate-200 shrink-0">
+          <div className="flex flex-col gap-1.5 mb-2.5">
             {/* Customer Select Dropdown */}
-            <div className="flex flex-col gap-1 pb-2 border-b border-slate-200/50 mb-1">
+            <div className="flex flex-col gap-1 pb-2 border-b border-slate-200/70 mb-0.5">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">เลือกสมาชิก / Customer</span>
+                <span className="text-xs font-bold text-slate-600">เลือกสมาชิก / ลูกค้า</span>
                 <button
                   type="button"
                   onClick={() => setShowCustomerDetails(!showCustomerDetails)}
-                  className="text-[10px] text-slate-600 hover:text-slate-900 font-bold underline cursor-pointer"
+                  className="text-xs text-slate-700 hover:text-slate-950 font-bold underline cursor-pointer"
                 >
                   {showCustomerDetails ? 'ซ่อนข้อมูล' : '+ ระบุข้อมูลผู้ซื้อ'}
                 </button>
@@ -486,9 +563,9 @@ export default function POSView({
               <select
                 value={selectedCustId}
                 onChange={(e) => handleSelectCustomer(e.target.value)}
-                className="w-full px-2.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:border-slate-400 outline-none bg-white transition-all cursor-pointer shadow-sm"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:border-slate-400 outline-none bg-white transition-all cursor-pointer shadow-sm"
               >
-                <option value="">-- ลูกค้าทั่วไป (Cash Customer) --</option>
+                <option value="">-- ลูกค้าทั่วไป --</option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name} {c.phone ? `(${c.phone})` : ''}
@@ -498,71 +575,71 @@ export default function POSView({
 
               {/* Customer details view or custom input */}
               {showCustomerDetails ? (
-                <div className="mt-1.5 p-2.5 bg-white border border-slate-200 rounded-xl space-y-1.5 shadow-sm">
-                  <div className="text-[11px] font-bold text-slate-700 pb-1 border-b border-slate-100">
+                <div className="mt-1 p-2.5 bg-white border border-slate-200 rounded-xl space-y-2 shadow-sm max-h-44 overflow-y-auto">
+                  <div className="text-xs font-bold text-slate-700 pb-1 border-b border-slate-100">
                     ข้อมูลผู้ซื้อสำหรับพิมพ์ใบเสร็จ
                   </div>
                   <div>
-                    <span className="text-[10px] font-medium text-slate-500">ชื่อลูกค้า / ผู้ซื้อ:</span>
+                    <span className="text-xs font-medium text-slate-600">ชื่อลูกค้า / ผู้ซื้อ:</span>
                     <input
                       type="text"
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
                       placeholder="ชื่อลูกค้า"
-                      className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none focus:border-slate-400"
+                      className="w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-slate-400 mt-0.5"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <span className="text-[10px] font-medium text-slate-500">เบอร์โทร:</span>
+                      <span className="text-xs font-medium text-slate-600">เบอร์โทร:</span>
                       <input
                         type="text"
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
                         placeholder="เบอร์โทรศัพท์"
-                        className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none focus:border-slate-400"
+                        className="w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-slate-400 mt-0.5"
                       />
                     </div>
                     <div>
-                      <span className="text-[10px] font-medium text-slate-500">เลขผู้เสียภาษี:</span>
+                      <span className="text-xs font-medium text-slate-600">เลขผู้เสียภาษี:</span>
                       <input
                         type="text"
                         value={customerTaxId}
                         onChange={(e) => setCustomerTaxId(e.target.value)}
                         placeholder="Tax ID"
-                        className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none focus:border-slate-400"
+                        className="w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-slate-400 mt-0.5"
                       />
                     </div>
                   </div>
                   <div>
-                    <span className="text-[10px] font-medium text-slate-500">ที่อยู่:</span>
+                    <span className="text-xs font-medium text-slate-600">ที่อยู่:</span>
                     <textarea
                       rows={2}
                       value={customerAddress}
                       onChange={(e) => setCustomerAddress(e.target.value)}
                       placeholder="ที่อยู่ลูกค้า"
-                      className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none focus:border-slate-400 resize-none"
+                      className="w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-slate-400 resize-none mt-0.5"
                     />
                   </div>
                 </div>
               ) : customerName ? (
-                <div className="mt-1 px-2 py-1 bg-white border border-slate-200/80 rounded-lg text-[11px] text-slate-700 flex justify-between items-center">
-                  <span className="truncate font-semibold">👤 {customerName}</span>
-                  {customerPhone && <span className="text-slate-400 text-[10px] ml-1">{customerPhone}</span>}
+                <div className="mt-1 px-2.5 py-1.5 bg-white border border-slate-200/80 rounded-lg text-xs text-slate-700 flex justify-between items-center">
+                  <span className="truncate font-semibold">{customerName}</span>
+                  {customerPhone && <span className="text-slate-500 text-xs ml-2 tabular-nums">{customerPhone}</span>}
                 </div>
               ) : null}
             </div>
 
-            <div className="flex justify-between items-center text-xs font-semibold text-slate-500">
+            <div className="flex justify-between items-center text-sm font-semibold text-slate-600">
               <span>ยอดรวมสินค้า</span>
-              <span>฿{cartTotal.toFixed(2)}</span>
+              <span className="font-mono tabular-nums">฿{cartTotal.toFixed(2)}</span>
             </div>
 
             {/* Discount input field */}
-            <div className="flex justify-between items-center py-1.5 border-t border-b border-slate-200/50">
-              <span className="text-xs font-bold text-slate-600">ส่วนลด (฿)</span>
-              <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-0.5 w-28 shadow-sm focus-within:border-slate-450 transition-colors">
-                <span className="text-slate-400 font-bold text-xs">฿</span>
+            <div className="flex justify-between items-center py-1.5 border-t border-b border-slate-200/70">
+              <span className="text-sm font-bold text-slate-700">ส่วนลด (฿)</span>
+              <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2.5 py-1 w-32 shadow-sm focus-within:border-slate-450 transition-colors">
+                <span className="text-slate-400 font-bold text-sm">฿</span>
                 <input
                   type="number"
                   min="0"
@@ -577,14 +654,14 @@ export default function POSView({
                     }
                   }}
                   placeholder="0"
-                  className="w-full text-right border-none outline-none p-0 text-xs font-extrabold text-slate-800 focus:ring-0 bg-transparent"
+                  className="w-full text-right border-none outline-none p-0 text-sm font-extrabold font-mono tabular-nums text-slate-900 focus:ring-0 bg-transparent"
                 />
               </div>
             </div>
 
-            <div className="flex justify-between items-center mt-1">
-              <span className="text-sm font-bold text-slate-700">ยอดชำระสุทธิ</span>
-              <span className="text-xl font-black text-slate-950">
+            <div className="flex justify-between items-center mt-0.5">
+              <span className="text-base font-bold text-slate-800">ยอดชำระสุทธิ</span>
+              <span className="text-2xl font-black text-slate-950 font-mono tabular-nums">
                 ฿{Math.max(0, cartTotal - discount).toFixed(2)}
               </span>
             </div>
@@ -594,7 +671,7 @@ export default function POSView({
             <button
               onClick={handleCheckout}
               disabled={cart.length === 0 || checkoutLoading}
-              className={`w-full text-white font-bold py-3.5 px-4 rounded-xl shadow-sm transition-all duration-200 flex justify-center items-center gap-2 cursor-pointer ${
+              className={`w-full text-white text-base font-bold py-3 px-4 rounded-xl shadow-sm transition-all duration-200 flex justify-center items-center gap-2 cursor-pointer ${
                 cart.length === 0
                   ? 'bg-slate-300 cursor-not-allowed shadow-none'
                   : checkoutLoading
@@ -603,7 +680,7 @@ export default function POSView({
               }`}
             >
               {checkoutLoading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
               ) : (
                 <>
                   <Check className="w-5 h-5" />
@@ -618,12 +695,12 @@ export default function POSView({
                 onClick={() => {
                   if (onExportToReceipt) {
                     onExportToReceipt([...cart], discount);
-                  } else {
+                  } else if (setReceiptItems) {
                     setReceiptItems([...cart]);
                     setActiveTab('receipt');
                   }
                 }}
-                className="w-full py-2.5 border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 rounded-xl text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                className="w-full py-2.5 border border-slate-200 text-slate-700 bg-white hover:bg-slate-100 rounded-xl text-sm font-bold shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <span>ออกใบเสร็จรับเงิน</span>
               </button>
@@ -644,13 +721,13 @@ export default function POSView({
               setAlertOpen(true);
             }
           }}
-          className="w-full bg-slate-900 text-white font-bold py-3 px-4 rounded-xl shadow-lg flex justify-between items-center hover:bg-slate-850 transition-all duration-200 active:scale-[0.98] cursor-pointer"
+          className="w-full bg-slate-900 text-white text-base font-bold py-3.5 px-4 rounded-xl shadow-lg flex justify-between items-center hover:bg-slate-850 transition-all duration-200 active:scale-[0.98] cursor-pointer"
         >
           <span className="flex items-center gap-2">
             <ShoppingCart className="w-5 h-5" />
             <span>ตะกร้า ({cartItemsCount})</span>
           </span>
-          <span className="font-extrabold text-base">฿{Math.max(0, cartTotal - discount).toFixed(2)}</span>
+          <span className="font-extrabold text-lg tabular-nums">฿{Math.max(0, cartTotal - discount).toFixed(2)}</span>
         </button>
       </div>
 
@@ -658,98 +735,114 @@ export default function POSView({
       {showMobileCart && (
         <div className="md:hidden fixed inset-0 z-50 bg-black/60 flex flex-col justify-end backdrop-blur-xs">
           <div className="bg-white rounded-t-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom-5 duration-200">
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+            <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
                 <ShoppingCart className="w-5 h-5 text-slate-700" />
                 <span>ตะกร้าสินค้า ({cartItemsCount})</span>
               </h2>
               <button
                 type="button"
                 onClick={() => setShowMobileCart(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+                className="p-1.5 text-slate-500 hover:text-slate-800 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
-              {cart.map((item) => (
-                <div key={item.product.id} className="flex justify-between items-start border-b border-slate-100 pb-3">
-                  <div className="flex-1 min-w-0 pr-2">
-                    <p className="text-sm font-medium text-slate-900 truncate">
-                      {item.product.name}
-                    </p>
-                    
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <div className="inline-flex items-center bg-slate-50 hover:bg-slate-100/80 focus-within:bg-white border border-slate-200 focus-within:border-slate-500 focus-within:ring-1 focus-within:ring-slate-500 rounded-lg px-2 py-0.5 transition-all shadow-xs group">
-                        <span className="text-xs font-bold text-slate-400">฿</span>
+            <div
+              ref={mobileCartListRef}
+              className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 relative"
+            >
+              {cart.map((item) => {
+                const isHighlighted = lastAddedId === item.product.id;
+                return (
+                  <div
+                    key={item.product.id}
+                    ref={(el) => {
+                      mobileItemRefs.current[item.product.id] = el;
+                    }}
+                    className={`flex justify-between items-start transition-colors duration-300 ${
+                      isHighlighted
+                        ? 'bg-amber-50/90 border border-amber-200 rounded-xl p-2.5'
+                        : 'border-b border-slate-100 pb-3'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0 pr-2">
+                      <p className="text-[15px] font-bold text-slate-900 leading-snug">
+                        {item.product.name}
+                      </p>
+
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <div className="inline-flex items-center bg-slate-50 hover:bg-slate-100/80 focus-within:bg-white border border-slate-200 focus-within:border-slate-500 focus-within:ring-1 focus-within:ring-slate-500 rounded-lg px-2.5 py-1 transition-all shadow-xs group">
+                          <span className="text-sm font-bold text-slate-500">฿</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={item.product.price}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => updateItemPrice(item.product.id, e.target.value)}
+                            className="w-24 text-sm font-bold font-mono tabular-nums text-slate-900 bg-transparent border-none outline-none pl-1 focus:ring-0"
+                            placeholder="0.00"
+                            title="คลิกเพื่อแก้ไขหรือเปลี่ยนราคาต่อชิ้น"
+                          />
+                          <Edit2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-colors ml-0.5 pointer-events-none" />
+                        </div>
+                        <span className="text-xs text-slate-500 font-semibold">/ ชิ้น</span>
+                      </div>
+
+                      <div className="flex items-center gap-2 mt-2.5">
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.product.id, -1)}
+                          className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-50 active:bg-slate-100 cursor-pointer"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
                         <input
                           type="number"
-                          min="0"
-                          step="any"
-                          value={item.product.price}
+                          min="1"
+                          value={item.quantity}
                           onFocus={(e) => e.target.select()}
-                          onChange={(e) => updateItemPrice(item.product.id, e.target.value)}
-                          className="w-20 text-xs font-bold font-mono text-slate-900 bg-transparent border-none outline-none pl-1 focus:ring-0"
-                          placeholder="0.00"
-                          title="คลิกเพื่อแก้ไขหรือเปลี่ยนราคาต่อชิ้น"
+                          onChange={(e) => updateQuantityDirect(item.product.id, e.target.value)}
+                          className="w-12 text-center text-sm font-bold font-mono tabular-nums text-slate-900 border border-slate-200 rounded-lg py-1 px-1 outline-none bg-white"
                         />
-                        <Edit2 className="w-3 h-3 text-slate-400 group-hover:text-slate-600 transition-colors ml-0.5 pointer-events-none" />
+                        <button
+                          type="button"
+                          onClick={() => updateQuantity(item.product.id, 1)}
+                          className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-50 active:bg-slate-100 cursor-pointer"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeItem(item.product.id)}
+                          className="ml-auto p-1.5 text-slate-400 hover:text-red-500 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
-                      <span className="text-xs text-slate-500 font-medium">/ ชิ้น</span>
                     </div>
 
-                    <div className="flex items-center gap-2 mt-2">
-                      <button
-                        type="button"
-                        onClick={() => updateQuantity(item.product.id, -1)}
-                        className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 active:bg-slate-100 cursor-pointer"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onFocus={(e) => e.target.select()}
-                        onChange={(e) => updateQuantityDirect(item.product.id, e.target.value)}
-                        className="w-10 text-center text-xs font-bold font-mono text-slate-800 border border-slate-200 rounded-md py-1 px-0.5 outline-none bg-white"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => updateQuantity(item.product.id, 1)}
-                        className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 active:bg-slate-100 cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeItem(item.product.id)}
-                        className="ml-auto p-1.5 text-slate-300 hover:text-red-500 rounded transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <div className="text-right shrink-0">
+                      <p className="text-base font-extrabold text-slate-950 font-mono tabular-nums">
+                        ฿{(item.product.price * item.quantity).toFixed(2)}
+                      </p>
                     </div>
                   </div>
-
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-slate-900 font-mono">
-                      ฿{(item.product.price * item.quantity).toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            <div className="p-4 bg-slate-50 border-t border-slate-100">
+            <div className="p-4 bg-slate-50 border-t border-slate-200">
               <div className="flex flex-col gap-2 mb-3">
-                <div className="flex flex-col gap-1 pb-2 border-b border-slate-200/50">
+                <div className="flex flex-col gap-1.5 pb-2 border-b border-slate-200/70">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">เลือกสมาชิก / Customer</span>
+                    <span className="text-xs font-bold text-slate-600">เลือกสมาชิก / ลูกค้า</span>
                     <button
                       type="button"
                       onClick={() => setShowCustomerDetails(!showCustomerDetails)}
-                      className="text-[10px] text-slate-600 hover:text-slate-900 font-bold underline cursor-pointer"
+                      className="text-xs text-slate-700 hover:text-slate-950 font-bold underline cursor-pointer"
                     >
                       {showCustomerDetails ? 'ซ่อน' : '+ ระบุข้อมูลผู้ซื้อ'}
                     </button>
@@ -757,9 +850,9 @@ export default function POSView({
                   <select
                     value={selectedCustId}
                     onChange={(e) => handleSelectCustomer(e.target.value)}
-                    className="w-full px-2.5 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 bg-white"
                   >
-                    <option value="">-- ลูกค้าทั่วไป (Cash Customer) --</option>
+                    <option value="">-- ลูกค้าทั่วไป --</option>
                     {customers.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name} {c.phone ? `(${c.phone})` : ''}
@@ -769,70 +862,70 @@ export default function POSView({
 
                   {/* Mobile Customer Details Form */}
                   {showCustomerDetails ? (
-                    <div className="mt-1.5 p-2 bg-white border border-slate-200 rounded-xl space-y-1.5 shadow-sm">
-                      <div className="text-[11px] font-bold text-slate-700 pb-1 border-b border-slate-100">
+                    <div className="mt-1 p-2.5 bg-white border border-slate-200 rounded-xl space-y-2 shadow-sm">
+                      <div className="text-xs font-bold text-slate-700 pb-1 border-b border-slate-100">
                         ข้อมูลผู้ซื้อสำหรับพิมพ์ใบเสร็จ
                       </div>
                       <div>
-                        <span className="text-[10px] font-medium text-slate-500">ชื่อลูกค้า / ผู้ซื้อ:</span>
+                        <span className="text-xs font-medium text-slate-600">ชื่อลูกค้า / ผู้ซื้อ:</span>
                         <input
                           type="text"
                           value={customerName}
                           onChange={(e) => setCustomerName(e.target.value)}
                           placeholder="ชื่อลูกค้า"
-                          className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none"
+                          className="w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-lg outline-none mt-0.5"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-1.5">
+                      <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <span className="text-[10px] font-medium text-slate-500">เบอร์โทร:</span>
+                          <span className="text-xs font-medium text-slate-600">เบอร์โทร:</span>
                           <input
                             type="text"
                             value={customerPhone}
                             onChange={(e) => setCustomerPhone(e.target.value)}
                             placeholder="เบอร์โทรศัพท์"
-                            className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none"
+                            className="w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-lg outline-none mt-0.5"
                           />
                         </div>
                         <div>
-                          <span className="text-[10px] font-medium text-slate-500">เลขผู้เสียภาษี:</span>
+                          <span className="text-xs font-medium text-slate-600">เลขผู้เสียภาษี:</span>
                           <input
                             type="text"
                             value={customerTaxId}
                             onChange={(e) => setCustomerTaxId(e.target.value)}
                             placeholder="Tax ID"
-                            className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none"
+                            className="w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-lg outline-none mt-0.5"
                           />
                         </div>
                       </div>
                       <div>
-                        <span className="text-[10px] font-medium text-slate-500">ที่อยู่:</span>
+                        <span className="text-xs font-medium text-slate-600">ที่อยู่:</span>
                         <textarea
                           rows={2}
                           value={customerAddress}
                           onChange={(e) => setCustomerAddress(e.target.value)}
                           placeholder="ที่อยู่ลูกค้า"
-                          className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg outline-none resize-none"
+                          className="w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-lg outline-none resize-none mt-0.5"
                         />
                       </div>
                     </div>
                   ) : customerName ? (
-                    <div className="mt-1 px-2 py-1 bg-white border border-slate-200/80 rounded-lg text-[11px] text-slate-700 flex justify-between items-center">
-                      <span className="truncate font-semibold">👤 {customerName}</span>
-                      {customerPhone && <span className="text-slate-400 text-[10px] ml-1">{customerPhone}</span>}
+                    <div className="mt-1 px-2.5 py-1.5 bg-white border border-slate-200/80 rounded-lg text-xs text-slate-700 flex justify-between items-center">
+                      <span className="truncate font-semibold">{customerName}</span>
+                      {customerPhone && <span className="text-slate-500 text-xs ml-2 tabular-nums">{customerPhone}</span>}
                     </div>
                   ) : null}
                 </div>
 
-                <div className="flex justify-between items-center text-xs font-semibold text-slate-500">
+                <div className="flex justify-between items-center text-sm font-semibold text-slate-600">
                   <span>ยอดรวมสินค้า</span>
-                  <span>฿{cartTotal.toFixed(2)}</span>
+                  <span className="font-mono tabular-nums">฿{cartTotal.toFixed(2)}</span>
                 </div>
 
-                <div className="flex justify-between items-center py-1.5 border-t border-b border-slate-200/50">
-                  <span className="text-xs font-bold text-slate-600">ส่วนลด (฿)</span>
-                  <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-0.5 w-28">
-                    <span className="text-slate-400 font-bold text-xs">฿</span>
+                <div className="flex justify-between items-center py-1.5 border-t border-b border-slate-200/70">
+                  <span className="text-sm font-bold text-slate-700">ส่วนลด (฿)</span>
+                  <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2.5 py-1 w-32">
+                    <span className="text-slate-400 font-bold text-sm">฿</span>
                     <input
                       type="number"
                       min="0"
@@ -847,14 +940,14 @@ export default function POSView({
                         }
                       }}
                       placeholder="0"
-                      className="w-full text-right border-none outline-none p-0 text-xs font-extrabold text-slate-800 bg-transparent"
+                      className="w-full text-right border-none outline-none p-0 text-sm font-extrabold font-mono tabular-nums text-slate-900 bg-transparent"
                     />
                   </div>
                 </div>
 
                 <div className="flex justify-between items-center mt-1">
-                  <span className="text-sm font-bold text-slate-700">ยอดชำระสุทธิ</span>
-                  <span className="text-xl font-black text-slate-950">
+                  <span className="text-base font-bold text-slate-800">ยอดชำระสุทธิ</span>
+                  <span className="text-2xl font-black text-slate-950 font-mono tabular-nums">
                     ฿{Math.max(0, cartTotal - discount).toFixed(2)}
                   </span>
                 </div>
@@ -868,7 +961,7 @@ export default function POSView({
                     handleCheckout();
                   }}
                   disabled={cart.length === 0 || checkoutLoading}
-                  className={`w-full text-white font-bold py-3 px-4 rounded-xl flex justify-center items-center gap-2 cursor-pointer ${
+                  className={`w-full text-white text-base font-bold py-3.5 px-4 rounded-xl flex justify-center items-center gap-2 cursor-pointer ${
                     cart.length === 0 ? 'bg-slate-300' : 'bg-slate-950 hover:bg-slate-850'
                   }`}
                 >

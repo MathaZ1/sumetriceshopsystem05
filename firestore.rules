@@ -1,38 +1,184 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if user is signed in
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // 1. Users collection rules
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser()
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() in [
+          'mathaza8@gmail.com',
+          'namsitang@gmail.com',
+          'sumat3292@gmail.com',
+          'sumethsumeth06@gmail.com',
+          'sumethkhakhaw3@gmail.com'
+        ];
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedUser()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    // Validation blueprints
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'role'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'role'])
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() <= 254
+        && data.displayName is string && data.displayName.size() <= 120
+        && data.role in ['admin', 'employee'];
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['id', 'name', 'category', 'price', 'stock', 'status'])
+        && data.keys().hasOnly(['id', 'name', 'category', 'price', 'stock', 'imageUrl', 'status'])
+        && isValidId(data.id)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
+        && data.category is string && data.category.size() <= 100
+        && data.price is number && data.price >= 0
+        && data.stock is number && data.stock >= 0
+        && (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 1000))
+        && data.status in ['พร้อมขาย', 'ใกล้หมด', 'หมดสต็อก'];
+    }
+
+    function isValidSale(data) {
+      return data.keys().hasAll(['id', 'timestamp', 'employee', 'total', 'status', 'items'])
+        && data.keys().hasOnly(['id', 'timestamp', 'employee', 'total', 'status', 'items', 'discount', 'customerName', 'customerPhone', 'customerAddress', 'customerTaxId'])
+        && isValidId(data.id)
+        && data.timestamp is string && data.timestamp.size() >= 1 && data.timestamp.size() <= 64
+        && data.employee is string && data.employee.size() >= 1 && data.employee.size() <= 120
+        && data.total is number && data.total >= 0
+        && data.status in ['สำเร็จ', 'ยกเลิก']
+        && data.items is list && data.items.size() >= 1 && data.items.size() <= 200
+        && data.items[0] is map
+        && data.items[0].keys().hasAll(['productId', 'name', 'price', 'quantity', 'subtotal'])
+        && data.items[0].keys().hasOnly(['productId', 'name', 'price', 'quantity', 'subtotal'])
+        && data.items[0].productId is string && data.items[0].productId.size() >= 1 && data.items[0].productId.size() <= 128
+        && data.items[0].name is string && data.items[0].name.size() >= 1 && data.items[0].name.size() <= 200
+        && data.items[0].price is number && data.items[0].price >= 0
+        && data.items[0].quantity is number && data.items[0].quantity > 0
+        && data.items[0].subtotal is number && data.items[0].subtotal >= 0
+        && (!('discount' in data) || (data.discount is number && data.discount >= 0))
+        && (!('customerName' in data) || (data.customerName is string && data.customerName.size() <= 200))
+        && (!('customerPhone' in data) || (data.customerPhone is string && data.customerPhone.size() <= 50))
+        && (!('customerAddress' in data) || (data.customerAddress is string && data.customerAddress.size() <= 500))
+        && (!('customerTaxId' in data) || (data.customerTaxId is string && data.customerTaxId.size() <= 32));
+    }
+
+    function isValidCustomer(data) {
+      return data.keys().hasAll(['id', 'name'])
+        && data.keys().hasOnly(['id', 'name', 'phone', 'address', 'taxId', 'notes'])
+        && isValidId(data.id)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
+        && (!('phone' in data) || (data.phone is string && data.phone.size() <= 50))
+        && (!('address' in data) || (data.address is string && data.address.size() <= 500))
+        && (!('taxId' in data) || (data.taxId is string && data.taxId.size() <= 32))
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 500));
+    }
+
+    function isValidSystem(data) {
+      return data.keys().hasAll(['initialized'])
+        && data.keys().hasOnly(['initialized'])
+        && data.initialized is bool;
+    }
+
+    // 1. Users collection (PII isolated, self-escalation blocked)
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if false;
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUser(incoming())
+        && incoming().uid == request.auth.uid
+        && (incoming().role == 'employee' || (incoming().role == 'admin' && isBootstrappedAdmin()));
+      allow update: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUser(incoming())
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'displayName'])
+        && (incoming().role == existing().role || incoming().role == 'employee' || (incoming().role == 'admin' && isBootstrappedAdmin()));
+      allow delete: if false;
     }
 
-    // 2. Products collection rules
+    // 2. Products collection (verified reads; employees may only adjust stock/status during sales)
     match /products/{productId} {
-      allow read: if true;
-      allow write: if true;
+      allow get: if isValidId(productId) && isVerifiedUser();
+      allow list: if isVerifiedUser();
+      allow create: if isValidId(productId) && isAdmin() && isValidProduct(incoming()) && incoming().id == productId;
+      allow update: if isValidId(productId)
+        && isVerifiedUser()
+        && isValidProduct(incoming())
+        && incoming().id == existing().id
+        && (isAdmin() || incoming().diff(existing()).affectedKeys().hasOnly(['stock', 'status']));
+      allow delete: if isValidId(productId) && isAdmin();
     }
 
-    // 3. Sales collection rules
+    // 3. Sales collection (verified reads/create; employees may only toggle status; deletes admin-only)
     match /sales/{saleId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow get: if isValidId(saleId) && isVerifiedUser();
+      allow list: if isVerifiedUser();
+      allow create: if isValidId(saleId)
+        && isVerifiedUser()
+        && isValidSale(incoming())
+        && incoming().id == saleId
+        && (incoming().status == 'สำเร็จ' || isAdmin());
+      allow update: if isValidId(saleId)
+        && isVerifiedUser()
+        && isValidSale(incoming())
+        && incoming().id == existing().id
+        && (isAdmin() || (incoming().diff(existing()).affectedKeys().hasOnly(['status']) && incoming().status != existing().status));
+      allow delete: if isValidId(saleId) && isAdmin();
     }
 
-    // 4. Customers collection rules
+    // 4. Customers collection (verified reads for checkout; writes/deletes admin-only)
     match /customers/{customerId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow get: if isValidId(customerId) && isVerifiedUser();
+      allow list: if isVerifiedUser();
+      allow create: if isValidId(customerId) && isAdmin() && isValidCustomer(incoming()) && incoming().id == customerId;
+      allow update: if isValidId(customerId) && isAdmin() && isValidCustomer(incoming()) && incoming().id == existing().id;
+      allow delete: if isValidId(customerId) && isAdmin();
     }
 
-    // 5. System collection rules
+    // 5. System collection (verified get only; writes admin-only)
     match /system/{docId} {
-      allow read, write: if true;
+      allow get: if isValidId(docId) && isVerifiedUser();
+      allow list: if false;
+      allow create: if isValidId(docId) && isAdmin() && isValidSystem(incoming());
+      allow update: if isValidId(docId) && isAdmin() && isValidSystem(incoming());
+      allow delete: if isValidId(docId) && isAdmin();
     }
   }
 }

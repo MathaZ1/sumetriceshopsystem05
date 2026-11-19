@@ -1,5 +1,35 @@
 {
   "entities": {
+    "User": {
+      "title": "User",
+      "description": "Authenticated staff or admin profile with role-based access control.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "description": "Verified Gmail address of the user",
+          "maxLength": 254
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of the staff member or admin",
+          "maxLength": 120
+        },
+        "role": {
+          "type": "string",
+          "description": "Access role: admin or employee",
+          "enum": ["admin", "employee"]
+        }
+      },
+      "required": ["uid", "email", "displayName", "role"]
+    },
     "Product": {
       "title": "Product",
       "description": "A product available for sale in the shop.",
@@ -7,15 +37,21 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique product SKU/ID (e.g. PRD-001)"
+          "description": "Unique product SKU/ID (e.g. PRD-001)",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
         },
         "name": {
           "type": "string",
-          "description": "Name of the product"
+          "description": "Name of the product",
+          "minLength": 1,
+          "maxLength": 200
         },
         "category": {
           "type": "string",
-          "description": "Category of the product"
+          "description": "Category of the product",
+          "maxLength": 100
         },
         "price": {
           "type": "number",
@@ -27,11 +63,13 @@
         },
         "imageUrl": {
           "type": "string",
-          "description": "URL of the product image"
+          "description": "URL of the product image",
+          "maxLength": 1000
         },
         "status": {
           "type": "string",
-          "description": "Availability status: พร้อมขาย, ใกล้หมด, หมดสต็อก"
+          "description": "Availability status: พร้อมขาย, ใกล้หมด, หมดสต็อก",
+          "enum": ["พร้อมขาย", "ใกล้หมด", "หมดสต็อก"]
         }
       },
       "required": ["id", "name", "category", "price", "stock", "status"]
@@ -43,15 +81,22 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Invoice number (e.g. INV-00124)"
+          "description": "Invoice number (e.g. INV-00124)",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
         },
         "timestamp": {
           "type": "string",
-          "description": "ISO timestamp or formatted date string"
+          "description": "ISO timestamp or formatted date string",
+          "minLength": 1,
+          "maxLength": 64
         },
         "employee": {
           "type": "string",
-          "description": "Name of the employee processing the sale"
+          "description": "Name of the employee processing the sale",
+          "minLength": 1,
+          "maxLength": 120
         },
         "total": {
           "type": "number",
@@ -59,11 +104,36 @@
         },
         "status": {
           "type": "string",
-          "description": "Status of the sale: สำเร็จ, ยกเลิก"
+          "description": "Status of the sale: สำเร็จ, ยกเลิก",
+          "enum": ["สำเร็จ", "ยกเลิก"]
         },
         "items": {
           "type": "array",
-          "description": "List of products purchased in this transaction"
+          "description": "List of products purchased in this transaction (1 to 200 items)"
+        },
+        "discount": {
+          "type": "number",
+          "description": "Optional discount amount in THB"
+        },
+        "customerName": {
+          "type": "string",
+          "description": "Optional customer name for receipt",
+          "maxLength": 200
+        },
+        "customerPhone": {
+          "type": "string",
+          "description": "Optional customer phone for receipt",
+          "maxLength": 50
+        },
+        "customerAddress": {
+          "type": "string",
+          "description": "Optional customer billing address",
+          "maxLength": 500
+        },
+        "customerTaxId": {
+          "type": "string",
+          "description": "Optional customer tax ID",
+          "maxLength": 32
         }
       },
       "required": ["id", "timestamp", "employee", "total", "status", "items"]
@@ -75,29 +145,58 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Customer unique ID"
+          "description": "Customer unique ID",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
         },
         "name": {
           "type": "string",
-          "description": "Customer full name or shop name"
+          "description": "Customer full name or shop name",
+          "minLength": 1,
+          "maxLength": 200
         },
         "phone": {
           "type": "string",
-          "description": "Customer telephone number"
+          "description": "Customer telephone number",
+          "maxLength": 50
         },
         "address": {
           "type": "string",
-          "description": "Optional billing address"
+          "description": "Optional billing address",
+          "maxLength": 500
         },
         "taxId": {
           "type": "string",
-          "description": "Optional 13-digit tax identification number"
+          "description": "Optional 13-digit tax identification number",
+          "maxLength": 32
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes about the customer",
+          "maxLength": 500
         }
       },
       "required": ["id", "name"]
+    },
+    "SystemState": {
+      "title": "SystemState",
+      "description": "Internal system initialization flags.",
+      "type": "object",
+      "properties": {
+        "initialized": {
+          "type": "boolean",
+          "description": "Whether initial catalog data has been seeded"
+        }
+      },
+      "required": ["initialized"]
     }
   },
   "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Staff and admin profile documents isolated by UID and role"
+    },
     "products/{productId}": {
       "schema": "Product",
       "description": "The collections of products in the inventory"
@@ -109,6 +208,10 @@
     "customers/{customerId}": {
       "schema": "Customer",
       "description": "The collection of registered customer profiles"
+    },
+    "system/{docId}": {
+      "schema": "SystemState",
+      "description": "System initialization state protected for verified users and admins"
     }
   }
 }

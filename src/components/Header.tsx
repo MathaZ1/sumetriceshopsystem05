@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Settings, Menu, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 import ConfirmModal from './ConfirmModal';
@@ -14,7 +14,7 @@ interface HeaderProps {
   isAdminEmail?: boolean;
 }
 
-export default function Header({ searchQuery, setSearchQuery, activeTab, role, onRoleChange, roleLoading, isAdminEmail = false }: HeaderProps) {
+export default function Header({ activeTab, role, onRoleChange, roleLoading, isAdminEmail = false }: HeaderProps) {
   const currentUser = auth.currentUser;
   const [confirmOpen, setConfirmOpen] = useState<boolean>(false);
 
@@ -33,9 +33,9 @@ export default function Header({ searchQuery, setSearchQuery, activeTab, role, o
   const getTitle = () => {
     switch (activeTab) {
       case 'pos':
-        return 'รายการสินค้า';
+        return 'รายการสินค้าหน้าร้าน (POS)';
       case 'products':
-        return 'สต็อค';
+        return 'จัดการสต็อคสินค้า';
       case 'reports':
         return 'รายงานสรุปยอดขาย';
       case 'receipt':
@@ -48,61 +48,56 @@ export default function Header({ searchQuery, setSearchQuery, activeTab, role, o
   };
 
   return (
-    <header className="flex justify-between items-center w-full px-6 h-16 sticky top-0 z-40 bg-white border-b border-slate-100">
-      {/* Mobile Menu Button / Header Brand */}
-      <div className="flex items-center gap-3 lg:hidden">
-        <Menu className="w-6 h-6 text-slate-600" />
-        <h1 className="text-lg font-bold text-slate-900 tracking-tight">สุเมธค้าข้าว</h1>
+    <header className="flex justify-between items-center w-full px-4 sm:px-6 h-[72px] sticky top-0 z-40 bg-white border-b border-slate-200">
+      {/* Mobile Header Brand + Current View Title */}
+      <div className="flex items-center gap-2.5 lg:hidden min-w-0">
+        <h1 className="text-lg font-extrabold text-slate-900 tracking-tight whitespace-nowrap">สุเมธค้าข้าว</h1>
+        <span className="text-slate-300 font-bold" aria-hidden="true">/</span>
+        <span className="text-base font-bold text-slate-700 truncate">{getTitle()}</span>
       </div>
 
-      {/* Spacer where search bar was */}
-      <div className="hidden md:block flex-1 max-w-md mx-6"></div>
+      {/* Desktop Prominent Page Title */}
+      <div className="hidden lg:flex items-center min-w-0">
+        <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight whitespace-nowrap truncate">
+          {getTitle()}
+        </h2>
+      </div>
 
       {/* Trailing Actions */}
-      <div className="flex items-center gap-3">
-        
-        <button className="text-slate-500 hover:text-slate-900 hover:bg-slate-50 p-2 rounded-full transition-all duration-200 relative cursor-pointer">
-          <Bell className="w-5 h-5" />
-          <span className="absolute w-2 h-2 bg-red-500 rounded-full top-1.5 right-1.5"></span>
-        </button>
-
-        <button className="text-slate-500 hover:text-slate-900 hover:bg-slate-50 p-2 rounded-full transition-all duration-200 cursor-pointer">
-          <Settings className="w-5 h-5" />
-        </button>
-
+      <div className="flex items-center gap-3 shrink-0">
         {/* Role Selector / Indicator */}
-        <div className="flex items-center gap-1.5 mr-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm transition-all">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider hidden md:inline">บทบาท:</span>
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 transition-all">
+          <span className="text-xs font-bold text-slate-500 hidden md:inline whitespace-nowrap">บทบาท:</span>
           {roleLoading ? (
-            <div className="animate-spin rounded-full h-3.5 w-3.5 border-b border-slate-900 mx-1"></div>
+            <div className="animate-spin rounded-full h-4 w-4 border-b border-slate-900 mx-1"></div>
           ) : isAdminEmail ? (
             <select
               value={role}
               onChange={(e) => onRoleChange(e.target.value as 'admin' | 'employee')}
-              className="bg-transparent border-none outline-none text-xs font-bold text-slate-800 pr-1 cursor-pointer focus:ring-0 select-none py-0 font-sans"
+              className="bg-transparent border-none outline-none text-sm font-bold text-slate-900 pr-1 cursor-pointer focus:ring-0 select-none py-0 font-sans"
             >
               <option value="admin">แอดมิน (Admin)</option>
               <option value="employee">พนักงาน (Employee)</option>
             </select>
           ) : (
-            <span className="text-xs font-bold text-slate-600 font-sans">
+            <span className="text-sm font-bold text-slate-700 font-sans whitespace-nowrap">
               พนักงาน (Employee)
             </span>
           )}
         </div>
 
         {/* Dynamic Authenticated User Section */}
-        <div className="flex items-center gap-3 border-l border-slate-100 pl-3 ml-1 shrink-0">
+        <div className="flex items-center gap-3 border-l border-slate-200 pl-3 ml-1 shrink-0">
           <div className="text-right hidden sm:block">
-            <p className="text-xs font-black text-slate-950 leading-tight">
+            <p className="text-sm font-extrabold text-slate-950 leading-tight">
               {currentUser?.displayName || 'ผู้ใช้งาน Gmail'}
             </p>
-            <p className="text-[10px] text-slate-400 mt-0.5 font-bold leading-none">
+            <p className="text-xs text-slate-500 mt-0.5 font-medium leading-none">
               {currentUser?.email || ''}
             </p>
           </div>
           
-          <div className="w-9 h-9 rounded-full overflow-hidden border border-slate-200 shadow-inner shrink-0 bg-slate-100">
+          <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-200 shadow-inner shrink-0 bg-slate-100">
             <img
               alt="User Profile"
               className="w-full h-full object-cover"
@@ -114,9 +109,9 @@ export default function Header({ searchQuery, setSearchQuery, activeTab, role, o
           <button
             onClick={handleSignOutClick}
             title="ออกจากระบบ"
-            className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-xl transition-all duration-200 cursor-pointer"
+            className="text-slate-500 hover:text-red-600 hover:bg-red-50 p-2.5 rounded-xl transition-all duration-200 cursor-pointer"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-5 h-5" />
           </button>
         </div>
       </div>

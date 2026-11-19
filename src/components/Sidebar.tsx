@@ -11,75 +11,75 @@ export default function Sidebar({ activeTab, setActiveTab, onResetPOS, role }: S
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col h-screen fixed left-0 top-0 border-r border-slate-200 bg-white w-64 z-50">
-        <div className="p-6 border-b border-slate-100">
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">สุเมธค้าข้าว</h1>
+      <aside className="hidden lg:flex flex-col h-screen fixed left-0 top-0 border-r border-slate-200 bg-white w-[272px] z-50">
+        <div className="px-6 py-5 border-b border-slate-100 h-[72px] flex items-center">
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight whitespace-nowrap">สุเมธค้าข้าว</h1>
         </div>
 
-        <nav className="flex-1 py-6 flex flex-col gap-1 px-3">
+        <nav className="flex-1 py-6 flex flex-col gap-1.5 px-3.5">
           <button
             onClick={() => setActiveTab('pos')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 cursor-pointer ${
+            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-xl font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap ${
               activeTab === 'pos'
                 ? 'bg-slate-900 text-white shadow-sm'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                : 'text-slate-700 hover:bg-slate-100/80 hover:text-slate-950'
             }`}
           >
-            <ShoppingCart className="w-5 h-5" />
-            <span className="text-sm">รายการสินค้า</span>
+            <ShoppingCart className="w-5 h-5 shrink-0" />
+            <span className="text-base">รายการสินค้า</span>
           </button>
 
           {role === 'admin' && (
             <button
               onClick={() => setActiveTab('products')}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 cursor-pointer ${
+              className={`flex items-center gap-3.5 px-4 py-3.5 rounded-xl font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap ${
                 activeTab === 'products'
                   ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  : 'text-slate-700 hover:bg-slate-100/80 hover:text-slate-950'
               }`}
             >
-              <Package className="w-5 h-5" />
-              <span className="text-sm">สต็อค</span>
+              <Package className="w-5 h-5 shrink-0" />
+              <span className="text-base">สต็อค</span>
             </button>
           )}
 
           {role === 'admin' && (
             <button
               onClick={() => setActiveTab('reports')}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 cursor-pointer ${
+              className={`flex items-center gap-3.5 px-4 py-3.5 rounded-xl font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap ${
                 activeTab === 'reports'
                   ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  : 'text-slate-700 hover:bg-slate-100/80 hover:text-slate-950'
               }`}
             >
-              <BarChart3 className="w-5 h-5" />
-              <span className="text-sm">รายงาน</span>
+              <BarChart3 className="w-5 h-5 shrink-0" />
+              <span className="text-base">รายงาน</span>
             </button>
           )}
 
           <button
             onClick={() => setActiveTab('receipt')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 cursor-pointer ${
+            className={`flex items-center gap-3.5 px-4 py-3.5 rounded-xl font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap ${
               activeTab === 'receipt'
                 ? 'bg-slate-900 text-white shadow-sm'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                : 'text-slate-700 hover:bg-slate-100/80 hover:text-slate-950'
             }`}
           >
-            <Receipt className="w-5 h-5" />
-            <span className="text-sm">ออกใบเสร็จรับเงิน</span>
+            <Receipt className="w-5 h-5 shrink-0" />
+            <span className="text-base">ออกใบเสร็จรับเงิน</span>
           </button>
 
           {role === 'admin' && (
             <button
               onClick={() => setActiveTab('customers')}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all duration-200 cursor-pointer ${
+              className={`flex items-center gap-3.5 px-4 py-3.5 rounded-xl font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap ${
                 activeTab === 'customers'
                   ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  : 'text-slate-700 hover:bg-slate-100/80 hover:text-slate-950'
               }`}
             >
-              <Users className="w-5 h-5" />
-              <span className="text-sm">สมาชิกลูกค้า</span>
+              <Users className="w-5 h-5 shrink-0" />
+              <span className="text-base">สมาชิกลูกค้า</span>
             </button>
           )}
         </nav>
@@ -87,9 +87,9 @@ export default function Sidebar({ activeTab, setActiveTab, onResetPOS, role }: S
         <div className="p-4 border-t border-slate-100">
           <button
             onClick={onResetPOS}
-            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer shadow-sm"
+            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-base py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all duration-200 cursor-pointer shadow-sm whitespace-nowrap"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-5 h-5 shrink-0" />
             <span>เริ่มการขายใหม่</span>
           </button>
         </div>
@@ -99,57 +99,57 @@ export default function Sidebar({ activeTab, setActiveTab, onResetPOS, role }: S
       <nav className="lg:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-16 bg-white border-t border-slate-200 shadow-lg pb-safe rounded-t-2xl">
         <button
           onClick={() => setActiveTab('pos')}
-          className={`flex flex-col items-center justify-center flex-1 h-full py-1 ${
-            activeTab === 'pos' ? 'text-slate-900 font-semibold' : 'text-slate-400'
+          className={`flex flex-col items-center justify-center flex-1 h-full py-1 cursor-pointer ${
+            activeTab === 'pos' ? 'text-slate-950 font-bold' : 'text-slate-500 font-medium'
           }`}
         >
           <ShoppingCart className="w-5 h-5" />
-          <span className="text-[10px] mt-0.5">รายการสินค้า</span>
+          <span className="text-xs mt-0.5 whitespace-nowrap">สินค้า</span>
         </button>
 
         {role === 'admin' && (
           <button
             onClick={() => setActiveTab('products')}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1 ${
-              activeTab === 'products' ? 'text-slate-900 font-semibold' : 'text-slate-400'
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1 cursor-pointer ${
+              activeTab === 'products' ? 'text-slate-950 font-bold' : 'text-slate-500 font-medium'
             }`}
           >
             <Package className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5">สต็อค</span>
+            <span className="text-xs mt-0.5 whitespace-nowrap">สต็อค</span>
           </button>
         )}
 
         {role === 'admin' && (
           <button
             onClick={() => setActiveTab('reports')}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1 ${
-              activeTab === 'reports' ? 'text-slate-900 font-semibold' : 'text-slate-400'
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1 cursor-pointer ${
+              activeTab === 'reports' ? 'text-slate-950 font-bold' : 'text-slate-500 font-medium'
             }`}
           >
             <BarChart3 className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5">รายงาน</span>
+            <span className="text-xs mt-0.5 whitespace-nowrap">รายงาน</span>
           </button>
         )}
 
         <button
           onClick={() => setActiveTab('receipt')}
-          className={`flex flex-col items-center justify-center flex-1 h-full py-1 ${
-            activeTab === 'receipt' ? 'text-slate-900 font-semibold' : 'text-slate-400'
+          className={`flex flex-col items-center justify-center flex-1 h-full py-1 cursor-pointer ${
+            activeTab === 'receipt' ? 'text-slate-950 font-bold' : 'text-slate-500 font-medium'
           }`}
         >
           <Receipt className="w-5 h-5" />
-          <span className="text-[10px] mt-0.5">ใบเสร็จ</span>
+          <span className="text-xs mt-0.5 whitespace-nowrap">ใบเสร็จ</span>
         </button>
 
         {role === 'admin' && (
           <button
             onClick={() => setActiveTab('customers')}
-            className={`flex flex-col items-center justify-center flex-1 h-full py-1 ${
-              activeTab === 'customers' ? 'text-slate-900 font-semibold' : 'text-slate-400'
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1 cursor-pointer ${
+              activeTab === 'customers' ? 'text-slate-950 font-bold' : 'text-slate-500 font-medium'
             }`}
           >
             <Users className="w-5 h-5" />
-            <span className="text-[10px] mt-0.5">สมาชิก</span>
+            <span className="text-xs mt-0.5 whitespace-nowrap">สมาชิก</span>
           </button>
         )}
       </nav>

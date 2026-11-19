@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { auth, googleProvider } from '../firebase';
+import firebaseConfig from '../../firebase-applet-config.json';
 import { signInWithPopup } from 'firebase/auth';
 import { motion } from 'motion/react';
 import { ShieldCheck, Wheat, HelpCircle, AlertTriangle, Copy, Check, Mail, ArrowRight } from 'lucide-react';
@@ -136,7 +137,7 @@ export default function LoginView() {
               <li>
                 ไปที่หน้าตั้งค่าความปลอดภัยของ Firebase:
                 <a
-                  href="https://console.firebase.google.com/project/sumetriceshopsystem05/authentication/settings"
+                  href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/settings`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-1.5 inline-flex items-center gap-1 bg-slate-900 hover:bg-slate-850 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold shadow-sm transition-all cursor-pointer"
@@ -177,7 +178,7 @@ export default function LoginView() {
                 type="text"
                 value={gmailInput}
                 onChange={(e) => setGmailInput(e.target.value)}
-                placeholder="เช่น sumat3292@gmail.com หรือ Namsitang"
+                placeholder="เช่น yourname@gmail.com หรือชื่อบัญชี"
                 className="w-full pl-10 pr-24 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all"
               />
               {!gmailInput.includes('@') && gmailInput.trim().length > 0 && (
@@ -221,30 +222,6 @@ export default function LoginView() {
             )}
           </button>
         </form>
-
-        {/* Quick Select Admin Accounts */}
-        <div className="mt-6 pt-5 border-t border-slate-100">
-          <p className="text-[11px] font-bold text-slate-400 mb-2">เลือกบัญชีที่บันทึกไว้ได้อย่างรวดเร็ว:</p>
-          <div className="flex flex-wrap gap-1.5">
-            {['sumethsumeth06@gmail.com', 'sumat3292@gmail.com', 'Namsitang@gmail.com', 'mathaza8@gmail.com'].map((email) => (
-              <button
-                key={email}
-                type="button"
-                disabled={loading}
-                onClick={() => {
-                  setGmailInput(email);
-                  handleGoogleLogin(email);
-                }}
-                className={`text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200/80 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 active:scale-95 ${
-                  loading ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                <Mail className="w-3 h-3 text-slate-400" />
-                <span>{email}</span>
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* Footer Brand */}
         <div className="text-center mt-8 text-slate-400 text-xs font-medium">

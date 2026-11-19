@@ -153,14 +153,14 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
       {/* Header and Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">รายการสินค้า</h2>
-          <p className="text-sm text-slate-500 mt-1 font-medium">จัดการรายการสินค้าและราคาทั้งหมดในระบบ</p>
+          <h2 className="text-2xl font-extrabold text-slate-900">รายการสินค้า</h2>
+          <p className="text-base text-slate-600 mt-1 font-medium">จัดการรายการสินค้าและราคาทั้งหมดในระบบ</p>
         </div>
         <div className="flex flex-wrap gap-2.5 w-full sm:w-auto">
           {products.length > 0 && (
             <button
               onClick={() => setConfirmClearAllOpen(true)}
-              className="flex-1 sm:flex-none border border-red-200 hover:border-red-300 text-red-600 bg-red-50 hover:bg-red-100/50 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
+              className="flex-1 sm:flex-none border border-red-200 hover:border-red-300 text-red-600 bg-red-50 hover:bg-red-100/50 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
             >
               <Trash2 className="w-4 h-4" />
               <span>ล้างสินค้าทั้งหมด ({products.length})</span>
@@ -168,7 +168,7 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
           )}
           <button
             onClick={handleOpenAddModal}
-            className="flex-1 sm:flex-none bg-slate-900 hover:bg-slate-850 text-white px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
+            className="flex-1 sm:flex-none bg-slate-900 hover:bg-slate-850 text-white px-4.5 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
           >
             <Plus className="w-4 h-4" />
             <span>เพิ่มสินค้า</span>
@@ -179,8 +179,8 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
       {/* Filters & Tabs Section */}
       <div className="bg-white border border-slate-100 rounded-2xl p-4 mb-6 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
         {/* Local Search Input Field */}
-        <div className="relative w-full md:w-72 shrink-0">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+        <div className="relative w-full md:w-80 shrink-0">
+          <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
             <Search className="w-4 h-4" />
           </span>
           <input
@@ -191,7 +191,7 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
               setLocalSearchQuery(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 bg-white placeholder-slate-400 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all shadow-sm"
+            className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm sm:text-base font-semibold text-slate-800 bg-white placeholder-slate-400 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all shadow-sm"
           />
         </div>
       </div>
@@ -201,7 +201,7 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
         <div className="overflow-x-auto w-full">
           <table className="w-full text-left border-collapse table-fixed">
             <thead>
-              <tr className="bg-slate-50 text-slate-500 text-xs font-semibold tracking-wider border-b border-slate-100 uppercase">
+              <tr className="bg-slate-50 text-slate-600 text-sm font-bold tracking-wide border-b border-slate-200">
                 <th className="p-4 w-12 text-center">
                   <input
                     type="checkbox"
@@ -209,11 +209,11 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
                   />
                 </th>
                 <th className="p-4 w-3/5">ชื่อสินค้า</th>
-                <th className="p-4 w-32 text-right">ราคา (฿)</th>
+                <th className="p-4 w-36 text-right">ราคา (฿)</th>
                 <th className="p-4 w-28 text-right">จัดการ</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50 text-sm">
+            <tbody className="divide-y divide-slate-100 text-[15px]">
               {loading ? (
                 <tr>
                   <td colSpan={4} className="py-20 text-center">
@@ -222,14 +222,14 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
                 </tr>
               ) : currentItems.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-16 text-center text-slate-400">
+                  <td colSpan={4} className="py-16 text-center text-slate-400 text-base">
                     ไม่พบสินค้าตรงตามเงื่อนไขที่ค้นหา
                   </td>
                 </tr>
               ) : (
                 currentItems.map((p) => {
                   return (
-                    <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
+                    <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="p-4 text-center">
                         <input
                           type="checkbox"
@@ -239,27 +239,27 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
                       <td className="p-4 font-bold text-slate-900 truncate">
                         <button
                           onClick={() => handleOpenEditModal(p)}
-                          className="hover:underline text-left text-slate-900 hover:text-slate-700 transition-colors cursor-pointer font-bold focus:outline-none"
+                          className="hover:underline text-left text-slate-900 hover:text-slate-700 transition-colors cursor-pointer font-bold focus:outline-none text-[15px]"
                         >
                           {p.name}
                         </button>
                       </td>
-                      <td className="p-4 text-right font-extrabold text-slate-900">
+                      <td className="p-4 text-right text-base font-extrabold text-slate-950 font-mono tabular-nums">
                         {p.price.toFixed(2)}
                       </td>
                       <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => handleOpenEditModal(p)}
-                            className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+                            className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
                           >
-                            <Edit2 className="w-3.5 h-3.5" />
+                            <Edit2 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteClick(p.id)}
-                            className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors"
+                            className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -273,7 +273,7 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
 
         {/* Pagination Footer */}
         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-white">
-          <span className="text-xs font-semibold text-slate-500">
+          <span className="text-sm font-semibold text-slate-600 tabular-nums">
             แสดง {totalItems > 0 ? indexOfFirstItem + 1 : 0} ถึง {Math.min(indexOfLastItem, totalItems)} จาก {totalItems} รายการ
           </span>
           
@@ -281,7 +281,7 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
             <button
               disabled={currentPage === 1}
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white cursor-pointer transition-colors"
+              className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white cursor-pointer transition-colors"
             >
               ย้อนกลับ
             </button>
@@ -289,7 +289,7 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                className={`w-9 h-9 rounded-lg text-sm font-bold transition-colors cursor-pointer tabular-nums ${
                   currentPage === page
                     ? 'bg-slate-900 text-white'
                     : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -301,7 +301,7 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
             <button
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white cursor-pointer transition-colors"
+              className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white cursor-pointer transition-colors"
             >
               ถัดไป
             </button>
@@ -316,7 +316,7 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="py-16 text-center text-slate-400">
+          <div className="py-16 text-center text-slate-400 text-base">
             ไม่พบสินค้าในระบบ
           </div>
         ) : (
@@ -327,16 +327,16 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
                 className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col relative"
               >
                 {/* Actions Trigger */}
-                <div className="absolute top-4 right-4 flex gap-1">
+                <div className="absolute top-4 right-4 flex gap-1.5">
                   <button
                     onClick={() => handleOpenEditModal(p)}
-                    className="p-1 text-slate-400 hover:text-slate-900 rounded-lg"
+                    className="p-1.5 text-slate-400 hover:text-slate-900 rounded-lg"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDeleteClick(p.id)}
-                    className="p-1 text-slate-400 hover:text-red-600 rounded-lg"
+                    className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -344,8 +344,8 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
 
                 {/* Info block */}
                 <div className="mb-3">
-                  <div className="min-w-0 flex-1 pr-12">
-                    <h3 className="font-bold text-slate-900 leading-snug truncate">
+                  <div className="min-w-0 flex-1 pr-14">
+                    <h3 className="text-base font-bold text-slate-900 leading-snug truncate">
                       <button
                         onClick={() => handleOpenEditModal(p)}
                         className="hover:underline text-left font-bold text-slate-900 hover:text-slate-700 transition-colors cursor-pointer focus:outline-none"
@@ -359,7 +359,7 @@ export default function ProductsView({ searchQuery }: ProductsViewProps) {
                 {/* Sub row */}
                 <div className="flex justify-end items-end pt-3 border-t border-slate-100">
                   <div className="text-right">
-                    <p className="text-lg font-black text-slate-900">฿{p.price.toFixed(2)}</p>
+                    <p className="text-xl font-black text-slate-950 font-mono tabular-nums">฿{p.price.toFixed(2)}</p>
                   </div>
                 </div>
               </div>

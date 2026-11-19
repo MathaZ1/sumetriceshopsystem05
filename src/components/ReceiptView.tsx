@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { db, handleFirestoreError, OperationType, auth, getNextInvoiceNumber } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, query, orderBy, updateDoc, runTransaction } from 'firebase/firestore';
 import { Product, CartItem, Customer, Sale, SaleItem } from '../types';
-import { Search, Plus, Minus, Trash2, Printer, CheckCircle2, User, MapPin, FileText, Users, Ban, RefreshCw, Eye, Tag, Receipt, Maximize2, X, PackagePlus, Sparkles, AlertTriangle, ShoppingCart } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, Printer, CheckCircle2, User, MapPin, FileText, Users, Ban, RefreshCw, Eye, Tag, Receipt, Maximize2, X, PackagePlus, ShoppingCart } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 
 function thaiBaht(num: number): string {
@@ -70,6 +70,14 @@ function thaiBaht(num: number): string {
   return intResult + decResult;
 }
 
+function itemLineSatang(item: CartItem): number {
+  return Math.round(item.product.price * item.quantity * 100);
+}
+
+function sumItemsSatang(list: CartItem[]): number {
+  return list.reduce((sum, item) => sum + itemLineSatang(item), 0);
+}
+
 interface ContinuousReceiptPaperProps {
   paperSize: '9.5x11' | '9.5x5.5';
   printPinhole: boolean;
@@ -84,6 +92,8 @@ interface ContinuousReceiptPaperProps {
   discount: number;
   netTotal: number;
   isPrintPortal?: boolean;
+  linesPerPage?: number;
+  visiblePageIndex?: number | null;
 }
 
 function ContinuousReceiptPaper({
@@ -100,48 +110,75 @@ function ContinuousReceiptPaper({
   discount,
   netTotal,
   isPrintPortal = false,
+  linesPerPage = 20,
+  visiblePageIndex = null,
 }: ContinuousReceiptPaperProps) {
-  // Number of items fitting on 1 sheet of continuous paper without vertical overflow (Page 1 fits up to 50 items)
-  const itemsPerPage = paperSize === '9.5x11' ? 50 : 25;
+  // Default lines per page: 20 for 9.5x11 (comfortably fits 20 rows with large, clear text without compression)
+  // Default 10 for half-page 9.5x5.5
+  const defaultPageLimit = paperSize === '9.5x11' ? 20 : 10;
+  const itemsPerPage = linesPerPage && linesPerPage > 0 ? linesPerPage : defaultPageLimit;
   const totalPages = Math.max(1, Math.ceil(items.length / itemsPerPage));
 
   return (
     <div className={isPrintPortal ? 'receipt-pages-wrapper' : 'flex flex-col gap-6 w-full'}>
       {Array.from({ length: totalPages }).map((_, pageIdx) => {
+        if (!isPrintPortal && visiblePageIndex !== null && visiblePageIndex !== undefined && pageIdx !== visiblePageIndex) {
+          return null;
+        }
         const pageItems = items.slice(pageIdx * itemsPerPage, (pageIdx + 1) * itemsPerPage);
         const isLastPage = pageIdx === totalPages - 1;
         const count = pageItems.length;
-        const isUltraDense = count > 35; // 36 - 50 items
+        const isUltraDense = count > 35; // 36 - 50 items (only if forced onto 1 page)
         const isSuperDense = count > 22 && count <= 35; // 23 - 35 items
-        const isDense = count > 12 && count <= 22; // 13 - 22 items
-        const runningSubtotal = items.slice(0, (pageIdx + 1) * itemsPerPage).reduce((sum, it) => sum + (it.product.price * it.quantity), 0);
+        const isDense = count > 12 && count <= 22; // 13 - 22 items (20 lines per page will be in this crisp, clear zone)
+        const previousSubtotalSatang = sumItemsSatang(items.slice(0, pageIdx * itemsPerPage));
+        const pageSubtotalSatang = sumItemsSatang(pageItems);
+        const runningSubtotalSatang = previousSubtotalSatang + pageSubtotalSatang;
+        const previousSubtotal = previousSubtotalSatang / 100;
+        const pageSubtotal = pageSubtotalSatang / 100;
+        const runningSubtotal = runningSubtotalSatang / 100;
 
         return (
-          <div
-            key={`receipt-page-${pageIdx}`}
-            className={`dot-matrix-print-target print-receipt-card bg-[#ffffff] border border-stone-300 ${
-              isPrintPortal ? '' : 'rounded-xl shadow-lg'
-            } ${
-              isUltraDense
-                ? 'p-2.5 sm:p-3'
-                : isSuperDense
-                ? 'p-3.5 sm:p-4'
-                : isDense
-                ? 'p-5'
-                : 'p-6 sm:p-7'
-            } font-mono text-black select-all flex flex-col justify-between overflow-hidden relative ${
-              printPinhole ? 'print-pinholes-visible' : ''
-            } ${!isLastPage ? 'page-break' : 'last-page'}`}
-            style={{
-              width: '912px',
-              minHeight: paperSize === '9.5x11' ? '1056px' : '620px',
-              maxHeight: paperSize === '9.5x11' ? '1056px' : '620px',
-              height: paperSize === '9.5x11' ? '1056px' : '620px',
-              boxSizing: 'border-box',
-              pageBreakAfter: isLastPage ? 'auto' : 'always',
-              breakAfter: isLastPage ? 'auto' : 'page',
-            }}
-          >
+          <div key={`receipt-page-wrapper-${pageIdx}`} className="flex flex-col gap-1 w-full">
+            {!isPrintPortal && totalPages > 1 && (
+              <div className="flex items-center justify-between text-xs font-bold text-slate-600 px-1 py-0.5">
+                <span className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-lg shadow-2xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-900"></span>
+                  แผ่นที่ {pageIdx + 1} จาก {totalPages} ({pageItems.length} รายการ)
+                  {pageIdx === 0 && ' • มียอดยกไป'}
+                  {pageIdx > 0 && !isLastPage && ' • ยอดยกมา / ยอดยกไป'}
+                  {isLastPage && ' • ยอดรวมสุทธิและลายเซ็นต์'}
+                </span>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  รายการที่ {pageIdx * itemsPerPage + 1} - {pageIdx * itemsPerPage + pageItems.length}
+                </span>
+              </div>
+            )}
+            <div
+              key={`receipt-page-${pageIdx}`}
+              className={`dot-matrix-print-target print-receipt-card bg-[#ffffff] border border-stone-300 ${
+                isPrintPortal ? '' : 'rounded-xl shadow-lg'
+              } ${
+                isUltraDense
+                  ? 'p-2.5 sm:p-3'
+                  : isSuperDense
+                  ? 'p-3.5 sm:p-4'
+                  : isDense
+                  ? 'p-4'
+                  : 'p-6 sm:p-7'
+              } font-mono text-black select-all flex flex-col justify-between overflow-hidden relative ${
+                printPinhole ? 'print-pinholes-visible' : ''
+              } ${!isLastPage ? 'page-break' : 'last-page'}`}
+              style={{
+                width: '912px',
+                minHeight: paperSize === '9.5x11' ? '1056px' : '620px',
+                maxHeight: paperSize === '9.5x11' ? '1056px' : '620px',
+                height: paperSize === '9.5x11' ? '1056px' : '620px',
+                boxSizing: 'border-box',
+                pageBreakAfter: isLastPage ? 'auto' : 'always',
+                breakAfter: isLastPage ? 'auto' : 'page',
+              }}
+            >
             {/* Continuous Form Pinhole Margins (Left Strip) */}
             {printPinhole && (
               <div className="print-pinholes absolute left-0 top-0 bottom-0 w-8 border-r border-dashed border-stone-300 bg-stone-100/40 flex flex-col justify-around items-center py-4 z-10">
@@ -176,17 +213,17 @@ function ContinuousReceiptPaper({
               } border-b border-black/15`}>
                 <div>
                   <h3 className={`font-black text-black ${
-                    isUltraDense ? 'text-[16px]' : isSuperDense ? 'text-[17px]' : isDense ? 'text-[18.5px]' : 'text-[20px]'
+                    isUltraDense ? 'text-[17.5px]' : isSuperDense ? 'text-[18.5px]' : isDense ? 'text-[20px]' : 'text-[22px]'
                   } tracking-wide leading-tight`}>
                     ร้านสุเมธค้าข้าว
                   </h3>
                   <p className={`${
-                    isUltraDense ? 'text-[10.5px] mt-0.5' : isSuperDense ? 'text-[12px] mt-0.5' : isDense ? 'text-[13.5px] mt-0.5' : 'text-[15px] mt-1'
+                    isUltraDense ? 'text-[12px] mt-0.5' : isSuperDense ? 'text-[13.5px] mt-0.5' : isDense ? 'text-[15px] mt-0.5' : 'text-[16.5px] mt-1'
                   } font-bold text-black leading-tight`}>
                     ถ.จุลจอมเกล้า ต.ท่าข้าม อ.พุนพิน จ.สุราษฎร์ธานี 84130
                   </p>
                   <p className={`${
-                    isUltraDense ? 'text-[10.5px] mt-0.5' : isSuperDense ? 'text-[12px] mt-0.5' : isDense ? 'text-[13.5px] mt-0.5' : 'text-[15px] mt-1'
+                    isUltraDense ? 'text-[12px] mt-0.5' : isSuperDense ? 'text-[13.5px] mt-0.5' : isDense ? 'text-[15px] mt-0.5' : 'text-[16.5px] mt-1'
                   } font-bold text-black leading-tight`}>
                     สาขาโค้งวัดดอนกระถิน โทร : <span className="font-black text-black">077-441628</span> / สาขาดอนเนียง โทร :{' '}
                     <span className="font-black text-black">098-6785002</span>
@@ -195,12 +232,12 @@ function ContinuousReceiptPaper({
 
                 <div className="text-right flex flex-col items-end gap-0.5">
                   <div className={`font-black ${
-                    isUltraDense ? 'text-[16px]' : isSuperDense ? 'text-[17px]' : isDense ? 'text-[18.5px]' : 'text-[20px]'
+                    isUltraDense ? 'text-[17.5px]' : isSuperDense ? 'text-[18.5px]' : isDense ? 'text-[20px]' : 'text-[22px]'
                   } text-black tracking-wider leading-tight`}>
                     ใบเสร็จรับเงิน / RECEIPT
                   </div>
                   <div className={`${
-                    isUltraDense ? 'text-[11px] gap-0.5' : isSuperDense ? 'text-[12px] gap-0.5' : isDense ? 'text-[13.5px] gap-0.5' : 'text-[15px] gap-1'
+                    isUltraDense ? 'text-[12.5px] gap-0.5' : isSuperDense ? 'text-[13.5px] gap-0.5' : isDense ? 'text-[15px] gap-0.5' : 'text-[16.5px] gap-1'
                   } text-black mt-0.5 flex flex-col items-end font-bold font-mono`}>
                     <div>
                       เลขที่บิล / Invoice No : <span className="text-black font-black">{invoiceNumber}</span>
@@ -218,12 +255,12 @@ function ContinuousReceiptPaper({
               {/* Customer Information Block */}
               <div className={`${
                 isUltraDense
-                  ? 'py-0.5 gap-0.5 text-[11px]'
+                  ? 'py-0.5 gap-0.5 text-[12.5px]'
                   : isSuperDense
-                  ? 'py-1 gap-1 text-[12px]'
+                  ? 'py-1 gap-1 text-[13.5px]'
                   : isDense
-                  ? 'py-1.5 gap-1.5 text-[13px]'
-                  : 'py-2 gap-2 text-[14.5px]'
+                  ? 'py-1.5 gap-1.5 text-[14.5px]'
+                  : 'py-2 gap-2 text-[16px]'
               } bg-transparent flex flex-col leading-tight border-b border-black/15 pb-1`}>
                 {/* Row 1: Customer Name, Phone, and Tax ID */}
                 <div className="flex items-center justify-between gap-4">
@@ -250,7 +287,7 @@ function ContinuousReceiptPaper({
                 {/* Row 2: Customer Address (Full width for complete information without overflowing into other rows) */}
                 <div className="flex items-start gap-1.5 w-full min-w-0">
                   <span className="text-black font-bold shrink-0 whitespace-nowrap">ที่อยู่ :</span>
-                  <span className={`text-black font-bold break-words flex-1 ${isUltraDense ? 'text-[10px]' : ''} leading-snug`} title={custAddress || ''}>
+                  <span className={`text-black font-bold break-words flex-1 ${isUltraDense ? 'text-[11.5px]' : ''} leading-snug`} title={custAddress || ''}>
                     {custAddress || '-'}
                   </span>
                 </div>
@@ -261,34 +298,53 @@ function ContinuousReceiptPaper({
                 <table className="w-full font-mono border-collapse table-fixed">
                   <thead>
                     <tr className={`text-black font-black text-left bg-transparent border-y-2 border-black ${
-                      isUltraDense ? 'text-[11px]' : isSuperDense ? 'text-[12px]' : isDense ? 'text-[13.5px]' : 'text-[15px]'
+                      isUltraDense ? 'text-[12.5px]' : isSuperDense ? 'text-[13.5px]' : isDense ? 'text-[15px]' : 'text-[16.5px]'
                     }`}>
                       <th className={`${
                         isUltraDense ? 'py-0.5' : isSuperDense ? 'py-1' : isDense ? 'py-1.5' : 'py-2'
-                      } text-center w-[48px] font-black whitespace-nowrap`}>ลำดับ</th>
+                      } text-center w-[54px] font-black whitespace-nowrap`}>ลำดับ</th>
                       <th className={`${
                         isUltraDense ? 'py-0.5 px-2' : isSuperDense ? 'py-1 px-2' : isDense ? 'py-1.5 px-3' : 'py-2 px-3'
                       } font-black whitespace-nowrap`}>รายการสินค้า</th>
                       <th className={`${
                         isUltraDense ? 'py-0.5' : isSuperDense ? 'py-1' : isDense ? 'py-1.5' : 'py-2'
-                      } text-right w-[72px] font-black whitespace-nowrap`}>จำนวน</th>
+                      } text-right w-[76px] font-black whitespace-nowrap`}>จำนวน</th>
                       <th className={`${
                         isUltraDense ? 'py-0.5' : isSuperDense ? 'py-1' : isDense ? 'py-1.5' : 'py-2'
-                      } text-right w-[110px] font-black whitespace-nowrap`}>หน่วยละ</th>
+                      } text-right w-[118px] font-black whitespace-nowrap`}>หน่วยละ</th>
                       <th className={`${
                         isUltraDense ? 'py-0.5 pr-1' : isSuperDense ? 'py-1 pr-1' : isDense ? 'py-1.5 pr-2' : 'py-2 pr-2'
-                      } text-right w-[138px] font-black whitespace-nowrap`}>จำนวนเงิน (บาท)</th>
+                      } text-right w-[152px] font-black whitespace-nowrap`}>จำนวนเงิน (บาท)</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pageItems.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="text-center py-10 text-black font-black text-[15px] italic">
+                        <td colSpan={5} className="text-center py-10 text-black font-black text-[16.5px] italic">
                           ไม่มีรายการในใบเสร็จ
                         </td>
                       </tr>
                     ) : (
                       <>
+                        {pageIdx > 0 && (
+                          <tr className="bg-stone-50 border-b border-black font-bold">
+                            <td className={`text-center ${
+                              isUltraDense ? 'py-0' : isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'
+                            } text-stone-500 font-mono text-[12.5px]`}>
+                              -
+                            </td>
+                            <td className={`px-2 ${
+                              isUltraDense ? 'py-0 text-[12px]' : isSuperDense ? 'py-0.5 text-[13px]' : isDense ? 'py-1 text-[15px]' : 'py-1.5 text-[16px]'
+                            } font-black text-black whitespace-nowrap`} colSpan={3}>
+                              ยอดยกมาจากหน้าที่ {pageIdx}
+                            </td>
+                            <td className={`text-right ${
+                              isUltraDense ? 'py-0 pr-1 text-[12px]' : isSuperDense ? 'py-0.5 pr-1 text-[13px]' : isDense ? 'py-1 pr-2 text-[15px]' : 'py-1.5 pr-2 text-[16px]'
+                            } font-black text-black whitespace-nowrap font-mono`}>
+                              {previousSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        )}
                         {pageItems.map((i, index) => {
                           const globalSeq = pageIdx * itemsPerPage + index + 1;
                           return (
@@ -296,12 +352,12 @@ function ContinuousReceiptPaper({
                               key={i.product.id || `${pageIdx}-${index}`}
                               className={`align-middle ${
                                 isUltraDense
-                                  ? 'text-[10.5px] leading-tight'
+                                  ? 'text-[12px] leading-tight'
                                   : isSuperDense
-                                  ? 'text-[11.5px] leading-tight'
-                                  : isDense
                                   ? 'text-[13px] leading-tight'
-                                  : 'text-[14.5px] leading-normal'
+                                  : isDense
+                                  ? 'text-[15px] leading-tight'
+                                  : 'text-[16.5px] leading-normal'
                               }`}
                             >
                               <td className={`text-center ${
@@ -327,7 +383,7 @@ function ContinuousReceiptPaper({
                               <td className={`text-right ${
                                 isUltraDense ? 'py-0 pr-1' : isSuperDense ? 'py-0.5 pr-1' : isDense ? 'py-1 pr-2' : 'py-2 pr-2'
                               } font-black text-black whitespace-nowrap font-mono`}>
-                                {(i.product.price * i.quantity).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {(itemLineSatang(i) / 100).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
                             </tr>
                           );
@@ -364,7 +420,7 @@ function ContinuousReceiptPaper({
                     <div className="col-span-7 flex flex-col justify-center">
                       <div className="px-1 py-0.5">
                         <p className={`${
-                          isUltraDense ? 'text-[11px]' : isSuperDense ? 'text-[12px]' : isDense ? 'text-[13.5px]' : 'text-[15px]'
+                          isUltraDense ? 'text-[12.5px]' : isSuperDense ? 'text-[13.5px]' : isDense ? 'text-[15px]' : 'text-[16.5px]'
                         } text-black font-bold leading-tight`}>
                           จำนวนเงินตัวอักษร : <span className="text-black font-black">( {thaiBaht(netTotal)} )</span>
                         </p>
@@ -372,9 +428,25 @@ function ContinuousReceiptPaper({
                     </div>
 
                     <div className={`col-span-5 pl-3 py-0.5 flex flex-col justify-center ${
-                      isUltraDense ? 'gap-0.5 text-[11px]' : isSuperDense ? 'gap-1 text-[12px]' : isDense ? 'gap-1.5 text-[13.5px]' : 'gap-1.5 text-[15px]'
+                      isUltraDense ? 'gap-0.5 text-[12.5px]' : isSuperDense ? 'gap-1 text-[13.5px]' : isDense ? 'gap-1 text-[15px]' : 'gap-1.5 text-[16.5px]'
                     } font-bold text-black font-mono`}>
-                      <div className="flex justify-between items-center">
+                      {totalPages > 1 && pageIdx > 0 && (
+                        <>
+                          <div className="flex justify-between items-center text-slate-800">
+                            <span className="font-bold whitespace-nowrap">ยอดยกมาจากหน้าก่อน :</span>
+                            <span className="font-black whitespace-nowrap">
+                              {previousSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-slate-800">
+                            <span className="font-bold whitespace-nowrap">ยอดสินค้าหน้านี้ :</span>
+                            <span className="font-black whitespace-nowrap">
+                              {pageSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                      <div className={`flex justify-between items-center ${totalPages > 1 && pageIdx > 0 ? 'border-t border-dashed border-stone-400 pt-0.5' : ''}`}>
                         <span className="font-bold whitespace-nowrap">รวมเงิน :</span>
                         <span className="font-black whitespace-nowrap">
                           {total.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -389,7 +461,7 @@ function ContinuousReceiptPaper({
                         </div>
                       )}
                       <div className={`flex justify-between items-center border-t border-black pt-1 ${
-                        isUltraDense ? 'text-[13px]' : isSuperDense ? 'text-[14px]' : isDense ? 'text-[15.5px]' : 'text-[17px]'
+                        isUltraDense ? 'text-[14.5px]' : isSuperDense ? 'text-[15.5px]' : isDense ? 'text-[17.5px]' : 'text-[19px]'
                       } font-black text-black`}>
                         <span className="whitespace-nowrap">ยอดสุทธิ :</span>
                         <span className="text-black font-black whitespace-nowrap">
@@ -402,16 +474,16 @@ function ContinuousReceiptPaper({
                   {/* Signature fields strip */}
                   <div className={`grid grid-cols-2 ${
                     isUltraDense
-                      ? 'gap-6 mt-0.5 pt-0.5 text-[10.5px]'
+                      ? 'gap-6 mt-0.5 pt-0.5 text-[12px]'
                       : isSuperDense
-                      ? 'gap-8 mt-1 pt-1 text-[11.5px]'
+                      ? 'gap-8 mt-1 pt-1 text-[13px]'
                       : isDense
-                      ? 'gap-10 mt-2 pt-1 text-[13px]'
-                      : 'gap-12 mt-3 pt-2 text-[14px]'
+                      ? 'gap-10 mt-1.5 pt-1 text-[14px]'
+                      : 'gap-12 mt-3 pt-2 text-[15.5px]'
                   } text-black font-bold border-t border-dashed border-stone-300`}>
                     <div className="flex flex-col items-center justify-center w-full px-2">
-                      <div className={isUltraDense ? 'h-1.5' : isSuperDense ? 'h-2.5' : isDense ? 'h-4' : 'h-5'}></div>
-                      <div className="w-full max-w-[280px] flex items-baseline justify-center gap-1 leading-tight">
+                      <div className={isUltraDense ? 'h-1.5' : isSuperDense ? 'h-2.5' : isDense ? 'h-3' : 'h-5'}></div>
+                      <div className="w-full max-w-[290px] flex items-baseline justify-center gap-1 leading-tight">
                         <span className="shrink-0 whitespace-nowrap">ลงชื่อ</span>
                         <span className="flex-1 overflow-hidden whitespace-nowrap text-center tracking-wider font-mono select-none">
                           ................................
@@ -424,8 +496,8 @@ function ContinuousReceiptPaper({
                     </div>
 
                     <div className="flex flex-col items-center justify-center w-full px-2">
-                      <div className={isUltraDense ? 'h-1.5' : isSuperDense ? 'h-2.5' : isDense ? 'h-4' : 'h-5'}></div>
-                      <div className="w-full max-w-[280px] flex items-baseline justify-center gap-1 leading-tight">
+                      <div className={isUltraDense ? 'h-1.5' : isSuperDense ? 'h-2.5' : isDense ? 'h-3' : 'h-5'}></div>
+                      <div className="w-full max-w-[290px] flex items-baseline justify-center gap-1 leading-tight">
                         <span className="shrink-0 whitespace-nowrap">ลงชื่อ</span>
                         <span className="flex-1 overflow-hidden whitespace-nowrap text-center tracking-wider font-mono select-none">
                           ................................
@@ -447,7 +519,7 @@ function ContinuousReceiptPaper({
                     <div className="col-span-7 flex flex-col justify-center">
                       <div className="px-1 py-0.5">
                         <p className={`${
-                          isUltraDense ? 'text-[11px]' : isSuperDense ? 'text-[12px]' : isDense ? 'text-[13.5px]' : 'text-[15px]'
+                          isUltraDense ? 'text-[12.5px]' : isSuperDense ? 'text-[13.5px]' : isDense ? 'text-[15px]' : 'text-[16.5px]'
                         } text-black font-black leading-tight italic`}>
                           *** มีต่อหน้าที่ {pageIdx + 2} ***
                         </p>
@@ -455,9 +527,23 @@ function ContinuousReceiptPaper({
                     </div>
 
                     <div className={`col-span-5 pl-3 py-0.5 flex flex-col justify-center ${
-                      isUltraDense ? 'gap-0.5 text-[11px]' : isSuperDense ? 'gap-1 text-[12px]' : isDense ? 'gap-1.5 text-[13.5px]' : 'gap-1.5 text-[15px]'
+                      isUltraDense ? 'gap-0.5 text-[12.5px]' : isSuperDense ? 'gap-1 text-[13.5px]' : isDense ? 'gap-1 text-[15px]' : 'gap-1.5 text-[16.5px]'
                     } font-bold text-black font-mono`}>
-                      <div className="flex justify-between items-center">
+                      {pageIdx > 0 && (
+                        <div className="flex justify-between items-center text-slate-800">
+                          <span className="font-bold whitespace-nowrap">ยอดยกมาจากหน้าก่อน :</span>
+                          <span className="font-black whitespace-nowrap">
+                            {previousSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center text-slate-800">
+                        <span className="font-bold whitespace-nowrap">ยอดรวมหน้านี้ :</span>
+                        <span className="font-black whitespace-nowrap">
+                          {pageSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center border-t border-black pt-0.5">
                         <span className="font-bold whitespace-nowrap">ยอดยกไป :</span>
                         <span className="font-black whitespace-nowrap">
                           {runningSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -468,7 +554,7 @@ function ContinuousReceiptPaper({
 
                   {/* Note for intermediate page */}
                   <div className={`flex justify-between items-center ${
-                    isUltraDense ? 'mt-0.5 pt-0.5 text-[10.5px]' : isSuperDense ? 'mt-1 pt-1 text-[11px]' : isDense ? 'mt-2 pt-1 text-[12px]' : 'mt-3 pt-2 text-[13px]'
+                    isUltraDense ? 'mt-0.5 pt-0.5 text-[12px]' : isSuperDense ? 'mt-1 pt-1 text-[12.5px]' : isDense ? 'mt-2 pt-1 text-[13.5px]' : 'mt-3 pt-2 text-[14.5px]'
                   } text-slate-800 font-bold border-t border-dashed border-stone-300 px-1`}>
                     <span>ใบเสร็จรับเงินต่อเนื่อง (หน้าที่ {pageIdx + 1} จาก {totalPages} หน้า)</span>
                     <span className="font-black text-black">โปรดดูยอดรวมสุทธิและลายเซ็นต์ที่หน้า {totalPages}</span>
@@ -476,6 +562,7 @@ function ContinuousReceiptPaper({
                 </div>
               )}
             </div>
+          </div>
           </div>
         );
       })}
@@ -503,6 +590,7 @@ interface ReceiptViewProps {
   customerTaxId?: string;
   setCustomerTaxId?: React.Dispatch<React.SetStateAction<string>>;
   onStartNewSale?: () => void;
+  onSaleSaved?: (savedInvoiceId: string, savedItems: CartItem[], savedDiscount: number) => void;
   setActiveTab?: (tab: string) => void;
 }
 
@@ -526,30 +614,29 @@ export default function ReceiptView({
   customerTaxId: propCustomerTaxId,
   setCustomerTaxId: propSetCustomerTaxId,
   onStartNewSale,
+  onSaleSaved,
   setActiveTab,
 }: ReceiptViewProps = {}) {
   const [localItems, setLocalItems] = useState<CartItem[]>([]);
   const [localDiscount, setLocalDiscount] = useState<number>(0);
+  const [localSavedInvoiceId, setLocalSavedInvoiceId] = useState<string>('');
+  const [isSavingSale, setIsSavingSale] = useState<boolean>(false);
+  const savingLockRef = React.useRef<boolean>(false);
+  const effectiveInvoiceId = invoiceId || localSavedInvoiceId;
   
   // Inner Sub-tab navigation
   const [subTab, setSubTab] = useState<'create' | 'manage'>('create');
-  const [printPinhole, setPrintPinhole] = useState<boolean>(true);
-  const [paperSize, setPaperSize] = useState<'9.5x11' | '9.5x5.5'>(() => {
-    const saved = localStorage.getItem('receipt_paper_size');
-    return saved === '9.5x5.5' ? '9.5x5.5' : '9.5x11'; // Default to standard 9.5" x 11" Dot Matrix paper
-  });
-
-  const handlePaperSizeChange = (size: '9.5x11' | '9.5x5.5') => {
-    setPaperSize(size);
-    localStorage.setItem('receipt_paper_size', size);
-  };
+  const printPinhole = true;
+  const paperSize = '9.5x11' as const;
+  const effectiveLinesPerPage = 20;
   
   // Outer container ref and scale state to automatically fit the receipt preview to the width
   const previewContainerRef = React.useRef<HTMLDivElement>(null);
   const receiptCardRef = React.useRef<HTMLDivElement>(null);
   const [previewScale, setPreviewScale] = useState<number>(1);
-  const [cardContentHeight, setCardContentHeight] = useState<number>(paperSize === '9.5x11' ? 1056 : 620);
+  const [cardContentHeight, setCardContentHeight] = useState<number>(1056);
   const [previewZoom, setPreviewZoom] = useState<'fit' | '100'>('fit');
+  const [selectedPreviewPage, setSelectedPreviewPage] = useState<'all' | number>('all');
   const [showFullPreviewModal, setShowFullPreviewModal] = useState<boolean>(false);
 
   useEffect(() => {
@@ -568,7 +655,7 @@ export default function ReceiptView({
     });
     resizeObserver.observe(previewContainerRef.current);
     return () => resizeObserver.disconnect();
-  }, [paperSize]);
+  }, []);
 
   // Sales list states
   const [allSales, setAllSales] = useState<Sale[]>([]);
@@ -609,18 +696,23 @@ export default function ReceiptView({
 
   // Keep cardContentHeight strictly in sync with the real rendered height of the receipt
   useEffect(() => {
+    const el = receiptCardRef.current;
+    if (!el) return;
     const updateCardHeight = () => {
-      if (receiptCardRef.current) {
-        const h = receiptCardRef.current.offsetHeight || receiptCardRef.current.scrollHeight;
-        if (h > 0) {
-          setCardContentHeight(h);
-        }
+      const h = el.offsetHeight || el.scrollHeight;
+      if (h > 0) {
+        setCardContentHeight(h);
       }
     };
     updateCardHeight();
+    const observer = new ResizeObserver(updateCardHeight);
+    observer.observe(el);
     const timer = setTimeout(updateCardHeight, 50);
-    return () => clearTimeout(timer);
-  }, [items, paperSize, custName, custAddress, custPhone, custTaxId, discount, printPinhole]);
+    return () => {
+      observer.disconnect();
+      clearTimeout(timer);
+    };
+  }, [items, previewZoom, selectedPreviewPage, custName, custAddress, custPhone, custTaxId, discount]);
 
   const [isPrinted, setIsPrinted] = useState<boolean>(false);
 
@@ -655,7 +747,7 @@ export default function ReceiptView({
 
   // เมื่อเปิดหน้าออกใบเสร็จรับเงินใหม่ หรือเมื่อเซฟสำเร็จ ให้ดึงเลขที่ถัดไปมาเตรียมไว้เลยเพื่อให้เชื่อมโยงกันทุกเครื่อง
   useEffect(() => {
-    if (!invoiceId && subTab === 'create') {
+    if (!effectiveInvoiceId && subTab === 'create') {
       const fetchNextNum = async () => {
         const nextNum = await getNextInvoiceNumber();
         const seq = parseInt(nextNum, 10);
@@ -665,10 +757,11 @@ export default function ReceiptView({
       };
       fetchNextNum();
     }
-  }, [invoiceId, subTab, items.length]);
+  }, [effectiveInvoiceId, subTab, items.length]);
 
   // Load sales history for cancellation/management (Both Admin and Employee can access)
   useEffect(() => {
+    if (!auth.currentUser) return;
     const salesCol = collection(db, 'sales');
     const q = query(salesCol, orderBy('timestamp', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -679,14 +772,14 @@ export default function ReceiptView({
       setAllSales(list);
       setSalesLoading(false);
     }, (error) => {
-      console.error('Error loading sales history in receipt view:', error);
+      handleFirestoreError(error, OperationType.GET, 'sales');
     });
     return () => unsubscribe();
   }, []);
 
   // Load customer lists from Firestore if not provided from parent
   useEffect(() => {
-    if (propCustomers && propCustomers.length > 0) return;
+    if ((propCustomers && propCustomers.length > 0) || !auth.currentUser) return;
     const customersCol = collection(db, 'customers');
     const unsubscribe = onSnapshot(customersCol, (snapshot) => {
       const list: Customer[] = [];
@@ -695,7 +788,7 @@ export default function ReceiptView({
       });
       setLocalCustomers(list);
     }, (error) => {
-      console.error('Error loading customers in receipt view:', error);
+      handleFirestoreError(error, OperationType.GET, 'customers');
     });
     return () => unsubscribe();
   }, [propCustomers]);
@@ -798,9 +891,6 @@ export default function ReceiptView({
     setCustomPrice('');
     setCustomQty('1');
     setShowCustomItemModal(false);
-    if (items.length >= 8 && paperSize !== '9.5x11') {
-      handlePaperSizeChange('9.5x11');
-    }
   };
 
   const handleClearAllItems = () => {
@@ -980,18 +1070,47 @@ export default function ReceiptView({
     setItems((prev) => prev.filter((i) => i.product.id !== productId));
   };
 
-  // Calculations
-  const total = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const netTotal = Math.max(0, total - discount);
+  // Calculations (satang-accurate integer summation)
+  const total = sumItemsSatang(items) / 100;
+  const netTotal = Math.max(0, Math.round((total - discount) * 100) / 100);
+  const totalPages = Math.max(1, Math.ceil(items.length / effectiveLinesPerPage));
 
-  const invoiceNumber = invoiceId || String(invoiceSeq).padStart(6, '0');
+  useEffect(() => {
+    if (typeof selectedPreviewPage === 'number' && selectedPreviewPage >= totalPages) {
+      setSelectedPreviewPage('all');
+    }
+  }, [totalPages, selectedPreviewPage]);
+
+  const pageSummaries = React.useMemo(() => {
+    return Array.from({ length: totalPages }).map((_, idx) => {
+      const startIdx = idx * effectiveLinesPerPage;
+      const endIdx = Math.min(items.length, (idx + 1) * effectiveLinesPerPage);
+      const slice = items.slice(startIdx, endIdx);
+      const carryInSatang = sumItemsSatang(items.slice(0, startIdx));
+      const pageSatang = sumItemsSatang(slice);
+      const carryOutSatang = carryInSatang + pageSatang;
+      return {
+        pageNumber: idx + 1,
+        pageIndex: idx,
+        startItem: startIdx + 1,
+        endItem: endIdx,
+        itemCount: slice.length,
+        carryIn: carryInSatang / 100,
+        pageTotal: pageSatang / 100,
+        carryOut: carryOutSatang / 100,
+        isLast: idx === totalPages - 1,
+      };
+    });
+  }, [items, totalPages, effectiveLinesPerPage]);
+
+  const invoiceNumber = effectiveInvoiceId || String(invoiceSeq).padStart(6, '0');
   const todayStr = new Date().toLocaleDateString('th-TH', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   });
 
-  const saveSaleToFirestore = async (): Promise<string | null> => {
+  const saveSaleToFirestore = async (options?: { keepAfterSave?: boolean }): Promise<string | null> => {
     if (items.length === 0) {
       setAlertTitle('คำเตือน');
       setAlertMessage('กรุณาเพิ่มรายการสินค้าก่อนทำรายการ');
@@ -999,37 +1118,51 @@ export default function ReceiptView({
       return null;
     }
 
-    // หากเปิดดูบิลเดิม หรือบิลที่เกิดจากการชำระเงินทางหน้า POS สำเร็จแล้ว (มี invoiceId) ให้ผ่านการบันทึกไปได้เลยเพื่อไม่ให้ตัดสต็อกเบิ้ล
-    if (invoiceId) {
-      return invoiceId;
+    // หากบิลนี้ถูกบันทึกแล้ว (จากหน้า POS, ประวัติบิล, หรือเพิ่งสั่งพิมพ์ไปแล้ว) ให้ใช้เลขบิลเดิมโดยไม่บันทึกซ้ำและไม่ตัดสต็อกเบิ้ล
+    if (effectiveInvoiceId) {
+      return effectiveInvoiceId;
     }
+
+    // ป้องกันการกดปุ่มซ้ำซ้อนระหว่างที่กำลังบันทึกลงฐานข้อมูล
+    if (savingLockRef.current) {
+      return null;
+    }
+
+    savingLockRef.current = true;
+    setIsSavingSale(true);
 
     const finalInvoiceNumber = invoiceNumber;
 
     const saleItems: SaleItem[] = items.map((item) => ({
-      productId: item.product.id,
-      name: item.product.name,
+      productId: String(item.product.id).slice(0, 128),
+      name: String(item.product.name || 'สินค้า').slice(0, 200),
       price: item.product.price,
       quantity: item.quantity,
       subtotal: item.product.price * item.quantity,
     }));
 
     const newSale: Sale = {
-      id: finalInvoiceNumber,
+      id: finalInvoiceNumber.slice(0, 128),
       timestamp: new Date().toISOString(),
-      employee: auth.currentUser?.displayName || 'พนักงานหน้าร้าน', // Dynamic employee name from Gmail login
+      employee: (auth.currentUser?.displayName || 'พนักงานหน้าร้าน').slice(0, 120), // Dynamic employee name from Gmail login
       total: netTotal,
       status: 'สำเร็จ',
       items: saleItems,
-      discount: discount,
-      customerName: custName || 'ลูกค้าทั่วไป',
-      customerPhone: custPhone || '',
-      customerAddress: custAddress || '',
-      customerTaxId: custTaxId || '',
+      discount: Math.max(0, discount || 0),
+      customerName: (custName || 'ลูกค้าทั่วไป').slice(0, 200),
+      customerPhone: (custPhone || '').slice(0, 50),
+      customerAddress: (custAddress || '').slice(0, 500),
+      customerTaxId: (custTaxId || '').slice(0, 32),
     };
 
     try {
       await runTransaction(db, async (transaction) => {
+        const saleRef = doc(db, 'sales', finalInvoiceNumber);
+        const existingSaleDoc = await transaction.get(saleRef);
+        if (existingSaleDoc.exists()) {
+          throw new Error(`เลขที่ใบเสร็จ #${finalInvoiceNumber} มีอยู่ในระบบแล้ว ระบบได้อัปเดตเลขที่ถัดไปให้ใหม่ กรุณากดทำรายการอีกครั้ง`);
+        }
+
         // 1. Fetch current product stocks and check availability
         const prodDataList: { ref: any; newStock: number; newStatus: string }[] = [];
         
@@ -1061,60 +1194,100 @@ export default function ReceiptView({
         }
 
         // 3. Save Sale document
-        transaction.set(doc(db, 'sales', finalInvoiceNumber), newSale);
+        transaction.set(saleRef, newSale);
       });
 
-      // Increment and save sequential invoice number only if we generated it locally
-      if (!invoiceId) {
-        const nextSeq = invoiceSeq + 1;
-        setInvoiceSeq(nextSeq);
-        localStorage.setItem('receipt_invoice_seq', String(nextSeq));
-      } else {
-        if (setInvoiceId) {
-          setInvoiceId('');
+      // อัปเดตเลขบิลถัดไปสำหรับบิลใบหน้า
+      const nextSeq = invoiceSeq + 1;
+      setInvoiceSeq(nextSeq);
+      localStorage.setItem('receipt_invoice_seq', String(nextSeq));
+
+      // หากบันทึกจากการกดสั่งพิมพ์ ให้ผูกเลขบิลนี้ไว้ในหน้าจอเพื่อให้กดพิมพ์ซ้ำได้โดยไม่สร้างบิลใหม่
+      if (options?.keepAfterSave) {
+        if (onSaleSaved) {
+          onSaleSaved(finalInvoiceNumber, [...items], discount);
+        } else {
+          setLocalSavedInvoiceId(finalInvoiceNumber);
+          if (setInvoiceId) {
+            setInvoiceId(finalInvoiceNumber);
+          }
         }
       }
 
       return finalInvoiceNumber;
     } catch (error: any) {
       console.error('Error saving printed receipt:', error);
+      // ซิงก์เลขที่บิลล่าสุดจาก Firestore เผื่อมีเครื่องอื่นออกบิลชนกัน
+      try {
+        const latestNum = await getNextInvoiceNumber();
+        const latestSeq = parseInt(latestNum, 10);
+        if (!isNaN(latestSeq)) {
+          setInvoiceSeq(latestSeq);
+        }
+      } catch {
+        // Ignore refresh fallback failure
+      }
       setAlertTitle('การทำรายการล้มเหลว');
       setAlertMessage(error.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูลใบเสร็จ');
       setAlertOpen(true);
       return null;
+    } finally {
+      savingLockRef.current = false;
+      setIsSavingSale(false);
     }
   };
 
   const handlePrint = async () => {
+    if (isPrinted || isSavingSale) return;
     setIsPrinted(true);
-    const invoiceNum = await saveSaleToFirestore();
-    if (invoiceNum) {
-      try {
-        window.focus();
-        window.print();
-      } catch (err) {
-        console.error('Print failed:', err);
+    try {
+      const invoiceNum = await saveSaleToFirestore({ keepAfterSave: true });
+      if (invoiceNum) {
+        try {
+          window.focus();
+          window.print();
+        } catch (err) {
+          console.error('Print failed:', err);
+        }
       }
+    } finally {
+      setIsPrinted(false);
     }
-    setIsPrinted(false);
   };
 
   const handleSaveReceipt = async () => {
-    const invoiceNum = await saveSaleToFirestore();
+    if (isSavingSale) return;
+    if (effectiveInvoiceId) {
+      setAlertTitle('บิลถูกบันทึกแล้ว');
+      setAlertMessage(`ใบเสร็จเลขที่ ${effectiveInvoiceId} ถูกบันทึกในระบบแล้ว สามารถกดสั่งพิมพ์ซ้ำได้ทันทีโดยไม่สร้างบิลซ้ำ`);
+      setAlertOpen(true);
+      return;
+    }
+    const invoiceNum = await saveSaleToFirestore({ keepAfterSave: false });
     if (invoiceNum) {
       setAlertTitle('บันทึกสำเร็จ');
       setAlertMessage(`บันทึกข้อมูลใบเสร็จรับเงินเลขที่ ${invoiceNum} สำเร็จและเชื่อมโยงกับหน้ารายงานแล้ว!`);
       setAlertOpen(true);
       setItems([]);
+      setDiscount(0);
     }
   };
 
   const handleClear = () => {
-    setConfirmTitle('เคลียร์รายการทั้งหมด');
-    setConfirmMessage('คุณต้องการเคลียร์รายการทั้งหมดใช่หรือไม่?');
+    setConfirmTitle(effectiveInvoiceId ? 'ล้างหน้าจอและเริ่มบิลใหม่' : 'เคลียร์รายการทั้งหมด');
+    setConfirmMessage(
+      effectiveInvoiceId
+        ? `คุณต้องการล้างหน้าจอบิลเลขที่ #${effectiveInvoiceId} เพื่อเริ่มเปิดบิลใหม่ใช่หรือไม่? (บิลเดิมยังถูกเก็บไว้ในประวัติบิลและรายงาน)`
+        : 'คุณต้องการเคลียร์รายการทั้งหมดใช่หรือไม่?'
+    );
     setConfirmIsDanger(true);
     setPendingAction(() => () => {
       setItems([]);
+      setDiscount(0);
+      setLocalSavedInvoiceId('');
+      if (setInvoiceId) {
+        setInvoiceId('');
+      }
     });
     setConfirmOpen(true);
   };
@@ -1127,29 +1300,30 @@ export default function ReceiptView({
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200 pb-4">
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h2 className="text-xl font-bold text-slate-900">ออกใบเสร็จรับเงิน</h2>
-              {invoiceId && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                  เลขที่บิล: #{invoiceId}
+              <h2 className="text-2xl font-extrabold text-slate-900">ออกใบเสร็จรับเงิน</h2>
+              {effectiveInvoiceId && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 tabular-nums">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>บันทึกแล้ว • เลขที่บิล: #{effectiveInvoiceId} (พิมพ์ซ้ำได้ไม่สร้างบิลซ้ำ)</span>
                 </span>
               )}
             </div>
-            <p className="text-sm text-slate-500 mt-1 font-medium">สร้างรายการขาย พิมพ์ใบเสร็จ และจัดการยกเลิกบิล</p>
+            <p className="text-base text-slate-600 mt-1 font-medium">สร้างรายการขาย พิมพ์ใบเสร็จ และจัดการยกเลิกบิล</p>
           </div>
           
           <div className="flex items-center gap-2.5 flex-wrap">
-            {invoiceId && (
+            {effectiveInvoiceId && (
               <button
                 type="button"
                 onClick={() => {
+                  setLocalSavedInvoiceId('');
                   if (setInvoiceId) setInvoiceId('');
                   if (onStartNewSale) onStartNewSale();
                 }}
-                className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 rounded-xl text-sm font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
                 title="ล้างบิลนี้และเริ่มเปิดบิลใหม่"
               >
-                <Plus className="w-3.5 h-3.5 text-slate-600" />
+                <Plus className="w-4 h-4 text-slate-600" />
                 <span>เริ่มบิลใหม่</span>
               </button>
             )}
@@ -1158,9 +1332,9 @@ export default function ReceiptView({
               <button
                 type="button"
                 onClick={() => setActiveTab('pos')}
-                className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 rounded-xl text-sm font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
               >
-                <ShoppingCart className="w-3.5 h-3.5 text-slate-600" />
+                <ShoppingCart className="w-4 h-4 text-slate-600" />
                 <span>ไปยังหน้าขาย (POS)</span>
               </button>
             )}
@@ -1170,26 +1344,26 @@ export default function ReceiptView({
               <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
                 <button
                   onClick={() => setSubTab('create')}
-                  className={`px-3.5 py-1.5 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-3.5 py-1.5 font-bold text-sm rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                     subTab === 'create'
                       ? 'bg-white text-slate-900 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-900'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  <FileText className="w-3.5 h-3.5" />
+                  <FileText className="w-4 h-4" />
                   <span>ออกใบเสร็จใหม่</span>
                 </button>
                 <button
                   onClick={() => setSubTab('manage')}
-                  className={`px-3.5 py-1.5 font-bold text-xs rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-3.5 py-1.5 font-bold text-sm rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                     subTab === 'manage'
                       ? 'bg-white text-slate-900 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-900'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  <Ban className="w-3.5 h-3.5" />
+                  <Ban className="w-4 h-4" />
                   <span>ยกเลิกบิล</span>
-                  <span className="bg-slate-200 text-slate-700 text-[10px] px-1.5 py-0.5 rounded-full font-extrabold">
+                  <span className="bg-slate-200 text-slate-800 text-xs px-2 py-0.5 rounded-full font-extrabold tabular-nums">
                     {allSales.length}
                   </span>
                 </button>
@@ -1205,22 +1379,22 @@ export default function ReceiptView({
               <div>
                 <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                   <Receipt className="w-5 h-5 text-slate-600" />
-                  ยกเลิกออกใบเสร็จรับเงิน (Void / Cancel Receipt)
+                  ยกเลิกออกใบเสร็จรับเงิน
                 </h3>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                <p className="text-sm text-slate-600 font-medium mt-0.5">
                   ค้นหา ตรวจสอบ และจัดการยกเลิกบิลใบเสร็จรับเงินที่ออกไปแล้ว ระบบจะปรับยอดรายงานอัตโนมัติ
                 </p>
               </div>
 
               {/* Search Bar */}
               <div className="relative w-full md:w-80">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   value={manageSearch}
                   onChange={(e) => setManageSearch(e.target.value)}
                   placeholder="ค้นหาเลขที่บิล หรือ ชื่อลูกค้า..."
-                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all"
                 />
               </div>
             </div>
@@ -1228,7 +1402,7 @@ export default function ReceiptView({
             {salesLoading ? (
               <div className="py-20 flex flex-col items-center justify-center gap-3">
                 <RefreshCw className="w-8 h-8 text-slate-400 animate-spin" />
-                <p className="text-xs text-slate-500 font-medium">กำลังโหลดประวัติการออกบิล...</p>
+                <p className="text-sm text-slate-500 font-medium">กำลังโหลดประวัติการออกบิล...</p>
               </div>
             ) : (
               (() => {
@@ -1247,8 +1421,8 @@ export default function ReceiptView({
                   return (
                     <div className="py-16 text-center border border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-2">
                       <Receipt className="w-10 h-10 text-slate-300" />
-                      <p className="text-sm font-bold text-slate-700">ไม่พบข้อมูลบิลใบเสร็จ</p>
-                      <p className="text-xs text-slate-400">ลองระบุเลขที่บิลอื่น หรือเพิ่มการออกบิลใบเสร็จในระบบ</p>
+                      <p className="text-base font-bold text-slate-700">ไม่พบข้อมูลบิลใบเสร็จ</p>
+                      <p className="text-sm text-slate-500">ลองระบุเลขที่บิลอื่น หรือเพิ่มการออกบิลใบเสร็จในระบบ</p>
                     </div>
                   );
                 }
@@ -1257,24 +1431,24 @@ export default function ReceiptView({
                   <div className="overflow-x-auto border border-slate-100 rounded-2xl">
                     <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="bg-slate-50/70 border-b border-slate-100">
-                          <th className="py-3.5 px-4 text-xs font-black text-slate-600 font-sans">เลขที่บิล</th>
-                          <th className="py-3.5 px-4 text-xs font-black text-slate-600 font-sans">วันที่ - เวลา</th>
-                          <th className="py-3.5 px-4 text-xs font-black text-slate-600 font-sans">พนักงาน</th>
-                          <th className="py-3.5 px-4 text-xs font-black text-slate-600 font-sans">ยอดรวมสุทธิ</th>
-                          <th className="py-3.5 px-4 text-xs font-black text-slate-600 font-sans text-center">สถานะ</th>
-                          <th className="py-3.5 px-4 text-xs font-black text-slate-600 font-sans text-center">จัดการ</th>
+                        <tr className="bg-slate-50/80 border-b border-slate-200">
+                          <th className="py-3.5 px-4 text-sm font-bold text-slate-700 font-sans">เลขที่บิล</th>
+                          <th className="py-3.5 px-4 text-sm font-bold text-slate-700 font-sans">วันที่ - เวลา</th>
+                          <th className="py-3.5 px-4 text-sm font-bold text-slate-700 font-sans">พนักงาน</th>
+                          <th className="py-3.5 px-4 text-sm font-bold text-slate-700 font-sans">ยอดรวมสุทธิ</th>
+                          <th className="py-3.5 px-4 text-sm font-bold text-slate-700 font-sans text-center">สถานะ</th>
+                          <th className="py-3.5 px-4 text-sm font-bold text-slate-700 font-sans text-center">จัดการ</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {filteredSales.map((sale) => {
                           const isCancelled = sale.status === 'ยกเลิก';
                           return (
-                            <tr key={sale.id} className="hover:bg-slate-50/55 transition-colors">
-                              <td className="py-3 px-4 text-xs font-black font-mono text-slate-900">
+                            <tr key={sale.id} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="py-3.5 px-4 text-sm font-black font-mono text-slate-900 tabular-nums">
                                 {sale.id}
                               </td>
-                              <td className="py-3 px-4 text-xs text-slate-600">
+                              <td className="py-3.5 px-4 text-sm text-slate-600 tabular-nums">
                                 {new Date(sale.timestamp).toLocaleString('th-TH', {
                                   year: 'numeric',
                                   month: 'short',
@@ -1283,36 +1457,36 @@ export default function ReceiptView({
                                   minute: '2-digit',
                                 })}
                               </td>
-                              <td className="py-3 px-4 text-xs text-slate-600">
+                              <td className="py-3.5 px-4 text-sm text-slate-700">
                                 {sale.employee || '-'}
                               </td>
-                              <td className="py-3 px-4 text-xs font-bold text-slate-900">
+                              <td className="py-3.5 px-4 text-sm font-bold text-slate-950 font-mono tabular-nums">
                                 ฿{(sale.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
-                              <td className="py-3 px-4 text-xs text-center">
+                              <td className="py-3.5 px-4 text-sm text-center">
                                 <span
-                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black ${
+                                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
                                     isCancelled
-                                      ? 'bg-red-50 text-red-700 border border-red-100'
-                                      : 'bg-green-50 text-green-700 border border-green-100'
+                                      ? 'bg-red-50 text-red-700 border border-red-200'
+                                      : 'bg-green-50 text-green-700 border border-green-200'
                                   }`}
                                 >
                                   <span className={`w-1.5 h-1.5 rounded-full ${isCancelled ? 'bg-red-500' : 'bg-green-500'}`}></span>
                                   {sale.status || 'สำเร็จ'}
                                 </span>
                               </td>
-                              <td className="py-3 px-4 text-xs text-center">
+                              <td className="py-3.5 px-4 text-sm text-center">
                                 <div className="flex items-center justify-center gap-2">
                                   <button
                                     onClick={() => handleLoadSaleToPrint(sale)}
-                                    className="px-3 py-1.5 rounded-lg font-bold text-[11px] bg-slate-950 text-white hover:bg-slate-800 transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+                                    className="px-3.5 py-1.5 rounded-lg font-bold text-xs bg-slate-950 text-white hover:bg-slate-800 transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
                                   >
                                     <Printer className="w-3.5 h-3.5" />
                                     <span>พิมพ์ใบเสร็จ</span>
                                   </button>
                                   <button
                                     onClick={() => handleCancelReceipt(sale)}
-                                    className={`px-3 py-1.5 rounded-lg font-bold text-[11px] transition-all cursor-pointer inline-flex items-center gap-1.5 ${
+                                    className={`px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all cursor-pointer inline-flex items-center gap-1.5 ${
                                       isCancelled
                                         ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
                                         : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
@@ -1354,20 +1528,20 @@ export default function ReceiptView({
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4 text-slate-700" />
-                  <h3 className="text-sm font-bold text-slate-900">ข้อมูลผู้ซื้อ</h3>
+                  <h3 className="text-base font-bold text-slate-900">ข้อมูลผู้ซื้อ</h3>
                 </div>
-                <span className="text-[10px] bg-slate-100 px-2 py-1 rounded-md text-slate-700 font-bold">เลือกลูกค้า</span>
+                <span className="text-xs bg-slate-100 px-2.5 py-1 rounded-md text-slate-700 font-bold">เลือกลูกค้า</span>
               </div>
 
               {/* Select Member Dropdown */}
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1.5 uppercase tracking-wide">
+                <label className="block text-sm font-bold text-slate-800 mb-1.5">
                   เลือกจากรายชื่อสมาชิกลูกค้า (ถ้ามี)
                 </label>
                 <select
                   value={selectedCustId}
                   onChange={(e) => handleSelectCustomer(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 font-bold focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none bg-white transition-all"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm sm:text-base text-slate-900 font-bold focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none bg-white transition-all"
                 >
                   <option value="">-- ลูกค้าทั่วไป (กรอกข้อมูลเองด้านล่าง) --</option>
                   {customers.map((c) => (
@@ -1381,28 +1555,28 @@ export default function ReceiptView({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Customer Name */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1.5 uppercase tracking-wide">
+                  <label className="block text-sm font-bold text-slate-800 mb-1.5">
                     ชื่อลูกค้า
                   </label>
                   <input
                     type="text"
                     value={custName}
                     onChange={(e) => setCustName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm sm:text-base font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
                     placeholder="ระบุชื่อลูกค้า..."
                   />
                 </div>
 
                 {/* Customer Phone */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1.5 uppercase tracking-wide">
+                  <label className="block text-sm font-bold text-slate-800 mb-1.5">
                     เบอร์โทรศัพท์ลูกค้า
                   </label>
                   <input
                     type="tel"
                     value={custPhone}
                     onChange={(e) => setCustPhone(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm sm:text-base font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
                     placeholder="ระบุเบอร์โทรศัพท์..."
                   />
                 </div>
@@ -1410,27 +1584,27 @@ export default function ReceiptView({
 
               {/* Tax ID */}
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1.5 uppercase tracking-wide">
+                <label className="block text-sm font-bold text-slate-800 mb-1.5">
                   เลขประจำตัวผู้เสียภาษี
                 </label>
                 <input
                   type="text"
                   value={custTaxId}
                   onChange={(e) => setCustTaxId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm sm:text-base font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
                   placeholder="กรอกเลขประจำตัวผู้เสียภาษี..."
                 />
               </div>
 
               {/* Customer Address */}
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1.5 uppercase tracking-wide">
+                <label className="block text-sm font-bold text-slate-800 mb-1.5">
                   ที่อยู่ลูกค้า
                 </label>
                 <textarea
                   value={custAddress}
                   onChange={(e) => setCustAddress(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all resize-none h-16"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm sm:text-base font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all resize-none h-20"
                   placeholder="กรอกที่อยู่ลูกค้า..."
                 />
               </div>
@@ -1439,10 +1613,10 @@ export default function ReceiptView({
             {/* Discount Panel */}
             <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col gap-3">
               <div className="flex items-center gap-2 border-b border-slate-100 pb-2.5">
-                <h3 className="text-sm font-bold text-slate-900">ส่วนลดใบเสร็จ</h3>
+                <h3 className="text-base font-bold text-slate-900">ส่วนลดใบเสร็จ</h3>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1.5 uppercase tracking-wide">
+                <label className="block text-sm font-bold text-slate-800 mb-1.5">
                   ระบุจำนวนเงินส่วนลด (บาท)
                 </label>
                 <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 shadow-sm focus-within:border-slate-950 focus-within:ring-1 focus-within:ring-slate-950 transition-all">
@@ -1459,7 +1633,7 @@ export default function ReceiptView({
                         setDiscount(Math.min(total, val));
                       }
                     }}
-                    className="w-full border-none outline-none p-0 text-sm font-bold text-slate-900 focus:ring-0 bg-transparent font-mono"
+                    className="w-full border-none outline-none p-0 text-base font-bold text-slate-900 focus:ring-0 bg-transparent font-mono tabular-nums"
                     placeholder="0.00"
                   />
                 </div>
@@ -1470,21 +1644,21 @@ export default function ReceiptView({
             <div className="bg-white border border-slate-150 rounded-2xl shadow-xs overflow-hidden flex flex-col">
               <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex justify-between items-center gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-slate-900">รายการสินค้าในบิล</h3>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-lg border ${
-                    items.length > (paperSize === '9.5x11' ? 50 : 25)
+                  <h3 className="text-base font-bold text-slate-900">รายการสินค้าในบิล</h3>
+                  <span className={`text-xs sm:text-sm font-bold px-2.5 py-0.5 rounded-lg border tabular-nums ${
+                    items.length > effectiveLinesPerPage
                       ? 'bg-blue-50 text-blue-700 border-blue-200' 
                       : 'bg-white text-slate-700 border-slate-200'
                   }`}>
-                    {items.length} รายการ {items.length > 0 && `(${Math.max(1, Math.ceil(items.length / (paperSize === '9.5x11' ? 50 : 25)))} หน้า)`}
+                    {items.length} รายการ {items.length > 0 && `(${Math.max(1, Math.ceil(items.length / effectiveLinesPerPage))} แผ่น)`}
                   </span>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <button
                     type="button"
                     onClick={() => setShowCustomItemModal(true)}
-                    className="px-2.5 py-1 rounded-lg border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
                   >
                     <PackagePlus className="w-3.5 h-3.5 text-slate-500" />
                     <span>+ รายการเอง</span>
@@ -1493,7 +1667,7 @@ export default function ReceiptView({
                     <button
                       type="button"
                       onClick={handleClearAllItems}
-                      className="text-xs text-red-500 hover:text-red-700 hover:underline font-bold cursor-pointer transition-colors px-1"
+                      className="text-xs sm:text-sm text-red-600 hover:text-red-700 hover:underline font-bold cursor-pointer transition-colors px-1.5"
                     >
                       ล้างรายการ
                     </button>
@@ -1504,13 +1678,13 @@ export default function ReceiptView({
               {items.length === 0 ? (
                 <div className="py-10 text-center text-slate-400 flex flex-col items-center justify-center px-4">
                   <Printer className="w-10 h-10 mb-2 stroke-[1.5] text-slate-300" />
-                  <p className="text-sm font-bold text-slate-700">ยังไม่มีรายการสินค้าในบิล</p>
-                  <p className="text-xs mt-1 text-slate-400">ทำรายการขายจาก "หน้าขาย (POS)" หรือกดปุ่ม "+ รายการเอง" ด้านบน หรือเลือกจากแท็บ "จัดการบิล"</p>
+                  <p className="text-base font-bold text-slate-700">ยังไม่มีรายการสินค้าในบิล</p>
+                  <p className="text-sm mt-1 text-slate-500">ทำรายการขายจาก "หน้าขาย (POS)" หรือกดปุ่ม "+ รายการเอง" ด้านบน หรือเลือกจากแท็บ "ยกเลิกบิล"</p>
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
                   {/* Table headers */}
-                  <div className="grid grid-cols-12 gap-2 px-4 py-2.5 bg-slate-100/70 text-[11px] font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200">
+                  <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-slate-100/70 text-xs sm:text-sm font-bold text-slate-700 border-b border-slate-200">
                     <div className="col-span-1 text-center">ลำดับ</div>
                     <div className="col-span-4">สินค้า</div>
                     <div className="col-span-2 text-right">ราคา/หน่วย</div>
@@ -1521,9 +1695,9 @@ export default function ReceiptView({
 
                   {/* Rows */}
                   {items.map((i, idx) => (
-                    <div key={i.product.id} className="grid grid-cols-12 gap-2 px-4 py-2 items-center hover:bg-slate-50/70 transition-colors text-xs border-b border-slate-100 last:border-b-0">
+                    <div key={i.product.id} className="grid grid-cols-12 gap-2 px-4 py-2.5 items-center hover:bg-slate-50/70 transition-colors text-sm border-b border-slate-100 last:border-b-0">
                       {/* Item No */}
-                      <div className="col-span-1 flex justify-center items-center text-slate-400 font-mono font-bold text-[11px]">
+                      <div className="col-span-1 flex justify-center items-center text-slate-500 font-mono font-bold text-xs sm:text-sm tabular-nums">
                         {idx + 1}
                       </div>
 
@@ -1533,7 +1707,7 @@ export default function ReceiptView({
                           type="text"
                           value={i.product.name}
                           onChange={(e) => updateItemName(i.product.id, e.target.value)}
-                          className="w-full text-xs font-bold text-slate-900 border-none bg-transparent hover:bg-slate-100/80 focus:bg-white focus:ring-1 focus:ring-slate-400 rounded px-1.5 py-1 transition-colors truncate"
+                          className="w-full text-sm font-bold text-slate-900 border-none bg-transparent hover:bg-slate-100/80 focus:bg-white focus:ring-1 focus:ring-slate-400 rounded px-1.5 py-1 transition-colors truncate"
                           title={i.product.name}
                         />
                       </div>
@@ -1541,14 +1715,14 @@ export default function ReceiptView({
                       {/* Price Column */}
                       <div className="col-span-2 flex justify-end items-center">
                         <div className="flex items-center gap-0.5 justify-end w-full">
-                          <span className="text-slate-400 text-[10px]">฿</span>
+                          <span className="text-slate-400 text-xs">฿</span>
                           <input
                             type="number"
                             min="0"
                             step="any"
                             value={i.product.price}
                             onChange={(e) => updateItemPrice(i.product.id, e.target.value)}
-                            className="w-16 text-right text-xs font-bold font-mono text-slate-900 border-none bg-transparent hover:bg-slate-100/80 focus:bg-white focus:ring-1 focus:ring-slate-400 rounded px-1 py-0.5"
+                            className="w-20 text-right text-sm font-bold font-mono tabular-nums text-slate-900 border-none bg-transparent hover:bg-slate-100/80 focus:bg-white focus:ring-1 focus:ring-slate-400 rounded px-1 py-0.5"
                           />
                         </div>
                       </div>
@@ -1558,28 +1732,28 @@ export default function ReceiptView({
                         <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-xs">
                           <button
                             onClick={() => incrementQuantity(i.product.id, -1)}
-                            className="p-1 hover:bg-slate-100 text-slate-700 cursor-pointer transition-colors"
+                            className="p-1.5 hover:bg-slate-100 text-slate-700 cursor-pointer transition-colors"
                           >
-                            <Minus className="w-2.5 h-2.5" />
+                            <Minus className="w-3 h-3" />
                           </button>
                           <input
                             type="text"
                             value={i.quantity}
                             onChange={(e) => updateQuantity(i.product.id, e.target.value)}
-                            className="w-7 text-center border-none text-xs font-bold text-slate-900 p-0 focus:ring-0 bg-transparent font-mono"
+                            className="w-8 text-center border-none text-sm font-bold text-slate-900 p-0 focus:ring-0 bg-transparent font-mono tabular-nums"
                           />
                           <button
                             onClick={() => incrementQuantity(i.product.id, 1)}
-                            className="p-1 hover:bg-slate-100 text-slate-700 cursor-pointer transition-colors"
+                            className="p-1.5 hover:bg-slate-100 text-slate-700 cursor-pointer transition-colors"
                           >
-                            <Plus className="w-2.5 h-2.5" />
+                            <Plus className="w-3 h-3" />
                           </button>
                         </div>
                       </div>
 
                       {/* Subtotal Column - allocated 2 columns so numbers never wrap into another line */}
                       <div className="col-span-2 flex justify-end items-center pr-2">
-                        <span className="text-xs font-bold text-slate-900 font-mono whitespace-nowrap">
+                        <span className="text-sm font-bold text-slate-950 font-mono tabular-nums whitespace-nowrap">
                           {(i.product.price * i.quantity).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
@@ -1588,10 +1762,10 @@ export default function ReceiptView({
                       <div className="col-span-1 flex justify-center">
                         <button
                           onClick={() => removeItem(i.product.id)}
-                          className="p-1 text-slate-400 hover:text-red-600 rounded cursor-pointer transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-red-600 rounded cursor-pointer transition-colors"
                           title="ลบรายการนี้"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
@@ -1604,87 +1778,131 @@ export default function ReceiptView({
           {/* Right Column: Receipt Preview & Actions (Span 7/12 for spacious, legible paper view) */}
           <div className="lg:col-span-7 xl:col-span-7 flex flex-col gap-5">
             
-            {/* Print Options Panel */}
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm flex flex-col gap-3">
-              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">การตั้งค่าการพิมพ์ / Print Options</h4>
-              
-              {/* Paper Size Selector */}
-              <div className="flex flex-col gap-1.5 py-1 border-t border-slate-100">
-                <label className="text-xs font-bold text-slate-700">ขนาดกระดาษต่อเนื่อง (Dot Matrix Paper Size)</label>
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <button
-                    type="button"
-                    onClick={() => handlePaperSizeChange('9.5x11')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      paperSize === '9.5x11'
-                        ? 'border-slate-950 bg-slate-950 text-white shadow-sm'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span>9.5" x 11" (เต็มหน้า)</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handlePaperSizeChange('9.5x5.5')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      paperSize === '9.5x5.5'
-                        ? 'border-slate-950 bg-slate-950 text-white shadow-sm'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span>9.5" x 5.5" (ครึ่งหน้า)</span>
-                  </button>
+            {totalPages > 1 && (
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <h4 className="text-sm sm:text-base font-bold text-slate-900">
+                      สรุปยอดคำนวณต่อเนื่องแยกตามแผ่น (เช็กยอดก่อนพิมพ์)
+                    </h4>
+                  </div>
+                  <span className="text-xs sm:text-sm font-bold text-slate-700 tabular-nums">
+                    ครบทั้ง {items.length} รายการ · {totalPages} แผ่น
+                  </span>
                 </div>
 
-                {/* Auto recommendation alert if > 8 items on half page */}
-                {items.length > 8 && paperSize === '9.5x5.5' && (
-                  <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-800">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="font-bold">มีรายการสินค้า {items.length} รายการ (เกิน 8 รายการ)</p>
-                      <p className="text-[11px] text-amber-700 mt-0.5">
-                        แนะนำให้เลือกกระดาษขนาด <strong>9.5" x 11" (เต็มหน้า)</strong> เพื่อให้ทุกรายการแสดงพอดีใน 1 แผ่นโดยไม่ล้น
-                      </p>
+                <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                  <table className="w-full text-left border-collapse text-xs sm:text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
+                        <th className="py-2 px-3 whitespace-nowrap">แผ่นที่</th>
+                        <th className="py-2 px-3 whitespace-nowrap">รายการ</th>
+                        <th className="py-2 px-3 text-right whitespace-nowrap">ยอดยกมา</th>
+                        <th className="py-2 px-3 text-right whitespace-nowrap">ยอดแผ่นนี้</th>
+                        <th className="py-2 px-3 text-right whitespace-nowrap">ยอดสะสม / ยอดยกไป</th>
+                        <th className="py-2 px-3 text-center whitespace-nowrap">ดูตัวอย่าง</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {pageSummaries.map((p) => {
+                        const isSelected = selectedPreviewPage === p.pageIndex;
+                        return (
+                          <tr
+                            key={`summary-row-${p.pageIndex}`}
+                            onClick={() => setSelectedPreviewPage(p.pageIndex)}
+                            className={`cursor-pointer transition-colors ${
+                              isSelected ? 'bg-slate-100/90' : 'hover:bg-slate-50'
+                            }`}
+                          >
+                            <td className="py-2 px-3 font-bold text-slate-900 whitespace-nowrap tabular-nums">
+                              แผ่นที่ {p.pageNumber}
+                            </td>
+                            <td className="py-2 px-3 text-slate-700 whitespace-nowrap tabular-nums">
+                              #{p.startItem}–{p.endItem} ({p.itemCount})
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono tabular-nums text-slate-600 whitespace-nowrap">
+                              {p.pageIndex === 0 ? '-' : `฿${p.carryIn.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-bold tabular-nums text-slate-900 whitespace-nowrap">
+                              ฿{p.pageTotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-bold tabular-nums text-slate-950 whitespace-nowrap">
+                              ฿{p.carryOut.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="py-2 px-3 text-center whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedPreviewPage(p.pageIndex);
+                                }}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-bold border cursor-pointer transition-colors ${
+                                  isSelected
+                                    ? 'bg-slate-950 text-white border-slate-950'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                                }`}
+                              >
+                                {isSelected ? 'กำลังแสดง' : `ดูแผ่น ${p.pageNumber}`}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex items-center justify-between flex-wrap gap-2 pt-1 text-xs sm:text-sm font-bold text-slate-800">
+                  <span>
+                    รวมครบทุกแผ่น ({items.length} รายการ)
+                    {discount > 0 && ` · หักส่วนลด ฿${discount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                  </span>
+                  <span className="font-mono tabular-nums text-slate-950 text-sm sm:text-base font-black">
+                    ยอดสุทธิรวมทั้งหมด: ฿{netTotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-bold text-slate-800 whitespace-nowrap">
+                  ภาพตัวอย่างใบเสร็จต่อเนื่อง (9.5" x 11")
+                </span>
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs sm:text-sm font-bold flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPreviewPage('all')}
+                      className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${
+                        selectedPreviewPage === 'all' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      ทุกแผ่น ({totalPages})
+                    </button>
+                    {pageSummaries.map((p) => (
                       <button
+                        key={`preview-tab-${p.pageIndex}`}
                         type="button"
-                        onClick={() => handlePaperSizeChange('9.5x11')}
-                        className="mt-2 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-[11px] shadow-xs cursor-pointer transition-colors"
+                        onClick={() => setSelectedPreviewPage(p.pageIndex)}
+                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${
+                          selectedPreviewPage === p.pageIndex ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                        }`}
                       >
-                        สลับเป็นขนาด 9.5" x 11"
+                        แผ่นที่ {p.pageNumber}
                       </button>
-                    </div>
+                    ))}
                   </div>
                 )}
               </div>
-
-              <div className="flex items-center justify-between py-1.5 border-t border-slate-100">
-                <div className="flex flex-col pr-4">
-                  <span className="text-xs font-bold text-slate-700">พิมพ์ขอบรูหนามเตยกระดาษต่อเนื่อง</span>
-                  <span className="text-[10px] text-slate-400 font-semibold leading-relaxed mt-0.5">
-                    เปิดหากพิมพ์ด้วยกระดาษธรรมดาเพื่อเลียนแบบกระดาษต่อเนื่องจริง ปิดหากพิมพ์ลงกระดาษต่อเนื่องมีรูอยู่แล้ว
-                  </span>
-                </div>
-                <input
-                  id="printPinholeToggle"
-                  type="checkbox"
-                  checked={printPinhole}
-                  onChange={(e) => setPrintPinhole(e.target.checked)}
-                  className="w-5 h-5 text-slate-900 border-slate-300 rounded focus:ring-slate-900 cursor-pointer shrink-0"
-                />
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
-                ภาพตัวอย่างใบเสร็จต่อเนื่อง ({paperSize === '9.5x11' ? '9.5" x 11"' : '9.5" x 5.5"'})
-              </span>
               <div className="flex items-center gap-1.5">
-                <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-bold">
+                <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs sm:text-sm font-bold">
                   <button
                     type="button"
                     onClick={() => setPreviewZoom('fit')}
-                    className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
-                      previewZoom === 'fit' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${
+                      previewZoom === 'fit' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
                     พอดีจอ
@@ -1692,8 +1910,8 @@ export default function ReceiptView({
                   <button
                     type="button"
                     onClick={() => setPreviewZoom('100')}
-                    className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
-                      previewZoom === '100' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${
+                      previewZoom === '100' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
                     ขนาดจริง 100%
@@ -1703,7 +1921,7 @@ export default function ReceiptView({
                   type="button"
                   onClick={() => setShowFullPreviewModal(true)}
                   title="ดูตัวอย่างเต็มจอ 100%"
-                  className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer border border-slate-200 bg-white shadow-xs"
+                  className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer border border-slate-200 bg-white shadow-xs"
                 >
                   <Maximize2 className="w-4 h-4" />
                 </button>
@@ -1724,7 +1942,7 @@ export default function ReceiptView({
                   ref={receiptCardRef}
                   style={{
                     width: '912px',
-                    minHeight: paperSize === '9.5x11' ? '1056px' : '620px',
+                    minHeight: '1056px',
                     transform: `scale(${previewScale})`,
                     transformOrigin: 'top center',
                     position: 'absolute',
@@ -1747,11 +1965,13 @@ export default function ReceiptView({
                     discount={discount}
                     netTotal={netTotal}
                     isPrintPortal={false}
+                    linesPerPage={effectiveLinesPerPage}
+                    visiblePageIndex={selectedPreviewPage === 'all' ? null : selectedPreviewPage}
                   />
                 </div>
               </div>
             ) : (
-              <div className="w-full overflow-x-auto overflow-y-auto max-h-[620px] border border-slate-200 rounded-2xl bg-slate-100/70 p-4 flex justify-start shadow-inner">
+              <div className="w-full overflow-x-auto overflow-y-auto max-h-[680px] border border-slate-200 rounded-2xl bg-slate-100/70 p-4 flex justify-start shadow-inner">
                 <ContinuousReceiptPaper
                   paperSize={paperSize}
                   printPinhole={printPinhole}
@@ -1766,6 +1986,8 @@ export default function ReceiptView({
                   discount={discount}
                   netTotal={netTotal}
                   isPrintPortal={false}
+                  linesPerPage={effectiveLinesPerPage}
+                  visiblePageIndex={selectedPreviewPage === 'all' ? null : selectedPreviewPage}
                 />
               </div>
             )}
@@ -1774,24 +1996,28 @@ export default function ReceiptView({
             <div className="flex flex-col gap-2.5">
               <button
                 onClick={handlePrint}
-                disabled={items.length === 0}
-                className={`w-full py-3.5 rounded-xl font-bold text-sm text-white shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                disabled={items.length === 0 || isSavingSale || isPrinted}
+                className={`w-full py-4 rounded-xl font-bold text-base text-white shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all ${
                   items.length === 0
                     ? 'bg-slate-300 cursor-not-allowed shadow-none'
-                    : isPrinted
-                    ? 'bg-slate-800'
+                    : isPrinted || isSavingSale
+                    ? 'bg-slate-800 cursor-wait'
                     : 'bg-slate-950 hover:bg-slate-850 active:scale-[0.98]'
                 }`}
               >
-                {isPrinted ? (
+                {isPrinted || isSavingSale ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>กำลังสั่งพิมพ์...</span>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span>{isSavingSale ? 'กำลังบันทึกข้อมูลบิล...' : 'กำลังสั่งพิมพ์...'}</span>
                   </>
                 ) : (
                   <>
                     <Printer className="w-5 h-5" />
-                    <span>สั่งพิมพ์ใบเสร็จ (กระดาษต่อเนื่อง)</span>
+                    <span>
+                      {effectiveInvoiceId
+                        ? `พิมพ์ใบเสร็จซ้ำ (#${effectiveInvoiceId})`
+                        : 'สั่งพิมพ์ใบเสร็จ (กระดาษต่อเนื่อง)'}
+                    </span>
                   </>
                 )}
               </button>
@@ -1799,17 +2025,21 @@ export default function ReceiptView({
               <div className="flex gap-2.5">
                 <button
                   onClick={handleSaveReceipt}
-                  disabled={items.length === 0}
-                  className="flex-1 py-3 border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 rounded-xl text-xs font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-40"
+                  disabled={items.length === 0 || isSavingSale || Boolean(effectiveInvoiceId)}
+                  className={`flex-1 py-3 border rounded-xl text-sm font-bold shadow-sm transition-colors ${
+                    effectiveInvoiceId
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 cursor-default'
+                      : 'border-slate-200 text-slate-800 bg-white hover:bg-slate-50 cursor-pointer disabled:opacity-40'
+                  }`}
                 >
-                  บันทึกข้อมูลใบเสร็จ
+                  {effectiveInvoiceId ? `บันทึกแล้ว (#${effectiveInvoiceId})` : 'บันทึกข้อมูลใบเสร็จ'}
                 </button>
                 <button
                   onClick={handleClear}
-                  disabled={items.length === 0}
-                  className="flex-1 py-3 border border-red-200 text-red-600 bg-white hover:bg-red-50 rounded-xl text-xs font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-40"
+                  disabled={items.length === 0 || isSavingSale}
+                  className="flex-1 py-3 border border-red-200 text-red-600 bg-white hover:bg-red-50 rounded-xl text-sm font-bold shadow-sm transition-colors cursor-pointer disabled:opacity-40"
                 >
-                  ยกเลิก
+                  {effectiveInvoiceId ? 'ล้างหน้าจอ' : 'ยกเลิก'}
                 </button>
               </div>
             </div>
@@ -1829,7 +2059,7 @@ export default function ReceiptView({
           <style>{`
             @media print {
               @page {
-                size: ${paperSize === '9.5x11' ? '9.5in 11in portrait' : '9.5in 5.5in landscape'} !important;
+                size: 9.5in 11in portrait !important;
                 margin: 0 !important;
               }
               html, body {
@@ -1854,10 +2084,10 @@ export default function ReceiptView({
               .dot-matrix-print-target {
                 width: 100% !important;
                 max-width: 100% !important;
-                height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
-                max-height: ${paperSize === '9.5x11' ? '11in' : '5.5in'} !important;
+                height: 11in !important;
+                max-height: 11in !important;
                 margin: 0 !important;
-                padding: ${items.length > 35 ? '2.5mm 6mm' : items.length > 18 ? '4mm 8mm' : items.length > 10 ? '5mm 9mm' : '6mm 10mm'} !important;
+                padding: 4.5mm 8mm !important;
                 box-sizing: border-box !important;
                 overflow: hidden !important;
                 page-break-inside: avoid !important;
@@ -1887,6 +2117,7 @@ export default function ReceiptView({
             discount={discount}
             netTotal={netTotal}
             isPrintPortal={true}
+            linesPerPage={effectiveLinesPerPage}
           />
         </div>,
         document.body
@@ -1895,23 +2126,50 @@ export default function ReceiptView({
       {/* Full 100% Scale Preview Modal */}
       {showFullPreviewModal && (
         <div className="fixed inset-0 bg-black/75 z-50 flex flex-col items-center justify-start p-4 sm:p-6 overflow-y-auto backdrop-blur-xs">
-          <div className="w-full max-w-[960px] flex items-center justify-between py-2 text-white mb-3">
+          <div className="w-full max-w-[960px] flex items-center justify-between gap-3 flex-wrap py-2 text-white mb-3">
             <div className="flex items-center gap-3">
               <Receipt className="w-6 h-6 text-emerald-400" />
               <div>
                 <h3 className="font-bold text-base sm:text-lg">ภาพตัวอย่างใบเสร็จต่อเนื่อง 100% (ตรงตามการพิมพ์จริง 1:1)</h3>
                 <p className="text-xs text-slate-300">
-                  ขนาดกระดาษ {paperSize === '9.5x11' ? '9.5" x 11"' : '9.5" x 5.5"'} • ขนาดตัวหนังสือ ความเข้ม และตำแหน่งตรงตามที่สั่งพิมพ์
+                  ขนาดกระดาษ 9.5" x 11" • ขนาดตัวหนังสือ ความเข้ม และตำแหน่งตรงตามที่สั่งพิมพ์
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowFullPreviewModal(false)}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl text-xs sm:text-sm font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPreviewPage('all')}
+                    className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+                      selectedPreviewPage === 'all' ? 'bg-white text-slate-950' : 'text-white/80 hover:text-white'
+                    }`}
+                  >
+                    ทุกแผ่น ({totalPages})
+                  </button>
+                  {pageSummaries.map((p) => (
+                    <button
+                      key={`modal-tab-${p.pageIndex}`}
+                      type="button"
+                      onClick={() => setSelectedPreviewPage(p.pageIndex)}
+                      className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+                        selectedPreviewPage === p.pageIndex ? 'bg-white text-slate-950' : 'text-white/80 hover:text-white'
+                      }`}
+                    >
+                      แผ่นที่ {p.pageNumber}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowFullPreviewModal(false)}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
           </div>
           <div className="bg-stone-300/60 p-4 sm:p-6 rounded-2xl shadow-2xl max-w-full overflow-x-auto flex justify-center">
             <ContinuousReceiptPaper
@@ -1928,6 +2186,8 @@ export default function ReceiptView({
               discount={discount}
               netTotal={netTotal}
               isPrintPortal={false}
+              linesPerPage={effectiveLinesPerPage}
+              visiblePageIndex={selectedPreviewPage === 'all' ? null : selectedPreviewPage}
             />
           </div>
         </div>
@@ -1940,12 +2200,12 @@ export default function ReceiptView({
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <PackagePlus className="w-5 h-5 text-slate-800" />
-                <h3 className="font-bold text-base text-slate-900">เพิ่มรายการสินค้ากำหนดเอง</h3>
+                <h3 className="font-bold text-lg text-slate-900">เพิ่มรายการสินค้ากำหนดเอง</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowCustomItemModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1953,7 +2213,7 @@ export default function ReceiptView({
 
             <form onSubmit={handleAddCustomItem} className="flex flex-col gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">
+                <label className="block text-sm font-bold text-slate-800 mb-1.5">
                   ชื่อสินค้า / รายการ <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -1962,14 +2222,14 @@ export default function ReceiptView({
                   value={customName}
                   onChange={(e) => setCustomName(e.target.value)}
                   placeholder="เช่น ข้าวหอมมะลิคัดพิเศษ, ค่าขนส่งรอบพิเศษ ฯลฯ"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-base font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1">
-                    ราคาต่อหน่วย (บาท) <span className="text-slate-400 font-normal lowercase">(ใส่ 0 ได้)</span>
+                  <label className="block text-sm font-bold text-slate-800 mb-1.5">
+                    ราคาต่อหน่วย (บาท) <span className="text-slate-400 font-normal">(ใส่ 0 ได้)</span>
                   </label>
                   <input
                     type="number"
@@ -1978,12 +2238,12 @@ export default function ReceiptView({
                     value={customPrice}
                     onChange={(e) => setCustomPrice(e.target.value)}
                     placeholder="0.00"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold font-mono text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-base font-bold font-mono tabular-nums text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                  <label className="block text-sm font-bold text-slate-800 mb-1.5">
                     จำนวน <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -1993,22 +2253,22 @@ export default function ReceiptView({
                     value={customQty}
                     onChange={(e) => setCustomQty(e.target.value)}
                     placeholder="1"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold font-mono text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-base font-bold font-mono tabular-nums text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none"
                   />
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowCustomItemModal(false)}
-                  className="flex-1 py-2.5 border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                  className="flex-1 py-2.5 border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 rounded-xl text-sm font-bold transition-colors cursor-pointer"
                 >
                   ยกเลิก
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm transition-colors cursor-pointer"
+                  className="flex-1 py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-sm font-bold shadow-sm transition-colors cursor-pointer"
                 >
                   + เพิ่มในใบเสร็จ
                 </button>

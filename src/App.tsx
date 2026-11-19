@@ -8,7 +8,7 @@ import ReceiptView from './components/ReceiptView';
 import CustomersView from './components/CustomersView';
 import LoginView from './components/LoginView';
 import ConfirmModal from './components/ConfirmModal';
-import { seedInitialData, auth, db } from './firebase';
+import { seedInitialData, auth, db, handleFirestoreError, OperationType } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, onSnapshot } from 'firebase/firestore';
 import { CartItem, Sale, Customer } from './types';
@@ -21,6 +21,7 @@ const ADMIN_EMAILS = [
   'namsitang@gmail.com',
   'sumat3292@gmail.com',
   'sumethsumeth06@gmail.com',
+  'sumethkhakhaw3@gmail.com',
 ];
 
 // รายชื่ออีเมลที่มีสิทธิ์เข้าถึงในฐานะพนักงาน (Employee)
@@ -63,8 +64,13 @@ export default function App() {
   const [customerAddress, setCustomerAddress] = useState<string>('');
   const [customerTaxId, setCustomerTaxId] = useState<string>('');
 
-  // Load customer lists from Firestore
+  // Load customer lists from Firestore only after authentication is ready
   useEffect(() => {
+    if (authLoading || !user) {
+      setCustomers([]);
+      return;
+    }
+
     const customersCol = collection(db, 'customers');
     const unsubscribe = onSnapshot(customersCol, (snapshot) => {
       const list: Customer[] = [];
@@ -73,10 +79,10 @@ export default function App() {
       });
       setCustomers(list);
     }, (error) => {
-      console.error('Error loading customers in App:', error);
+      handleFirestoreError(error, OperationType.GET, 'customers');
     });
     return () => unsubscribe();
-  }, []);
+  }, [user, authLoading]);
 
   const handleCustomerSelect = (id: string) => {
     setSelectedCustomerId(id);
@@ -265,6 +271,14 @@ export default function App() {
     setActiveTab('pos');
   };
 
+  const handleReceiptSaleSaved = (savedInvoiceId: string, savedItems: CartItem[], savedDiscount: number) => {
+    setReceiptItems(savedItems);
+    setReceiptDiscount(savedDiscount);
+    setReceiptInvoiceNumber(savedInvoiceId);
+    setCart([]);
+    setPosDiscount(0);
+  };
+
   const handleResetPOS = () => {
     if (cart.length > 0 || receiptInvoiceNumber) {
       setConfirmTitle('ยกเลิกรายการปัจจุบัน');
@@ -338,6 +352,7 @@ export default function App() {
             customerTaxId={customerTaxId}
             setCustomerTaxId={setCustomerTaxId}
             onStartNewSale={handleStartNewSale}
+            onSaleSaved={handleReceiptSaleSaved}
             setActiveTab={setActiveTab}
           />
         );
@@ -396,7 +411,7 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col lg:ml-64 min-h-screen">
+      <div className="flex-1 flex flex-col lg:ml-[272px] min-h-screen min-w-0">
         {/* Top Header */}
         <Header
           searchQuery={searchQuery}
@@ -409,7 +424,7 @@ export default function App() {
         />
 
         {/* Dynamic Inner Viewport */}
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 min-w-0 overflow-x-clip">
           {renderActiveView()}
         </main>
       </div>
