@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, onSnapshot, query, orderBy, limit, doc, updateDoc, runTransaction, getDocs, deleteDoc } from 'firebase/firestore';
-import { Sale } from '../types';
-import { TrendingUp, FileText, Calendar, Download, Circle, CheckCircle, XCircle, Trash2, RefreshCw, Database, AlertTriangle } from 'lucide-react';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
+import { collection, onSnapshot, query, orderBy, doc, runTransaction, getDocs, deleteDoc } from 'firebase/firestore';
+import { Product, Sale } from '../types';
+import { TrendingUp, FileText, Download, Trash2, RefreshCw, Database, AlertTriangle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import ConfirmModal from './ConfirmModal';
+import { downloadCsv } from '../utils/csv';
+import { getStockStatus, roundSatang } from '../utils/calculations';
 
 export default function ReportsView() {
   const [sales, setSales] = useState<Sale[]>([]);
@@ -14,7 +16,7 @@ export default function ReportsView() {
     const d = new Date();
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
-    return `${year}-${month}`; // e.g. "2026-07"
+    return `${year}-${month}`;
   });
 
   // Modal confirmation states
@@ -26,17 +28,22 @@ export default function ReportsView() {
 
   // Read transactions from Firestore
   useEffect(() => {
+    if (!auth.currentUser) {
+      setLoading(false);
+      return;
+    }
     const salesCol = collection(db, 'sales');
     const q = query(salesCol, orderBy('timestamp', 'desc'));
-    
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const transactionList: Sale[] = [];
       snapshot.forEach((docSnap) => {
-        transactionList.push(docSnap.data() as Sale);
+        transactionList.push({ id: docSnap.id, ...docSnap.data() } as Sale);
       });
       setSales(transactionList);
       setLoading(false);
     }, (error) => {
+      setLoading(false);
       handleFirestoreError(error, OperationType.GET, 'sales');
     });
 
@@ -99,12 +106,12 @@ export default function ReportsView() {
 
   // Today stats
   const salesToday = successfulSales.filter(s => new Date(s.timestamp) >= startOfToday);
-  const totalSalesToday = salesToday.reduce((sum, s) => sum + s.total, 0);
+  const totalSalesToday = roundSatang(salesToday.reduce((sum, s) => sum + (Number(s.total) || 0), 0));
   const billsTodayCount = salesToday.length;
 
   // Week stats
   const salesWeek = successfulSales.filter(s => new Date(s.timestamp) >= startOfWeek);
-  const totalSalesWeek = salesWeek.reduce((sum, s) => sum + s.total, 0);
+  const totalSalesWeek = roundSatang(salesWeek.reduce((sum, s) => sum + (Number(s.total) || 0), 0));
   const billsWeekCount = salesWeek.length;
 
   // Month stats (filtered by selected month)
@@ -112,7 +119,7 @@ export default function ReportsView() {
     const d = new Date(s.timestamp);
     return d >= startOfSelectedMonth && d < endOfSelectedMonth;
   });
-  const totalSalesMonth = salesMonth.reduce((sum, s) => sum + s.total, 0);
+  const totalSalesMonth = roundSatang(salesMonth.reduce((sum, s) => sum + (Number(s.total) || 0), 0));
   const billsMonthCount = salesMonth.length;
 
   // Get selected filter calculations
@@ -221,24 +228,24 @@ export default function ReportsView() {
   });
 
   const handleExportCSV = () => {
-    const headers = ['เวลา', 'เลขที่บิล', 'ยอดรวม', 'สถานะ'];
-    const rows = filteredSalesTable.map(s => [
-      new Date(s.timestamp).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
-      s.id,
-      s.total,
-      s.status
-    ]);
-    
-    const csvContent = "data:text/csv;charset=utf-8,\ufeff" 
-      + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-      
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `sales_report_${timeFilter}_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const headers = ['วันที่/เวลา', 'เลขที่บิล', 'ลูกค้า', 'รายการสินค้า', 'ยอดรวม (บาท)', 'สถานะ'];
+    const rows = filteredSalesTable.map((s) => {
+      const d = new Date(s.timestamp);
+      const timeLabel = !isNaN(d.getTime())
+        ? `${d.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })} ${d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}`
+        : '-';
+      const itemsSummary = (s.items || []).map((item) => `${item.name || ''} (x${item.quantity || 0})`).join(', ');
+      return [
+        timeLabel,
+        s.id || '',
+        s.customerName || 'ลูกค้าทั่วไป',
+        itemsSummary,
+        Number(s.total ?? 0).toFixed(2),
+        s.status || 'สำเร็จ',
+      ];
+    });
+
+    downloadCsv(`sales_report_${timeFilter}_${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
   };
 
   const toggleInvoiceStatus = (invoice: Sale) => {
@@ -257,29 +264,34 @@ export default function ReportsView() {
           const currentStatus = saleData.status;
           const targetStatus = currentStatus === 'สำเร็จ' ? 'ยกเลิก' : 'สำเร็จ';
 
-          const productUpdates: { ref: any; newStock: number; newStatus: string }[] = [];
+          const productUpdates: { ref: ReturnType<typeof doc>; newStock: number; newStatus: Product['status'] }[] = [];
 
           for (const item of saleData.items || []) {
+            if (!item.productId || item.productId.startsWith('custom-') || item.productId.startsWith('sample-')) {
+              continue;
+            }
             const prodRef = doc(db, 'products', item.productId);
             const prodDoc = await transaction.get(prodRef);
             if (prodDoc.exists()) {
-              const currentStock = prodDoc.data().stock || 0;
+              const currentStock = Number(prodDoc.data().stock) || 0;
               let newStock = currentStock;
 
               if (targetStatus === 'ยกเลิก') {
-                // Cancelled: Add back to inventory stock
-                newStock = currentStock + item.quantity;
+                newStock = currentStock + (Number(item.quantity) || 0);
               } else {
-                // Restored: Deduct from inventory stock
-                newStock = Math.max(0, currentStock - item.quantity);
+                if (currentStock < (Number(item.quantity) || 0)) {
+                  throw new Error(
+                    `ไม่สามารถกู้คืนบิลได้ เนื่องจากสต็อกสินค้า "${item.name}" มีไม่เพียงพอ (ต้องการ ${item.quantity} ชิ้น แต่เหลือ ${currentStock} ชิ้น)`
+                  );
+                }
+                newStock = currentStock - (Number(item.quantity) || 0);
               }
 
-              const newStatus = 'พร้อมขาย';
-              productUpdates.push({ ref: prodRef, newStock, newStatus });
+              const computedStatus = getStockStatus(newStock);
+              productUpdates.push({ ref: prodRef, newStock, newStatus: computedStatus });
             }
           }
 
-          // Apply updates
           for (const update of productUpdates) {
             transaction.update(update.ref, {
               stock: update.newStock,
@@ -617,8 +629,8 @@ export default function ReportsView() {
           </div>
 
           {/* Chart Wrapper Container */}
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-64 min-h-[256px] w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <AreaChart data={dynamicChartData} margin={{ top: 10, right: 10, left: -12, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
@@ -698,10 +710,12 @@ export default function ReportsView() {
                   filteredSalesTable.map((s, idx) => {
                     const isSuccess = s.status === 'สำเร็จ';
                     const saleDateObj = new Date(s.timestamp);
-                    const displayTime = saleDateObj.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit' }) + ' ' + saleDateObj.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-                    
-                    // Summarize item names
-                    const itemSummary = s.items.map(item => `${item.name} (x${item.quantity})`).join(', ');
+                    const displayTime = !isNaN(saleDateObj.getTime())
+                      ? saleDateObj.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit' }) + ' ' + saleDateObj.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+                      : '-';
+
+                    // Summarize item names (null-safe)
+                    const itemSummary = (s.items || []).map(item => `${item.name || ''} (x${item.quantity || 0})`).join(', ') || '-';
 
                     return (
                       <tr key={s.id} className={`hover:bg-slate-50/70 transition-colors ${idx % 2 === 1 ? 'bg-slate-50/30' : ''}`}>
@@ -710,7 +724,7 @@ export default function ReportsView() {
                         <td className="p-4 text-slate-600 font-medium truncate max-w-xs" title={itemSummary}>
                           {itemSummary}
                         </td>
-                        <td className="p-4 text-right font-extrabold text-slate-950 whitespace-nowrap font-mono tabular-nums">฿{s.total.toFixed(2)}</td>
+                        <td className="p-4 text-right font-extrabold text-slate-950 whitespace-nowrap font-mono tabular-nums">฿{Number(s.total ?? 0).toFixed(2)}</td>
                         <td className="p-4 text-center whitespace-nowrap">
                           <button
                             onClick={() => toggleInvoiceStatus(s)}

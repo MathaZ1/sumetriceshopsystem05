@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Product } from '../types';
+import { getStockStatus, isValidFirestoreId, roundSatang } from '../utils/calculations';
 import { X, Save } from 'lucide-react';
 
 interface ProductFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product | null;
-  onSave: (productData: any) => Promise<void>;
+  onSave: (productData: Product) => Promise<void>;
 }
 
 export default function ProductFormModal({ isOpen, onClose, product, onSave }: ProductFormModalProps) {
@@ -23,10 +24,10 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
   useEffect(() => {
     if (product) {
       setId(product.id);
-      setName(product.name);
+      setName(product.name || '');
       setCategory(product.category || 'เครื่องดื่ม');
       setPrice(product.price !== undefined && product.price !== null ? String(product.price) : '0');
-      setStock(product.stock || 999999);
+      setStock(typeof product.stock === 'number' && Number.isFinite(product.stock) ? product.stock : 999999);
       setImageUrl(product.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400');
     } else {
       // Clear for new product
@@ -45,7 +46,8 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const numPrice = price === '' ? 0 : Number(price);
-    if (!id || !name.trim() || isNaN(numPrice) || numPrice < 0) {
+    const trimmedId = id.trim().toUpperCase().slice(0, 128);
+    if (!isValidFirestoreId(trimmedId) || !name.trim() || !Number.isFinite(numPrice) || numPrice < 0) {
       setError('กรุณากรอกข้อมูลให้ครบถ้วนและถูกต้อง (ราคาต้องไม่ติดลบ)');
       return;
     }
@@ -53,17 +55,16 @@ export default function ProductFormModal({ isOpen, onClose, product, onSave }: P
     setSaving(true);
     setError(null);
     try {
-      // Clean image URL if empty
       const finalImageUrl = imageUrl.trim() || 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400';
-      
-      const status = 'พร้อมขาย';
+      const normalizedStock = Number.isFinite(Number(stock)) ? Math.max(0, Number(stock)) : 999999;
+      const status = getStockStatus(normalizedStock);
 
-      const productData = {
-        id: id.trim().toUpperCase().slice(0, 128),
+      const productData: Product = {
+        id: trimmedId,
         name: name.trim().slice(0, 200),
         category: (category || 'ทั่วไป').slice(0, 100),
-        price: numPrice,
-        stock: Number(stock) || 999999,
+        price: roundSatang(numPrice),
+        stock: normalizedStock,
         imageUrl: finalImageUrl.slice(0, 1000),
         status
       };

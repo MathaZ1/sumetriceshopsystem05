@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { Customer } from '../types';
 import { Users, Plus, Search, Edit2, Trash2, Phone, MapPin, FileText, Check, X } from 'lucide-react';
@@ -32,6 +32,10 @@ export default function CustomersView() {
 
   // Read customers from Firestore
   useEffect(() => {
+    if (!auth.currentUser) {
+      setLoading(false);
+      return;
+    }
     const customersCol = collection(db, 'customers');
     const q = query(customersCol, orderBy('name', 'asc'));
 
@@ -43,6 +47,7 @@ export default function CustomersView() {
       setCustomers(list);
       setLoading(false);
     }, (error) => {
+      setLoading(false);
       handleFirestoreError(error, OperationType.GET, 'customers');
     });
 
@@ -61,8 +66,8 @@ export default function CustomersView() {
 
   const handleOpenEdit = (c: Customer) => {
     setEditingCustomer(c);
-    setName(c.name);
-    setPhone(c.phone);
+    setName(c.name || '');
+    setPhone(c.phone || '');
     setAddress(c.address || '');
     setTaxId(c.taxId || '');
     setError(null);
@@ -119,13 +124,17 @@ export default function CustomersView() {
     }
   };
 
-  // Filter list
-  const filteredCustomers = customers.filter(c => 
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.phone.includes(searchQuery) ||
-    (c.address && c.address.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (c.taxId && c.taxId.includes(searchQuery))
-  );
+  // Filter list (null-safe)
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredCustomers = customers.filter((c) => {
+    if (!normalizedQuery) return true;
+    return (
+      (c.name || '').toLowerCase().includes(normalizedQuery) ||
+      (c.phone || '').toLowerCase().includes(normalizedQuery) ||
+      (c.address || '').toLowerCase().includes(normalizedQuery) ||
+      (c.taxId || '').toLowerCase().includes(normalizedQuery)
+    );
+  });
 
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50 p-4 md:p-6 xl:p-8">

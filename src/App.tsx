@@ -123,12 +123,12 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Seed initial inventory and sales records on initial app load (if user is authenticated)
+  // Seed initial inventory and sales records only when authenticated as admin
   useEffect(() => {
-    if (user) {
+    if (user && !roleLoading && role === 'admin') {
       seedInitialData();
     }
-  }, [user]);
+  }, [user, roleLoading, role]);
 
   // Load or initialize user profile and role in Firestore
   useEffect(() => {

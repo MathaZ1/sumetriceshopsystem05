@@ -467,11 +467,11 @@ export async function seedInitialData() {
           id: 'INV-00120',
           timestamp: new Date(baseDate.getTime() - 1000 * 60 * 140).toISOString(), // ~2.3 hr ago
           employee: 'สมชาย ร.',
-          total: 890,
+          total: 884,
           status: 'สำเร็จ',
           items: [
             { productId: 'PRD-002', name: 'เลย์ รสมันฝรั่งแท้ 50กรัม', price: 20, quantity: 40, subtotal: 800 },
-            { productId: 'PRD-004', name: 'เครื่องดื่มชูกำลัง กระทิงแดง', price: 12, quantity: 7, subtotal: 84,  }
+            { productId: 'PRD-004', name: 'เครื่องดื่มชูกำลัง กระทิงแดง', price: 12, quantity: 7, subtotal: 84 }
           ]
         }
       ];
@@ -492,6 +492,11 @@ export async function seedInitialData() {
 
 // ฟังก์ชันหาเลขที่ใบเสร็จถัดไปโดยอิงจาก Firestore เพื่อให้เชื่อมโยงกันทุกเครื่องและพนักงานสามารถออกบิลได้ต่อเนื่อง
 export async function getNextInvoiceNumber(): Promise<string> {
+  if (!auth.currentUser) {
+    const saved = localStorage.getItem('receipt_invoice_seq');
+    const savedSeq = saved ? parseInt(saved, 10) : 124;
+    return String(Number.isFinite(savedSeq) && savedSeq > 0 ? savedSeq : 124).padStart(6, '0');
+  }
   try {
     const salesCol = collection(db, 'sales');
     // ดึงรายการล่าสุด 100 รายการเพื่อหาเลขสูงสุด (ป้องกันกรณี timestamp ไม่ตรง)

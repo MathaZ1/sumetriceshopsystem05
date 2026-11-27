@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { db, handleFirestoreError, OperationType, auth, getNextInvoiceNumber } from '../firebase';
-import { collection, onSnapshot, doc, setDoc, query, orderBy, updateDoc, runTransaction } from 'firebase/firestore';
+import { collection, onSnapshot, doc, query, orderBy, runTransaction } from 'firebase/firestore';
 import { Product, CartItem, Customer, Sale, SaleItem } from '../types';
-import { Search, Plus, Minus, Trash2, Printer, CheckCircle2, User, MapPin, FileText, Users, Ban, RefreshCw, Eye, Tag, Receipt, Maximize2, X, PackagePlus, ShoppingCart, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, Printer, CheckCircle2, User, FileText, Ban, RefreshCw, Receipt, Maximize2, X, PackagePlus, ShoppingCart, ChevronDown, ChevronUp, Lock } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
+import { roundSatang } from '../utils/calculations';
 
 function thaiBaht(num: number): string {
   if (isNaN(num) || num === 0) return 'ศูนย์บาทถ้วน';
@@ -1151,12 +1152,14 @@ export default function ReceiptView({
   const [isSavingSale, setIsSavingSale] = useState<boolean>(false);
   const savingLockRef = React.useRef<boolean>(false);
   const effectiveInvoiceId = invoiceId || localSavedInvoiceId;
-  
+  const isSavedBill = Boolean(effectiveInvoiceId);
+
   // Inner Sub-tab navigation
   const [subTab, setSubTab] = useState<'create' | 'manage'>('create');
   const [paperMode, setPaperMode] = useState<'continuous' | 'a4'>('continuous');
   const [printPaperMode, setPrintPaperMode] = useState<'continuous' | 'a4'>('continuous');
   const [activePrintMode, setActivePrintMode] = useState<'continuous' | 'a4' | null>(null);
+  const unitLabel = paperMode === 'a4' ? 'หน้า' : 'แผ่น';
   const printPinhole = paperMode === 'continuous';
   const paperSize = paperMode === 'a4' ? ('a4' as const) : ('9.5x11' as const);
   const effectiveLinesPerPage = 35;
@@ -1296,11 +1299,14 @@ export default function ReceiptView({
       };
       fetchNextNum();
     }
-  }, [effectiveInvoiceId, subTab, items.length]);
+  }, [effectiveInvoiceId, subTab]);
 
   // Load sales history for cancellation/management (Both Admin and Employee can access)
   useEffect(() => {
-    if (!auth.currentUser) return;
+    if (!auth.currentUser) {
+      setSalesLoading(false);
+      return;
+    }
     const salesCol = collection(db, 'sales');
     const q = query(salesCol, orderBy('timestamp', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -1311,6 +1317,7 @@ export default function ReceiptView({
       setAllSales(list);
       setSalesLoading(false);
     }, (error) => {
+      setSalesLoading(false);
       handleFirestoreError(error, OperationType.GET, 'sales');
     });
     return () => unsubscribe();
@@ -1333,6 +1340,7 @@ export default function ReceiptView({
   }, [propCustomers]);
 
   const handleSelectCustomer = (id: string) => {
+    if (isSavedBill) return;
     if (propOnSelectCustomer) {
       propOnSelectCustomer(id);
     } else {
@@ -1402,6 +1410,7 @@ export default function ReceiptView({
 
   const handleAddCustomItem = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavedBill) return;
     if (!customName.trim()) {
       setAlertTitle('กรุณาระบุข้อมูล');
       setAlertMessage('กรุณาระบุชื่อสินค้าหรือรายการ');
@@ -1415,11 +1424,11 @@ export default function ReceiptView({
       setAlertOpen(true);
       return;
     }
-    const qtyVal = parseInt(customQty, 10) || 1;
+    const qtyVal = Math.max(1, parseInt(customQty, 10) || 1);
     const customProduct: Product = {
       id: `custom-${Date.now()}`,
       name: customName.trim(),
-      price: priceVal,
+      price: roundSatang(priceVal),
       stock: 9999,
       category: 'ทั่วไป',
       imageUrl: '',
@@ -1433,10 +1442,12 @@ export default function ReceiptView({
   };
 
   const handleClearAllItems = () => {
+    if (isSavedBill) return;
     setItems([]);
   };
 
   const updateItemPrice = (productId: string, priceStr: string) => {
+    if (isSavedBill) return;
     if (priceStr === '') {
       setItems((prev) =>
         prev.map((i) =>
@@ -1455,6 +1466,7 @@ export default function ReceiptView({
   };
 
   const updateItemName = (productId: string, name: string) => {
+    if (isSavedBill) return;
     setItems((prev) =>
       prev.map((i) =>
         i.product.id === productId ? { ...i, product: { ...i.product, name } } : i
@@ -1580,7 +1592,8 @@ export default function ReceiptView({
   };
 
   const updateQuantity = (productId: string, quantityStr: string) => {
-    const quantity = parseInt(quantityStr);
+    if (isSavedBill) return;
+    const quantity = parseInt(quantityStr, 10);
     if (isNaN(quantity) || quantity <= 0) return;
 
     const item = items.find((i) => i.product.id === productId);
@@ -1592,6 +1605,7 @@ export default function ReceiptView({
   };
 
   const incrementQuantity = (productId: string, delta: number) => {
+    if (isSavedBill) return;
     setItems((prev) =>
       prev
         .map((i) => {
@@ -1606,13 +1620,15 @@ export default function ReceiptView({
   };
 
   const removeItem = (productId: string) => {
+    if (isSavedBill) return;
     setItems((prev) => prev.filter((i) => i.product.id !== productId));
   };
 
   // Calculations (satang-accurate integer summation + complete order & unit quantity totals)
   const total = sumItemsSatang(items) / 100;
   const totalQty = sumItemsQuantity(items);
-  const netTotal = Math.max(0, Math.round((total - discount) * 100) / 100);
+  const effectiveDiscount = Math.min(total, Math.max(0, roundSatang(discount || 0)));
+  const netTotal = Math.max(0, roundSatang(total - effectiveDiscount));
   const totalPages = Math.max(1, Math.ceil(items.length / effectiveLinesPerPage));
 
   useEffect(() => {
@@ -1695,6 +1711,21 @@ export default function ReceiptView({
       return effectiveInvoiceId;
     }
 
+    if (items.length > 200) {
+      setAlertTitle('รายการเกินกำหนด');
+      setAlertMessage('หนึ่งใบเสร็จรองรับสินค้าได้สูงสุด 200 รายการ กรุณาแยกออกเป็นอีกบิล');
+      setAlertOpen(true);
+      return null;
+    }
+
+    const hasEmptyName = items.some((i) => !String(i.product.name || '').trim());
+    if (hasEmptyName) {
+      setAlertTitle('ข้อมูลไม่ครบถ้วน');
+      setAlertMessage('กรุณาระบุชื่อสินค้าให้ครบทุกรายการก่อนบันทึกหรือพิมพ์ใบเสร็จ');
+      setAlertOpen(true);
+      return null;
+    }
+
     // ป้องกันการกดปุ่มซ้ำซ้อนระหว่างที่กำลังบันทึกลงฐานข้อมูล
     if (savingLockRef.current) {
       return null;
@@ -1705,26 +1736,30 @@ export default function ReceiptView({
 
     const finalInvoiceNumber = invoiceNumber;
 
-    const saleItems: SaleItem[] = items.map((item) => ({
-      productId: String(item.product.id).slice(0, 128),
-      name: String(item.product.name || 'สินค้า').slice(0, 200),
-      price: item.product.price,
-      quantity: item.quantity,
-      subtotal: item.product.price * item.quantity,
-    }));
+    const saleItems: SaleItem[] = items.map((item) => {
+      const unitPrice = Math.max(0, roundSatang(Number(item.product.price) || 0));
+      const qty = Math.max(1, Math.floor(Number(item.quantity) || 1));
+      return {
+        productId: String(item.product.id).slice(0, 128),
+        name: String(item.product.name).trim().slice(0, 200),
+        price: unitPrice,
+        quantity: qty,
+        subtotal: roundSatang(unitPrice * qty),
+      };
+    });
 
     const newSale: Sale = {
       id: finalInvoiceNumber.slice(0, 128),
       timestamp: new Date().toISOString(),
-      employee: (auth.currentUser?.displayName || 'พนักงานหน้าร้าน').slice(0, 120), // Dynamic employee name from Gmail login
+      employee: (auth.currentUser?.displayName || 'พนักงานหน้าร้าน').slice(0, 120),
       total: netTotal,
       status: 'สำเร็จ',
       items: saleItems,
-      discount: Math.max(0, discount || 0),
-      customerName: (custName || 'ลูกค้าทั่วไป').slice(0, 200),
-      customerPhone: (custPhone || '').slice(0, 50),
-      customerAddress: (custAddress || '').slice(0, 500),
-      customerTaxId: (custTaxId || '').slice(0, 32),
+      discount: effectiveDiscount,
+      customerName: ((custName || '').trim() || 'ลูกค้าทั่วไป').slice(0, 200),
+      customerPhone: (custPhone || '').trim().slice(0, 50),
+      customerAddress: (custAddress || '').trim().slice(0, 500),
+      customerTaxId: (custTaxId || '').trim().slice(0, 32),
     };
 
     try {
@@ -1777,7 +1812,7 @@ export default function ReceiptView({
       // หากบันทึกจากการกดสั่งพิมพ์ ให้ผูกเลขบิลนี้ไว้ในหน้าจอเพื่อให้กดพิมพ์ซ้ำได้โดยไม่สร้างบิลใหม่
       if (options?.keepAfterSave) {
         if (onSaleSaved) {
-          onSaleSaved(finalInvoiceNumber, [...items], discount);
+          onSaleSaved(finalInvoiceNumber, [...items], effectiveDiscount);
         } else {
           setLocalSavedInvoiceId(finalInvoiceNumber);
           if (setInvoiceId) {
@@ -2006,12 +2041,13 @@ export default function ReceiptView({
                 const filteredSales = allSales.filter((sale) => {
                   const queryText = manageSearch.trim().toLowerCase();
                   if (!queryText) return true;
-                  
-                  const matchesId = sale.id.toLowerCase().includes(queryText);
-                  const matchesEmployee = sale.employee?.toLowerCase().includes(queryText) || false;
-                  const matchesItems = sale.items?.some(item => item.name.toLowerCase().includes(queryText)) || false;
-                  
-                  return matchesId || matchesEmployee || matchesItems;
+
+                  const matchesId = (sale.id || '').toLowerCase().includes(queryText);
+                  const matchesCustomer = (sale.customerName || '').toLowerCase().includes(queryText);
+                  const matchesEmployee = (sale.employee || '').toLowerCase().includes(queryText);
+                  const matchesItems = (sale.items || []).some(item => (item.name || '').toLowerCase().includes(queryText));
+
+                  return matchesId || matchesCustomer || matchesEmployee || matchesItems;
                 });
 
                 if (filteredSales.length === 0) {
@@ -2040,19 +2076,22 @@ export default function ReceiptView({
                       <tbody className="divide-y divide-slate-100">
                         {filteredSales.map((sale) => {
                           const isCancelled = sale.status === 'ยกเลิก';
+                          const saleDate = new Date(sale.timestamp);
                           return (
                             <tr key={sale.id} className="hover:bg-slate-50/70 transition-colors">
                               <td className="py-3.5 px-4 text-sm font-black font-mono text-slate-900 tabular-nums">
                                 {sale.id}
                               </td>
                               <td className="py-3.5 px-4 text-sm text-slate-600 tabular-nums">
-                                {new Date(sale.timestamp).toLocaleString('th-TH', {
-                                  year: 'numeric',
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
+                                {!isNaN(saleDate.getTime())
+                                  ? saleDate.toLocaleString('th-TH', {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })
+                                  : '-'}
                               </td>
                               <td className="py-3.5 px-4 text-sm text-slate-700">
                                 {sale.employee || '-'}
@@ -2119,7 +2158,22 @@ export default function ReceiptView({
           
           {/* Left Column: Customer Details & Items in Bill (Span 5/12 on desktop for ideal balance) */}
           <div className="lg:col-span-5 xl:col-span-5 flex flex-col gap-5">
-            
+
+            {/* Read-only lock notice when viewing/reprinting an already saved invoice */}
+            {isSavedBill && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start justify-between gap-3 shadow-2xs">
+                <div className="flex items-start gap-2.5">
+                  <Lock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                  <div className="text-xs sm:text-sm text-amber-950">
+                    <p className="font-bold">โหมดพิมพ์ซ้ำอย่างเดียว (ล็อกการแก้ไขบิล #{effectiveInvoiceId})</p>
+                    <p className="text-amber-800 mt-0.5 leading-snug">
+                      บิลนี้บันทึกยอดลงระบบและตัดสต็อกแล้ว จึงล็อกรายการเพื่อป้องกันยอดไม่ตรงกับรายงาน หากต้องการออกบิลใหม่ให้กดปุ่ม "เริ่มบิลใหม่"
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Customer Information Panel */}
             <div className="bg-white border border-slate-150 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col gap-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -2127,7 +2181,9 @@ export default function ReceiptView({
                   <User className="w-4 h-4 text-slate-700" />
                   <h3 className="text-base font-bold text-slate-900">ข้อมูลผู้ซื้อ</h3>
                 </div>
-                <span className="text-xs bg-slate-100 px-2.5 py-1 rounded-md text-slate-700 font-bold">เลือกลูกค้า</span>
+                <span className="text-xs bg-slate-100 px-2.5 py-1 rounded-md text-slate-700 font-bold">
+                  {isSavedBill ? 'ล็อกข้อมูลแล้ว' : 'เลือกลูกค้า'}
+                </span>
               </div>
 
               {/* Select Member Dropdown */}
@@ -2137,8 +2193,9 @@ export default function ReceiptView({
                 </label>
                 <select
                   value={selectedCustId}
+                  disabled={isSavedBill}
                   onChange={(e) => handleSelectCustomer(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm sm:text-base text-slate-900 font-bold focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none bg-white transition-all"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm sm:text-base text-slate-900 font-bold focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none bg-white transition-all disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
                 >
                   <option value="">-- ลูกค้าทั่วไป (กรอกข้อมูลเองด้านล่าง) --</option>
                   {customers.map((c) => (
@@ -2158,8 +2215,9 @@ export default function ReceiptView({
                   <input
                     type="text"
                     value={custName}
+                    disabled={isSavedBill}
                     onChange={(e) => setCustName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm sm:text-base font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm sm:text-base font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
                     placeholder="ระบุชื่อลูกค้า..."
                   />
                 </div>
@@ -2172,8 +2230,9 @@ export default function ReceiptView({
                   <input
                     type="tel"
                     value={custPhone}
+                    disabled={isSavedBill}
                     onChange={(e) => setCustPhone(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm sm:text-base font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm sm:text-base font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
                     placeholder="ระบุเบอร์โทรศัพท์..."
                   />
                 </div>
@@ -2187,8 +2246,9 @@ export default function ReceiptView({
                 <input
                   type="text"
                   value={custTaxId}
+                  disabled={isSavedBill}
                   onChange={(e) => setCustTaxId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm sm:text-base font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm sm:text-base font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
                   placeholder="กรอกเลขประจำตัวผู้เสียภาษี..."
                 />
               </div>
@@ -2200,8 +2260,9 @@ export default function ReceiptView({
                 </label>
                 <textarea
                   value={custAddress}
+                  disabled={isSavedBill}
                   onChange={(e) => setCustAddress(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm sm:text-base font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all resize-none h-20"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm sm:text-base font-bold text-slate-900 focus:border-slate-950 focus:ring-1 focus:ring-slate-950 outline-none transition-all resize-none h-20 disabled:bg-slate-50 disabled:text-slate-600 disabled:cursor-not-allowed"
                   placeholder="กรอกที่อยู่ลูกค้า..."
                 />
               </div>
@@ -2216,13 +2277,17 @@ export default function ReceiptView({
                 <label className="block text-sm font-bold text-slate-800 mb-1.5">
                   ระบุจำนวนเงินส่วนลด (บาท)
                 </label>
-                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 shadow-sm focus-within:border-slate-950 focus-within:ring-1 focus-within:ring-slate-950 transition-all">
+                <div className={`flex items-center gap-2 border border-slate-200 rounded-xl px-3.5 py-2.5 shadow-sm transition-all ${
+                  isSavedBill ? 'bg-slate-50' : 'bg-white focus-within:border-slate-950 focus-within:ring-1 focus-within:ring-slate-950'
+                }`}>
                   <input
                     type="number"
                     min="0"
                     max={total}
-                    value={discount === 0 ? '' : discount}
+                    disabled={isSavedBill}
+                    value={effectiveDiscount === 0 ? '' : effectiveDiscount}
                     onChange={(e) => {
+                      if (isSavedBill) return;
                       const val = parseFloat(e.target.value);
                       if (isNaN(val) || val < 0) {
                         setDiscount(0);
@@ -2230,7 +2295,7 @@ export default function ReceiptView({
                         setDiscount(Math.min(total, val));
                       }
                     }}
-                    className="w-full border-none outline-none p-0 text-base font-bold text-slate-900 focus:ring-0 bg-transparent font-mono tabular-nums"
+                    className="w-full border-none outline-none p-0 text-base font-bold text-slate-900 focus:ring-0 bg-transparent font-mono tabular-nums disabled:text-slate-600 disabled:cursor-not-allowed"
                     placeholder="0.00"
                   />
                 </div>
@@ -2247,29 +2312,31 @@ export default function ReceiptView({
                       ? 'bg-blue-50 text-blue-700 border-blue-200' 
                       : 'bg-white text-slate-700 border-slate-200'
                   }`}>
-                    {items.length} รายการ {items.length > 0 && `(${Math.max(1, Math.ceil(items.length / effectiveLinesPerPage))} แผ่น)`}
+                    {items.length} รายการ {items.length > 0 && `(${totalPages} ${unitLabel})`}
                   </span>
                 </div>
-                
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => setShowCustomItemModal(true)}
-                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
-                  >
-                    <PackagePlus className="w-3.5 h-3.5 text-slate-500" />
-                    <span>+ รายการเอง</span>
-                  </button>
-                  {items.length > 0 && (
+
+                {!isSavedBill && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <button
                       type="button"
-                      onClick={handleClearAllItems}
-                      className="text-xs sm:text-sm text-red-600 hover:text-red-700 hover:underline font-bold cursor-pointer transition-colors px-1.5"
+                      onClick={() => setShowCustomItemModal(true)}
+                      className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
                     >
-                      ล้างรายการ
+                      <PackagePlus className="w-3.5 h-3.5 text-slate-500" />
+                      <span>+ รายการเอง</span>
                     </button>
-                  )}
-                </div>
+                    {items.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAllItems}
+                        className="text-xs sm:text-sm text-red-600 hover:text-red-700 hover:underline font-bold cursor-pointer transition-colors px-1.5"
+                      >
+                        ล้างรายการ
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {items.length === 0 ? (
@@ -2292,7 +2359,7 @@ export default function ReceiptView({
 
                   {/* Rows */}
                   {items.map((i, idx) => (
-                    <div key={i.product.id} className="grid grid-cols-12 gap-2 px-4 py-2.5 items-center hover:bg-slate-50/70 transition-colors text-sm border-b border-slate-100 last:border-b-0">
+                    <div key={`${i.product.id}-${idx}`} className="grid grid-cols-12 gap-2 px-4 py-2.5 items-center hover:bg-slate-50/70 transition-colors text-sm border-b border-slate-100 last:border-b-0">
                       {/* Item No */}
                       <div className="col-span-1 flex justify-center items-center text-slate-500 font-mono font-bold text-xs sm:text-sm tabular-nums">
                         {idx + 1}
@@ -2303,8 +2370,9 @@ export default function ReceiptView({
                         <input
                           type="text"
                           value={i.product.name}
+                          disabled={isSavedBill}
                           onChange={(e) => updateItemName(i.product.id, e.target.value)}
-                          className="w-full text-sm font-bold text-slate-900 border-none bg-transparent hover:bg-slate-100/80 focus:bg-white focus:ring-1 focus:ring-slate-400 rounded px-1.5 py-1 transition-colors truncate"
+                          className="w-full text-sm font-bold text-slate-900 border-none bg-transparent hover:bg-slate-100/80 focus:bg-white focus:ring-1 focus:ring-slate-400 rounded px-1.5 py-1 transition-colors truncate disabled:hover:bg-transparent disabled:cursor-not-allowed"
                           title={i.product.name}
                         />
                       </div>
@@ -2317,38 +2385,44 @@ export default function ReceiptView({
                             type="number"
                             min="0"
                             step="any"
+                            disabled={isSavedBill}
                             value={i.product.price}
                             onChange={(e) => updateItemPrice(i.product.id, e.target.value)}
-                            className="w-20 text-right text-sm font-bold font-mono tabular-nums text-slate-900 border-none bg-transparent hover:bg-slate-100/80 focus:bg-white focus:ring-1 focus:ring-slate-400 rounded px-1 py-0.5"
+                            className="w-20 text-right text-sm font-bold font-mono tabular-nums text-slate-900 border-none bg-transparent hover:bg-slate-100/80 focus:bg-white focus:ring-1 focus:ring-slate-400 rounded px-1 py-0.5 disabled:hover:bg-transparent disabled:cursor-not-allowed"
                           />
                         </div>
                       </div>
 
                       {/* Quantity Controls */}
                       <div className="col-span-2 flex justify-center items-center">
-                        <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-xs">
+                        <div className={`flex items-center border border-slate-200 rounded-lg overflow-hidden shadow-xs ${isSavedBill ? 'bg-slate-50' : 'bg-white'}`}>
                           <button
+                            type="button"
+                            disabled={isSavedBill}
                             onClick={() => incrementQuantity(i.product.id, -1)}
-                            className="p-1.5 hover:bg-slate-100 text-slate-700 cursor-pointer transition-colors"
+                            className="p-1.5 hover:bg-slate-100 text-slate-700 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                           >
                             <Minus className="w-3 h-3" />
                           </button>
                           <input
                             type="text"
+                            disabled={isSavedBill}
                             value={i.quantity}
                             onChange={(e) => updateQuantity(i.product.id, e.target.value)}
-                            className="w-8 text-center border-none text-sm font-bold text-slate-900 p-0 focus:ring-0 bg-transparent font-mono tabular-nums"
+                            className="w-8 text-center border-none text-sm font-bold text-slate-900 p-0 focus:ring-0 bg-transparent font-mono tabular-nums disabled:cursor-not-allowed"
                           />
                           <button
+                            type="button"
+                            disabled={isSavedBill}
                             onClick={() => incrementQuantity(i.product.id, 1)}
-                            className="p-1.5 hover:bg-slate-100 text-slate-700 cursor-pointer transition-colors"
+                            className="p-1.5 hover:bg-slate-100 text-slate-700 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                           >
                             <Plus className="w-3 h-3" />
                           </button>
                         </div>
                       </div>
 
-                      {/* Subtotal Column - allocated 2 columns so numbers never wrap into another line */}
+                      {/* Subtotal Column */}
                       <div className="col-span-2 flex justify-end items-center pr-2">
                         <span className="text-sm font-bold text-slate-950 font-mono tabular-nums whitespace-nowrap">
                           {(i.product.price * i.quantity).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -2358,9 +2432,11 @@ export default function ReceiptView({
                       {/* Delete Action Column */}
                       <div className="col-span-1 flex justify-center">
                         <button
+                          type="button"
+                          disabled={isSavedBill}
                           onClick={() => removeItem(i.product.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 rounded cursor-pointer transition-colors"
-                          title="ลบรายการนี้"
+                          className="p-1.5 text-slate-400 hover:text-red-600 rounded cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-slate-400"
+                          title={isSavedBill ? 'ล็อกรายการแล้ว' : 'ลบรายการนี้'}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -2515,7 +2591,7 @@ export default function ReceiptView({
                     </h4>
                   </div>
                   <span className="text-xs sm:text-sm font-bold text-slate-700 tabular-nums">
-                    ครบทั้ง {items.length} รายการ · {totalQty.toLocaleString('th-TH')} ชิ้น · {totalPages} แผ่น
+                    ครบทั้ง {items.length} รายการ · {totalQty.toLocaleString('th-TH')} ชิ้น · {totalPages} {unitLabel}
                   </span>
                 </div>
 
@@ -2555,11 +2631,11 @@ export default function ReceiptView({
                   <table className="w-full text-left border-collapse text-xs sm:text-sm">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
-                        <th className="py-2 px-2.5 whitespace-nowrap">แผ่นที่</th>
+                        <th className="py-2 px-2.5 whitespace-nowrap">{unitLabel}ที่</th>
                         <th className="py-2 px-2.5 whitespace-nowrap">รายการ (ออเดอร์)</th>
                         <th className="py-2 px-2.5 text-right whitespace-nowrap">จำนวนชิ้น</th>
                         <th className="py-2 px-2.5 text-right whitespace-nowrap">ยอดยกมา</th>
-                        <th className="py-2 px-2.5 text-right whitespace-nowrap">ยอดแผ่นนี้</th>
+                        <th className="py-2 px-2.5 text-right whitespace-nowrap">ยอด{unitLabel}นี้</th>
                         <th className="py-2 px-2.5 text-right whitespace-nowrap">ยอดสะสม / ยอดยกไป</th>
                         {totalPages > 1 && <th className="py-2 px-2.5 text-center whitespace-nowrap">ดูตัวอย่าง</th>}
                       </tr>
@@ -2576,7 +2652,7 @@ export default function ReceiptView({
                             }`}
                           >
                             <td className="py-2 px-2.5 font-bold text-slate-900 whitespace-nowrap tabular-nums">
-                              แผ่นที่ {p.pageNumber}
+                              {unitLabel}ที่ {p.pageNumber}
                             </td>
                             <td className="py-2 px-2.5 text-slate-700 whitespace-nowrap tabular-nums">
                               #{p.startItem}–{p.endItem} ({p.itemCount})
@@ -2607,7 +2683,7 @@ export default function ReceiptView({
                                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                                   }`}
                                 >
-                                  {isSelected ? 'กำลังแสดง' : `ดูแผ่น ${p.pageNumber}`}
+                                  {isSelected ? 'กำลังแสดง' : `ดู${unitLabel} ${p.pageNumber}`}
                                 </button>
                               </td>
                             )}
@@ -2748,8 +2824,8 @@ export default function ReceiptView({
 
                 <div className="flex items-center justify-between flex-wrap gap-2 pt-1 text-xs sm:text-sm font-bold text-slate-800">
                   <span>
-                    รวมครบทุกแผ่น ({items.length} รายการ · {totalQty.toLocaleString('th-TH')} ชิ้น)
-                    {discount > 0 && ` · หักส่วนลด ฿${discount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    รวมครบทุก{unitLabel} ({items.length} รายการ · {totalQty.toLocaleString('th-TH')} ชิ้น)
+                    {effectiveDiscount > 0 && ` · หักส่วนลด ฿${effectiveDiscount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     <span className="block sm:inline sm:ml-2 text-slate-500 font-medium">({thaiBaht(netTotal)})</span>
                   </span>
                   <span className="font-mono tabular-nums text-slate-950 text-sm sm:text-base font-black">
@@ -2793,7 +2869,7 @@ export default function ReceiptView({
                     custTaxId={custTaxId}
                     items={items}
                     total={total}
-                    discount={discount}
+                    discount={effectiveDiscount}
                     netTotal={netTotal}
                     isPrintPortal={false}
                     linesPerPage={effectiveLinesPerPage}
@@ -2814,7 +2890,7 @@ export default function ReceiptView({
                   custTaxId={custTaxId}
                   items={items}
                   total={total}
-                  discount={discount}
+                  discount={effectiveDiscount}
                   netTotal={netTotal}
                   isPrintPortal={false}
                   linesPerPage={effectiveLinesPerPage}
@@ -2975,7 +3051,7 @@ export default function ReceiptView({
             custTaxId={custTaxId}
             items={items}
             total={total}
-            discount={discount}
+            discount={effectiveDiscount}
             netTotal={netTotal}
             isPrintPortal={true}
             linesPerPage={printLinesPerPage}
@@ -3292,10 +3368,10 @@ export default function ReceiptView({
                 <div className="flex flex-col gap-0.5 text-slate-700">
                   <span>
                     รวมเงินสินค้า: <strong className="font-mono tabular-nums text-slate-900">฿{total.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
-                    {discount > 0 && (
+                    {effectiveDiscount > 0 && (
                       <>
                         <span className="mx-2 text-slate-300">|</span>
-                        ส่วนลด: <strong className="font-mono tabular-nums text-red-600">-฿{discount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                        ส่วนลด: <strong className="font-mono tabular-nums text-red-600">-฿{effectiveDiscount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
                       </>
                     )}
                   </span>
@@ -3436,7 +3512,7 @@ export default function ReceiptView({
                 custTaxId={custTaxId}
                 items={items}
                 total={total}
-                discount={discount}
+                discount={effectiveDiscount}
                 netTotal={netTotal}
                 isPrintPortal={false}
                 linesPerPage={effectiveLinesPerPage}

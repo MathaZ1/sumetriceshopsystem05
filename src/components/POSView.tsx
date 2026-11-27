@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, handleFirestoreError, OperationType, auth, getNextInvoiceNumber } from '../firebase';
-import { collection, onSnapshot, addDoc, doc, updateDoc, runTransaction } from 'firebase/firestore';
+import { collection, onSnapshot, doc, runTransaction } from 'firebase/firestore';
 import { Product, CartItem, Sale, SaleItem, Customer } from '../types';
 import { ShoppingCart, Plus, Minus, Check, Search, Trash2, Edit2, X } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
+import { getStockStatus, roundSatang, sumCartSatang } from '../utils/calculations';
 
 interface POSViewProps {
   searchQuery: string;
@@ -131,6 +132,10 @@ export default function POSView({
 
   // Listen to Firestore products
   useEffect(() => {
+    if (!auth.currentUser) {
+      setLoading(false);
+      return;
+    }
     const productsCol = collection(db, 'products');
     const unsubscribe = onSnapshot(productsCol, (snapshot) => {
       const prods: Product[] = [];
@@ -140,17 +145,21 @@ export default function POSView({
       setProducts(prods);
       setLoading(false);
     }, (error) => {
+      setLoading(false);
       handleFirestoreError(error, OperationType.GET, 'products');
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Filter products by category and search query
+  // Filter products by category and search query (null-safe)
   const filteredProducts = products.filter((p) => {
     const matchesCategory = selectedCategory === 'ทั้งหมด' || p.category === selectedCategory;
     const searchVal = (localSearchQuery || searchQuery || '').trim().toLowerCase();
-    const matchesSearch = !searchVal || p.name.toLowerCase().includes(searchVal) || p.id.toLowerCase().includes(searchVal);
+    const matchesSearch =
+      !searchVal ||
+      (p.name || '').toLowerCase().includes(searchVal) ||
+      (p.id || '').toLowerCase().includes(searchVal);
     return matchesCategory && matchesSearch;
   });
 
@@ -280,24 +289,36 @@ export default function POSView({
     setCart((prev) => prev.filter((item) => item.product.id !== productId));
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const cartItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const cartTotal = sumCartSatang(cart) / 100;
+  const effectiveDiscount = Math.min(cartTotal, Math.max(0, roundSatang(discount || 0)));
+  const netTotal = Math.max(0, roundSatang(cartTotal - effectiveDiscount));
+  const cartItemsCount = cart.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
 
   const handleCheckout = async () => {
-    if (cart.length === 0) return;
+    if (cart.length === 0 || checkoutLoading) return;
+    if (cart.length > 200) {
+      setAlertTitle('รายการเกินกำหนด');
+      setAlertMessage('หนึ่งบิลรองรับสินค้าได้สูงสุด 200 รายการ กรุณาแยกบิลใหม่');
+      setAlertOpen(true);
+      return;
+    }
 
     setCheckoutLoading(true);
     try {
       // ดึงเลขที่ใบเสร็จถัดไปจาก Firestore โดยตรง เพื่อไม่ให้ซ้ำซ้อนกับเครื่องอื่น
       const invoiceNumber = await getNextInvoiceNumber();
 
-      const saleItems: SaleItem[] = cart.map((item) => ({
-        productId: String(item.product.id).slice(0, 128),
-        name: String(item.product.name || 'สินค้า').slice(0, 200),
-        price: item.product.price,
-        quantity: item.quantity,
-        subtotal: item.product.price * item.quantity,
-      }));
+      const saleItems: SaleItem[] = cart.map((item) => {
+        const unitPrice = Math.max(0, roundSatang(Number(item.product.price) || 0));
+        const qty = Math.max(1, Math.floor(Number(item.quantity) || 1));
+        return {
+          productId: String(item.product.id).slice(0, 128),
+          name: String(item.product.name || 'สินค้า').trim().slice(0, 200) || 'สินค้า',
+          price: unitPrice,
+          quantity: qty,
+          subtotal: roundSatang(unitPrice * qty),
+        };
+      });
 
       const selectedCust = customers.find(c => c.id === selectedCustId);
       const finalCustomerName = ((customerName || '').trim() || (selectedCust ? selectedCust.name : 'ลูกค้าทั่วไป')).slice(0, 200);
@@ -309,11 +330,11 @@ export default function POSView({
       const newSale: Sale = {
         id: invoiceNumber.slice(0, 128),
         timestamp: new Date().toISOString(),
-        employee: (auth.currentUser?.displayName || 'พนักงานหน้าร้าน').slice(0, 120), // Dynamic employee name from Gmail login
-        total: Math.max(0, cartTotal - discount),
+        employee: (auth.currentUser?.displayName || 'พนักงานหน้าร้าน').slice(0, 120),
+        total: netTotal,
         status: 'สำเร็จ',
         items: saleItems,
-        discount: Math.max(0, discount || 0),
+        discount: effectiveDiscount,
         customerName: finalCustomerName,
         customerPhone: finalCustomerPhone,
         customerAddress: finalCustomerAddress,
@@ -321,16 +342,30 @@ export default function POSView({
       };
 
       await runTransaction(db, async (transaction) => {
-        // 1. Fetch current product stocks
-        const prodDataList: { ref: any; newStock: number; newStatus: string }[] = [];
-        
+        const salesCol = collection(db, 'sales');
+        const saleDocRef = doc(salesCol, invoiceNumber);
+
+        // 1. Read sale doc & product stocks BEFORE any writes
+        const existingSaleDoc = await transaction.get(saleDocRef);
+        if (existingSaleDoc.exists()) {
+          throw new Error(`เลขที่บิล #${invoiceNumber} มีอยู่ในระบบแล้ว กรุณากดยืนยันการสั่งซื้ออีกครั้ง`);
+        }
+
+        const prodDataList: { ref: ReturnType<typeof doc>; newStock: number; newStatus: Product['status'] }[] = [];
+
         for (const item of cart) {
+          if (item.product.id.startsWith('custom-') || item.product.id.startsWith('sample-')) {
+            continue;
+          }
           const prodRef = doc(db, 'products', item.product.id);
           const prodDoc = await transaction.get(prodRef);
           if (prodDoc.exists()) {
-            const currentStock = prodDoc.data().stock || 0;
-            const newStock = Math.max(0, currentStock - item.quantity);
-            const newStatus = 'พร้อมขาย';
+            const currentStock = Number(prodDoc.data().stock) || 0;
+            if (currentStock < item.quantity) {
+              throw new Error(`สินค้า "${item.product.name}" มีสต็อกไม่เพียงพอ (เหลือ ${currentStock} ชิ้น)`);
+            }
+            const newStock = currentStock - item.quantity;
+            const newStatus = getStockStatus(newStock);
             prodDataList.push({ ref: prodRef, newStock, newStatus });
           }
         }
@@ -344,8 +379,6 @@ export default function POSView({
         }
 
         // 3. Save Sale document
-        const salesCol = collection(db, 'sales');
-        const saleDocRef = doc(salesCol, invoiceNumber);
         transaction.set(saleDocRef, newSale);
       });
 
@@ -356,7 +389,6 @@ export default function POSView({
       }
 
       const itemsInCart = [...cart];
-      // Reset cart and callback
       setCart([]);
       onCheckoutSuccess(newSale, itemsInCart);
     } catch (error: any) {
@@ -419,7 +451,7 @@ export default function POSView({
                     <div>
                       <span className="text-xs text-slate-500 block font-bold">ราคา</span>
                       <p className="text-xl font-black text-slate-950 tabular-nums">
-                        ฿{p.price.toFixed(2)}
+                        ฿{Number(p.price ?? 0).toFixed(2)}
                       </p>
                     </div>
                   </div>
@@ -662,7 +694,7 @@ export default function POSView({
             <div className="flex justify-between items-center mt-0.5">
               <span className="text-base font-bold text-slate-800">ยอดชำระสุทธิ</span>
               <span className="text-2xl font-black text-slate-950 font-mono tabular-nums">
-                ฿{Math.max(0, cartTotal - discount).toFixed(2)}
+                ฿{netTotal.toFixed(2)}
               </span>
             </div>
           </div>
@@ -694,7 +726,7 @@ export default function POSView({
                 type="button"
                 onClick={() => {
                   if (onExportToReceipt) {
-                    onExportToReceipt([...cart], discount);
+                    onExportToReceipt([...cart], effectiveDiscount);
                   } else if (setReceiptItems) {
                     setReceiptItems([...cart]);
                     setActiveTab('receipt');
@@ -727,7 +759,7 @@ export default function POSView({
             <ShoppingCart className="w-5 h-5" />
             <span>ตะกร้า ({cartItemsCount})</span>
           </span>
-          <span className="font-extrabold text-lg tabular-nums">฿{Math.max(0, cartTotal - discount).toFixed(2)}</span>
+          <span className="font-extrabold text-lg tabular-nums">฿{netTotal.toFixed(2)}</span>
         </button>
       </div>
 
@@ -948,7 +980,7 @@ export default function POSView({
                 <div className="flex justify-between items-center mt-1">
                   <span className="text-base font-bold text-slate-800">ยอดชำระสุทธิ</span>
                   <span className="text-2xl font-black text-slate-950 font-mono tabular-nums">
-                    ฿{Math.max(0, cartTotal - discount).toFixed(2)}
+                    ฿{netTotal.toFixed(2)}
                   </span>
                 </div>
               </div>
