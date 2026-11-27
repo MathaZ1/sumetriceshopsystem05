@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { db, handleFirestoreError, OperationType, auth, getNextInvoiceNumber } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, query, orderBy, updateDoc, runTransaction } from 'firebase/firestore';
 import { Product, CartItem, Customer, Sale, SaleItem } from '../types';
-import { Search, Plus, Minus, Trash2, Printer, CheckCircle2, User, MapPin, FileText, Users, Ban, RefreshCw, Eye, Tag, Receipt, Maximize2, X, PackagePlus, ShoppingCart } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, Printer, CheckCircle2, User, MapPin, FileText, Users, Ban, RefreshCw, Eye, Tag, Receipt, Maximize2, X, PackagePlus, ShoppingCart, ChevronDown, ChevronUp } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 
 function thaiBaht(num: number): string {
@@ -130,11 +130,13 @@ function ContinuousReceiptPaper({
   return (
     <div className={isPrintPortal ? 'receipt-pages-wrapper' : 'flex flex-col gap-6 w-full'}>
       {Array.from({ length: totalPages }).map((_, pageIdx) => {
-        if (!isPrintPortal && visiblePageIndex !== null && visiblePageIndex !== undefined && pageIdx !== visiblePageIndex) {
+        if (visiblePageIndex !== null && visiblePageIndex !== undefined && pageIdx !== visiblePageIndex) {
           return null;
         }
         const pageItems = items.slice(pageIdx * itemsPerPage, (pageIdx + 1) * itemsPerPage);
         const isLastPage = pageIdx === totalPages - 1;
+        const isSingleRenderedPage = visiblePageIndex !== null && visiblePageIndex !== undefined;
+        const isLastRenderedPage = isLastPage || isSingleRenderedPage;
         const count = pageItems.length;
         const isUltraDense = !isA4 && count > 35; // > 35 items (only if forced onto 1 page)
         const contFull = !isA4 && count > 26 && count <= 35; // 27 - 35 items on 9.5x11 continuous
@@ -194,15 +196,15 @@ function ContinuousReceiptPaper({
                   : 'p-6 sm:p-7'
               } font-mono text-black select-all flex flex-col justify-between overflow-hidden relative ${
                 effectivePinhole ? 'print-pinholes-visible' : ''
-              } ${!isLastPage ? 'page-break' : 'last-page'}`}
+              } ${!isLastRenderedPage ? 'page-break' : 'last-page'}`}
               style={{
                 width: `${paperWidthPx}px`,
                 minHeight: `${paperHeightPx}px`,
                 maxHeight: `${paperHeightPx}px`,
                 height: `${paperHeightPx}px`,
                 boxSizing: 'border-box',
-                pageBreakAfter: isLastPage ? 'auto' : 'always',
-                breakAfter: isLastPage ? 'auto' : 'page',
+                pageBreakAfter: isLastRenderedPage ? 'auto' : 'always',
+                breakAfter: isLastRenderedPage ? 'auto' : 'page',
               }}
             >
             {/* Continuous Form Pinhole Margins (Left Strip) */}
@@ -1168,6 +1170,8 @@ export default function ReceiptView({
   const [cardContentHeight, setCardContentHeight] = useState<number>(1056);
   const [previewZoom, setPreviewZoom] = useState<'fit' | '100'>('fit');
   const [selectedPreviewPage, setSelectedPreviewPage] = useState<'all' | number>('all');
+  const [printPageScope, setPrintPageScope] = useState<'all' | 'selected'>('all');
+  const [expandedSummaryPages, setExpandedSummaryPages] = useState<number[]>([]);
   const [showFullPreviewModal, setShowFullPreviewModal] = useState<boolean>(false);
   const [previewModalIntent, setPreviewModalIntent] = useState<'preview' | 'print'>('preview');
 
@@ -1613,7 +1617,31 @@ export default function ReceiptView({
     if (typeof selectedPreviewPage === 'number' && selectedPreviewPage >= totalPages) {
       setSelectedPreviewPage('all');
     }
-  }, [totalPages, selectedPreviewPage]);
+    if (totalPages <= 1 && printPageScope !== 'all') {
+      setPrintPageScope('all');
+    }
+  }, [totalPages, selectedPreviewPage, printPageScope]);
+
+  useEffect(() => {
+    if (totalPages > 1) {
+      // Auto-expand overflow pages (Page 2+) so carried-over orders are immediately visible
+      setExpandedSummaryPages(Array.from({ length: totalPages - 1 }, (_, idx) => idx + 1));
+    } else {
+      setExpandedSummaryPages([]);
+    }
+  }, [totalPages]);
+
+  const toggleSummaryPage = (pageIdx: number) => {
+    setExpandedSummaryPages((prev) =>
+      prev.includes(pageIdx) ? prev.filter((p) => p !== pageIdx) : [...prev, pageIdx]
+    );
+  };
+
+  const toggleAllSummaryPages = () => {
+    setExpandedSummaryPages((prev) =>
+      prev.length === totalPages ? [] : Array.from({ length: totalPages }, (_, idx) => idx)
+    );
+  };
 
   const pageSummaries = React.useMemo(() => {
     return Array.from({ length: totalPages }).map((_, idx) => {
@@ -1633,6 +1661,7 @@ export default function ReceiptView({
         startItem: startIdx + 1,
         endItem: endIdx,
         itemCount: slice.length,
+        pageItems: slice,
         carryInQty,
         pageQty,
         carryOutQty,
@@ -1789,6 +1818,7 @@ export default function ReceiptView({
     setPaperMode(targetMode);
     setPrintPaperMode(targetMode);
     setSelectedPreviewPage('all');
+    setPrintPageScope('all');
     setPreviewModalIntent('print');
     setShowFullPreviewModal(true);
   };
@@ -2456,6 +2486,134 @@ export default function ReceiptView({
                   </table>
                 </div>
 
+                {/* Itemized Per-Page Order List (shows carried-over items clearly) */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50">
+                  <div className="flex items-center justify-between gap-2 flex-wrap px-3 py-2 bg-slate-100/80 border-b border-slate-200">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs sm:text-sm font-bold text-slate-900">
+                        รายการออเดอร์แยกตาม{paperMode === 'a4' ? 'หน้า A4' : 'แผ่น'}
+                      </span>
+                      {totalPages > 1 && (
+                        <span className="text-[11px] sm:text-xs font-bold text-amber-800 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-md">
+                          ยกออเดอร์ไปหน้าถัดไป {totalPages - 1} หน้า · แสดงครบทุกหน้า
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={toggleAllSummaryPages}
+                      className="text-xs font-bold text-slate-700 hover:text-slate-950 px-2 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors"
+                    >
+                      {expandedSummaryPages.length === totalPages ? 'ย่อรายการทั้งหมด' : 'กางดูทุกรายการทุกหน้า'}
+                    </button>
+                  </div>
+
+                  <div className="divide-y divide-slate-200">
+                    {pageSummaries.map((p) => {
+                      const isExpanded = expandedSummaryPages.includes(p.pageIndex);
+                      const unitLabel = paperMode === 'a4' ? 'หน้า' : 'แผ่น';
+                      return (
+                        <div key={`workspace-page-items-${p.pageIndex}`} className="bg-white">
+                          <button
+                            type="button"
+                            onClick={() => toggleSummaryPage(p.pageIndex)}
+                            className="w-full px-3 py-2 flex items-center justify-between gap-2 flex-wrap text-left hover:bg-slate-50 transition-colors cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs sm:text-sm font-bold text-slate-950 tabular-nums">
+                                {unitLabel}ที่ {p.pageNumber} / {totalPages}
+                              </span>
+                              <span className="text-xs font-mono font-bold text-slate-600 tabular-nums">
+                                (#{p.startItem}–#{p.endItem} · {p.itemCount} รายการ · {p.pageQty.toLocaleString('th-TH')} ชิ้น)
+                              </span>
+                              {p.pageIndex > 0 && (
+                                <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                  ยกออเดอร์มาจาก{unitLabel}ที่ {p.pageIndex}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2.5 ml-auto">
+                              <span className="text-xs sm:text-sm font-mono font-bold text-slate-900 tabular-nums">
+                                ฿{p.pageTotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                              {isExpanded ? (
+                                <ChevronUp className="w-4 h-4 text-slate-500 shrink-0" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />
+                              )}
+                            </div>
+                          </button>
+
+                          {isExpanded && (
+                            <div className="border-t border-slate-100 bg-slate-50/40 px-3 py-2">
+                              {p.pageIndex > 0 && (
+                                <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-amber-50/80 border border-amber-200/80 text-xs text-amber-950 flex items-center justify-between gap-2 flex-wrap">
+                                  <span className="font-bold">
+                                    ยอดยกมาจาก{unitLabel}ก่อน: {p.startItem - 1} รายการ · {p.carryInQty.toLocaleString('th-TH')} ชิ้น
+                                  </span>
+                                  <span className="font-mono font-bold tabular-nums">
+                                    ฿{p.carryIn.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white">
+                                <table className="w-full text-left border-collapse text-xs">
+                                  <thead>
+                                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                                      <th className="py-1.5 px-2 w-12 text-center">ลำดับ</th>
+                                      <th className="py-1.5 px-2">รายการสินค้า</th>
+                                      <th className="py-1.5 px-2 text-right whitespace-nowrap">จำนวน</th>
+                                      <th className="py-1.5 px-2 text-right whitespace-nowrap">ราคา/หน่วย</th>
+                                      <th className="py-1.5 px-2 text-right whitespace-nowrap">รวมเงิน</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {p.pageItems.map((item, itemIdx) => (
+                                      <tr key={`ws-pg-${p.pageIndex}-item-${item.product.id}-${itemIdx}`} className="hover:bg-slate-50/70">
+                                        <td className="py-1.5 px-2 text-center font-mono tabular-nums text-slate-500">
+                                          {p.startItem + itemIdx}
+                                        </td>
+                                        <td className="py-1.5 px-2 font-medium text-slate-900">
+                                          {item.product.name}
+                                        </td>
+                                        <td className="py-1.5 px-2 text-right font-mono tabular-nums text-slate-800 whitespace-nowrap">
+                                          {item.quantity.toLocaleString('th-TH')}
+                                        </td>
+                                        <td className="py-1.5 px-2 text-right font-mono tabular-nums text-slate-700 whitespace-nowrap">
+                                          ฿{item.product.price.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="py-1.5 px-2 text-right font-mono font-bold tabular-nums text-slate-950 whitespace-nowrap">
+                                          ฿{(item.product.price * item.quantity).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                              <div className="mt-2 flex items-center justify-between gap-2 flex-wrap text-xs font-bold text-slate-700 px-1">
+                                <span>
+                                  รวมเฉพาะ{unitLabel}ที่ {p.pageNumber}: {p.itemCount} รายการ · {p.pageQty.toLocaleString('th-TH')} ชิ้น
+                                </span>
+                                <div className="flex items-center gap-3 font-mono tabular-nums">
+                                  <span>
+                                    ยอด{unitLabel}นี้: <strong className="text-slate-950">฿{p.pageTotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                                  </span>
+                                  {totalPages > 1 && (
+                                    <span>
+                                      ยอดสะสม ({p.endItem} รายการ · {p.carryOutQty.toLocaleString('th-TH')} ชิ้น):{' '}
+                                      <strong className="text-emerald-700">฿{p.carryOut.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between flex-wrap gap-2 pt-1 text-xs sm:text-sm font-bold text-slate-800">
                   <span>
                     รวมครบทุกแผ่น ({items.length} รายการ · {totalQty.toLocaleString('th-TH')} ชิ้น)
@@ -2492,9 +2650,14 @@ export default function ReceiptView({
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    กระดาษ A4 แนวตั้ง (35/แผ่น)
+                    กระดาษ A4 แนวตั้ง (35/หน้า)
                   </button>
                 </div>
+                {items.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-bold tabular-nums">
+                    {paperMode === 'a4' ? `A4 ทั้งหมด ${totalPages} หน้า` : `ทั้งหมด ${totalPages} แผ่น`}
+                  </span>
+                )}
                 {totalPages > 1 && (
                   <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs sm:text-sm font-bold flex-wrap">
                     <button
@@ -2504,7 +2667,7 @@ export default function ReceiptView({
                         selectedPreviewPage === 'all' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      ทุกแผ่น ({totalPages})
+                      {paperMode === 'a4' ? `ทุกหน้า (${totalPages})` : `ทุกแผ่น (${totalPages})`}
                     </button>
                     {pageSummaries.map((p) => (
                       <button
@@ -2515,7 +2678,7 @@ export default function ReceiptView({
                           selectedPreviewPage === p.pageIndex ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
-                        แผ่นที่ {p.pageNumber}
+                        {paperMode === 'a4' ? `หน้าที่ ${p.pageNumber}` : `แผ่นที่ ${p.pageNumber}`}
                       </button>
                     ))}
                   </div>
@@ -2672,8 +2835,8 @@ export default function ReceiptView({
                       <FileText className="w-4 h-4 shrink-0" />
                       <span>
                         {effectiveInvoiceId
-                          ? `พิมพ์ซ้ำกระดาษ A4 (#${effectiveInvoiceId})`
-                          : 'สั่งพิมพ์กระดาษ A4 (35/หน้า)'}
+                          ? `พิมพ์ซ้ำกระดาษ A4${totalPages > 1 ? ` (${totalPages} หน้า)` : ''} (#${effectiveInvoiceId})`
+                          : `สั่งพิมพ์กระดาษ A4${items.length > 0 ? ` (${totalPages} หน้า)` : ' (35/หน้า)'}`}
                       </span>
                     </>
                   )}
@@ -2755,7 +2918,7 @@ export default function ReceiptView({
                 page-break-after: always !important;
                 break-after: page !important;
               }
-              .dot-matrix-print-target:last-child {
+              .dot-matrix-print-target.last-page {
                 page-break-after: avoid !important;
                 break-after: avoid !important;
               }
@@ -2776,6 +2939,7 @@ export default function ReceiptView({
             netTotal={netTotal}
             isPrintPortal={true}
             linesPerPage={printLinesPerPage}
+            visiblePageIndex={printPageScope === 'selected' && typeof selectedPreviewPage === 'number' ? selectedPreviewPage : null}
           />
         </div>,
         document.body
@@ -2799,8 +2963,8 @@ export default function ReceiptView({
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-300">
                     {paperMode === 'a4'
-                      ? 'กระดาษ A4 แนวตั้ง (210mm × 297mm) · สูงสุด 35 รายการ/หน้า'
-                      : 'กระดาษต่อเนื่อง 9.5" × 11" · สูงสุด 35 รายการ/แผ่น'}
+                      ? `กระดาษ A4 แนวตั้ง (210mm × 297mm) · ทั้งหมด ${totalPages} หน้า (สูงสุด 35 รายการ/หน้า)`
+                      : `กระดาษต่อเนื่อง 9.5" × 11" · ทั้งหมด ${totalPages} แผ่น (สูงสุด 35 รายการ/แผ่น)`}
                     <span className="mx-1.5">·</span>
                     {effectiveInvoiceId
                       ? `บันทึกแล้ว (#${effectiveInvoiceId}) พร้อมพิมพ์ซ้ำโดยไม่สร้างบิลซ้ำ`
@@ -2826,19 +2990,22 @@ export default function ReceiptView({
                       paperMode === 'a4' ? 'bg-white text-slate-950' : 'text-white/80 hover:text-white'
                     }`}
                   >
-                    กระดาษ A4
+                    กระดาษ A4 ({totalPages} หน้า)
                   </button>
                 </div>
                 {totalPages > 1 && (
-                  <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl text-xs sm:text-sm font-bold">
+                  <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl text-xs sm:text-sm font-bold flex-wrap">
                     <button
                       type="button"
-                      onClick={() => setSelectedPreviewPage('all')}
+                      onClick={() => {
+                        setSelectedPreviewPage('all');
+                        setPrintPageScope('all');
+                      }}
                       className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
                         selectedPreviewPage === 'all' ? 'bg-white text-slate-950' : 'text-white/80 hover:text-white'
                       }`}
                     >
-                      ทุกแผ่น ({totalPages})
+                      {paperMode === 'a4' ? `ทุกหน้า (${totalPages})` : `ทุกแผ่น (${totalPages})`}
                     </button>
                     {pageSummaries.map((p) => (
                       <button
@@ -2849,7 +3016,7 @@ export default function ReceiptView({
                           selectedPreviewPage === p.pageIndex ? 'bg-white text-slate-950' : 'text-white/80 hover:text-white'
                         }`}
                       >
-                        แผ่นที่ {p.pageNumber}
+                        {paperMode === 'a4' ? `หน้าที่ ${p.pageNumber}` : `แผ่นที่ ${p.pageNumber}`}
                       </button>
                     ))}
                   </div>
@@ -2953,6 +3120,134 @@ export default function ReceiptView({
                 </table>
               </div>
 
+              {/* Itemized Per-Page Order List inside Pre-Print Modal */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50">
+                <div className="flex items-center justify-between gap-2 flex-wrap px-3 py-2 bg-slate-100/80 border-b border-slate-200">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs sm:text-sm font-bold text-slate-900">
+                      รายละเอียดสินค้าแยกตาม{paperMode === 'a4' ? 'หน้า A4' : 'แผ่น'} (รวมรายการยกไปหน้าถัดไป)
+                    </span>
+                    {totalPages > 1 && (
+                      <span className="text-[11px] sm:text-xs font-bold text-amber-800 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-md">
+                        ยกไปหน้าถัดไป {totalPages - 1} หน้า
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggleAllSummaryPages}
+                    className="text-xs font-bold text-slate-700 hover:text-slate-950 px-2 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors"
+                  >
+                    {expandedSummaryPages.length === totalPages ? 'ย่อรายการทั้งหมด' : 'กางดูทุกรายการทุกหน้า'}
+                  </button>
+                </div>
+
+                <div className="divide-y divide-slate-200">
+                  {pageSummaries.map((p) => {
+                    const isExpanded = expandedSummaryPages.includes(p.pageIndex);
+                    const unitLabel = paperMode === 'a4' ? 'หน้า' : 'แผ่น';
+                    return (
+                      <div key={`modal-page-items-${p.pageIndex}`} className="bg-white">
+                        <button
+                          type="button"
+                          onClick={() => toggleSummaryPage(p.pageIndex)}
+                          className="w-full px-3 py-2 flex items-center justify-between gap-2 flex-wrap text-left hover:bg-slate-50 transition-colors cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs sm:text-sm font-bold text-slate-950 tabular-nums">
+                              {unitLabel}ที่ {p.pageNumber} / {totalPages}
+                            </span>
+                            <span className="text-xs font-mono font-bold text-slate-600 tabular-nums">
+                              (#{p.startItem}–#{p.endItem} · {p.itemCount} รายการ · {p.pageQty.toLocaleString('th-TH')} ชิ้น)
+                            </span>
+                            {p.pageIndex > 0 && (
+                              <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                ยกออเดอร์มาจาก{unitLabel}ที่ {p.pageIndex}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2.5 ml-auto">
+                            <span className="text-xs sm:text-sm font-mono font-bold text-slate-900 tabular-nums">
+                              ฿{p.pageTotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            {isExpanded ? (
+                              <ChevronUp className="w-4 h-4 text-slate-500 shrink-0" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />
+                            )}
+                          </div>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="border-t border-slate-100 bg-slate-50/40 px-3 py-2">
+                            {p.pageIndex > 0 && (
+                              <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-amber-50/80 border border-amber-200/80 text-xs text-amber-950 flex items-center justify-between gap-2 flex-wrap">
+                                <span className="font-bold">
+                                  ยอดยกมาจาก{unitLabel}ก่อน: {p.startItem - 1} รายการ · {p.carryInQty.toLocaleString('th-TH')} ชิ้น
+                                </span>
+                                <span className="font-mono font-bold tabular-nums">
+                                  ฿{p.carryIn.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            )}
+                            <div className="overflow-x-auto border border-slate-200 rounded-lg bg-white max-h-64 overflow-y-auto">
+                              <table className="w-full text-left border-collapse text-xs">
+                                <thead className="sticky top-0 bg-slate-50 z-10">
+                                  <tr className="border-b border-slate-200 text-slate-600 font-bold">
+                                    <th className="py-1.5 px-2 w-12 text-center">ลำดับ</th>
+                                    <th className="py-1.5 px-2">รายการสินค้า</th>
+                                    <th className="py-1.5 px-2 text-right whitespace-nowrap">จำนวน</th>
+                                    <th className="py-1.5 px-2 text-right whitespace-nowrap">ราคา/หน่วย</th>
+                                    <th className="py-1.5 px-2 text-right whitespace-nowrap">รวมเงิน</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {p.pageItems.map((item, itemIdx) => (
+                                    <tr key={`modal-pg-${p.pageIndex}-item-${item.product.id}-${itemIdx}`} className="hover:bg-slate-50/70">
+                                      <td className="py-1.5 px-2 text-center font-mono tabular-nums text-slate-500">
+                                        {p.startItem + itemIdx}
+                                      </td>
+                                      <td className="py-1.5 px-2 font-medium text-slate-900">
+                                        {item.product.name}
+                                      </td>
+                                      <td className="py-1.5 px-2 text-right font-mono tabular-nums text-slate-800 whitespace-nowrap">
+                                        {item.quantity.toLocaleString('th-TH')}
+                                      </td>
+                                      <td className="py-1.5 px-2 text-right font-mono tabular-nums text-slate-700 whitespace-nowrap">
+                                        ฿{item.product.price.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </td>
+                                      <td className="py-1.5 px-2 text-right font-mono font-bold tabular-nums text-slate-950 whitespace-nowrap">
+                                        ฿{(item.product.price * item.quantity).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            <div className="mt-2 flex items-center justify-between gap-2 flex-wrap text-xs font-bold text-slate-700 px-1">
+                              <span>
+                                รวมเฉพาะ{unitLabel}ที่ {p.pageNumber}: {p.itemCount} รายการ · {p.pageQty.toLocaleString('th-TH')} ชิ้น
+                              </span>
+                              <div className="flex items-center gap-3 font-mono tabular-nums">
+                                <span>
+                                  ยอด{unitLabel}นี้: <strong className="text-slate-950">฿{p.pageTotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                                </span>
+                                {totalPages > 1 && (
+                                  <span>
+                                    ยอดสะสม ({p.endItem} รายการ · {p.carryOutQty.toLocaleString('th-TH')} ชิ้น):{' '}
+                                    <strong className="text-emerald-700">฿{p.carryOut.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="flex items-center justify-between flex-wrap gap-3 pt-1 border-t border-slate-100 text-xs sm:text-sm">
                 <div className="flex flex-col gap-0.5 text-slate-700">
                   <span>
@@ -2976,42 +3271,115 @@ export default function ReceiptView({
                 </div>
               </div>
 
-              {/* Action Buttons inside Pre-Print Modal */}
-              <div className="flex items-center justify-end gap-2.5 flex-wrap pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowFullPreviewModal(false)}
-                  disabled={isSavingSale || isPrinted}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-bold cursor-pointer transition-colors disabled:opacity-40"
-                >
-                  กลับไปแก้ไขข้อมูล
-                </button>
-                <button
-                  type="button"
-                  onClick={() => executeConfirmedPrint(paperMode)}
-                  disabled={items.length === 0 || isSavingSale || isPrinted}
-                  className={`px-5 py-2.5 rounded-xl text-white text-sm sm:text-base font-bold shadow-sm flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50 ${
-                    paperMode === 'a4'
-                      ? 'bg-emerald-600 hover:bg-emerald-700'
-                      : 'bg-slate-950 hover:bg-slate-800'
-                  }`}
-                >
-                  {isSavingSale || isPrinted ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>{isSavingSale ? 'กำลังบันทึกข้อมูลบิล...' : 'กำลังเปิดหน้าพิมพ์...'}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Printer className="w-4 h-4 shrink-0" />
-                      <span>
-                        {effectiveInvoiceId
-                          ? `ยืนยันสั่งพิมพ์ซ้ำ (${paperMode === 'a4' ? 'A4' : 'ต่อเนื่อง'})`
-                          : `ยืนยันบันทึกและสั่งพิมพ์จริง (${paperMode === 'a4' ? 'A4 35/หน้า' : 'ต่อเนื่อง 35/แผ่น'})`}
-                      </span>
-                    </>
-                  )}
-                </button>
+              {/* Print Page Scope Selector + Action Buttons inside Pre-Print Modal */}
+              <div className="flex items-center justify-between gap-3 flex-wrap pt-2 border-t border-slate-100">
+                {totalPages > 1 ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs sm:text-sm font-bold text-slate-700">จำนวนหน้าที่จะพิมพ์:</span>
+                    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs sm:text-sm font-bold flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPrintPageScope('all');
+                          setSelectedPreviewPage('all');
+                        }}
+                        className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                          printPageScope === 'all'
+                            ? 'bg-slate-950 text-white shadow-xs'
+                            : 'text-slate-700 hover:bg-white'
+                        }`}
+                      >
+                        พิมพ์ครบทุก{paperMode === 'a4' ? 'หน้า' : 'แผ่น'} ({totalPages})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPrintPageScope('selected');
+                          if (selectedPreviewPage === 'all') {
+                            setSelectedPreviewPage(0);
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                          printPageScope === 'selected'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'text-slate-700 hover:bg-white'
+                        }`}
+                      >
+                        พิมพ์เฉพาะ{paperMode === 'a4' ? 'หน้า' : 'แผ่น'}ที่เลือก
+                        {printPageScope === 'selected' && typeof selectedPreviewPage === 'number'
+                          ? ` (${selectedPreviewPage + 1})`
+                          : ''}
+                      </button>
+                    </div>
+                    {printPageScope === 'selected' && (
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {pageSummaries.map((p) => (
+                          <button
+                            key={`scope-page-btn-${p.pageIndex}`}
+                            type="button"
+                            onClick={() => setSelectedPreviewPage(p.pageIndex)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold border cursor-pointer transition-colors ${
+                              selectedPreviewPage === p.pageIndex
+                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            {paperMode === 'a4' ? `หน้า ${p.pageNumber}` : `แผ่น ${p.pageNumber}`}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-xs sm:text-sm font-bold text-slate-600">
+                    จำนวนที่จะพิมพ์: 1 {paperMode === 'a4' ? 'หน้า A4' : 'แผ่นต่อเนื่อง'}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2.5 flex-wrap ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => setShowFullPreviewModal(false)}
+                    disabled={isSavingSale || isPrinted}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sm font-bold cursor-pointer transition-colors disabled:opacity-40"
+                  >
+                    กลับไปแก้ไขข้อมูล
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => executeConfirmedPrint(paperMode)}
+                    disabled={items.length === 0 || isSavingSale || isPrinted}
+                    className={`px-5 py-2.5 rounded-xl text-white text-sm sm:text-base font-bold shadow-sm flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50 ${
+                      paperMode === 'a4'
+                        ? 'bg-emerald-600 hover:bg-emerald-700'
+                        : 'bg-slate-950 hover:bg-slate-800'
+                    }`}
+                  >
+                    {isSavingSale || isPrinted ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>{isSavingSale ? 'กำลังบันทึกข้อมูลบิล...' : 'กำลังเปิดหน้าพิมพ์...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Printer className="w-4 h-4 shrink-0" />
+                        <span>
+                          {(() => {
+                            const unit = paperMode === 'a4' ? 'หน้า' : 'แผ่น';
+                            const paperLabel = paperMode === 'a4' ? 'A4' : 'ต่อเนื่อง';
+                            const scopeLabel =
+                              totalPages > 1 && printPageScope === 'selected' && typeof selectedPreviewPage === 'number'
+                                ? `เฉพาะ${unit}ที่ ${selectedPreviewPage + 1}`
+                                : `ครบ ${totalPages} ${unit}`;
+                            return effectiveInvoiceId
+                              ? `ยืนยันสั่งพิมพ์ซ้ำ${scopeLabel} (${paperLabel})`
+                              : `ยืนยันบันทึกและสั่งพิมพ์${scopeLabel} (${paperLabel})`;
+                          })()}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
 

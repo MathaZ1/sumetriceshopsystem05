@@ -108,8 +108,7 @@ body {
     break-after: page !important;
   }
 
-  .dot-matrix-print-target.last-page,
-  .dot-matrix-print-target:last-child {
+  .dot-matrix-print-target.last-page {
     page-break-after: auto !important;
     break-after: auto !important;
   }
