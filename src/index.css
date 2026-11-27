@@ -91,7 +91,7 @@ body {
     border-radius: 0 !important;
     background-color: #ffffff !important;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Noto Sans Thai", monospace !important;
-    line-height: 1.35 !important;
+    line-height: 1.25;
     box-sizing: border-box !important;
     transform: none !important;
     overflow: hidden !important;

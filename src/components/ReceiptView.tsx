@@ -78,6 +78,10 @@ function sumItemsSatang(list: CartItem[]): number {
   return list.reduce((sum, item) => sum + itemLineSatang(item), 0);
 }
 
+function sumItemsQuantity(list: CartItem[]): number {
+  return list.reduce((sum, item) => sum + item.quantity, 0);
+}
+
 interface ContinuousReceiptPaperProps {
   paperSize: '9.5x11' | '9.5x5.5' | 'a4';
   printPinhole: boolean;
@@ -110,17 +114,18 @@ function ContinuousReceiptPaper({
   discount,
   netTotal,
   isPrintPortal = false,
-  linesPerPage = 20,
+  linesPerPage = 35,
   visiblePageIndex = null,
 }: ContinuousReceiptPaperProps) {
   const isA4 = paperSize === 'a4';
   const effectivePinhole = isA4 ? false : printPinhole;
-  // Default lines per page: 35 for A4 portrait, 20 for 9.5x11 continuous, 10 for half-page
-  const defaultPageLimit = isA4 ? 35 : paperSize === '9.5x11' ? 20 : 10;
+  // Default lines per page: 35 for both A4 portrait and 9.5x11 continuous, 10 for half-page
+  const defaultPageLimit = isA4 ? 35 : paperSize === '9.5x11' ? 35 : 10;
   const itemsPerPage = linesPerPage && linesPerPage > 0 ? linesPerPage : defaultPageLimit;
   const totalPages = Math.max(1, Math.ceil(items.length / itemsPerPage));
   const paperWidthPx = isA4 ? 794 : 912;
   const paperHeightPx = isA4 ? 1123 : paperSize === '9.5x11' ? 1056 : 620;
+  const totalQty = sumItemsQuantity(items);
 
   return (
     <div className={isPrintPortal ? 'receipt-pages-wrapper' : 'flex flex-col gap-6 w-full'}>
@@ -131,14 +136,19 @@ function ContinuousReceiptPaper({
         const pageItems = items.slice(pageIdx * itemsPerPage, (pageIdx + 1) * itemsPerPage);
         const isLastPage = pageIdx === totalPages - 1;
         const count = pageItems.length;
-        const isUltraDense = !isA4 && count > 35; // 36 - 50 items (only if forced onto 1 page)
-        const isSuperDense = !isA4 && count > 22 && count <= 35; // 23 - 35 items
-        const isDense = !isA4 && count > 12 && count <= 22; // 13 - 22 items (20 lines per page will be in this crisp, clear zone)
+        const isUltraDense = !isA4 && count > 35; // > 35 items (only if forced onto 1 page)
+        const contFull = !isA4 && count > 26 && count <= 35; // 27 - 35 items on 9.5x11 continuous
+        const isSuperDense = !isA4 && count > 20 && count <= 26; // 21 - 26 items
+        const isDense = !isA4 && count > 12 && count <= 20; // 13 - 20 items
         const a4Full = isA4 && count > 26; // 27 - 35 items on A4
         const a4Medium = isA4 && count > 16 && count <= 26; // 17 - 26 items on A4
         const previousItemCount = pageIdx * itemsPerPage;
         const runningItemCount = previousItemCount + pageItems.length;
-        const previousSubtotalSatang = sumItemsSatang(items.slice(0, previousItemCount));
+        const previousItemsSlice = items.slice(0, previousItemCount);
+        const previousQtyTotal = sumItemsQuantity(previousItemsSlice);
+        const pageQtyTotal = sumItemsQuantity(pageItems);
+        const runningQtyTotal = previousQtyTotal + pageQtyTotal;
+        const previousSubtotalSatang = sumItemsSatang(previousItemsSlice);
         const pageSubtotalSatang = sumItemsSatang(pageItems);
         const runningSubtotalSatang = previousSubtotalSatang + pageSubtotalSatang;
         const previousSubtotal = previousSubtotalSatang / 100;
@@ -151,7 +161,7 @@ function ContinuousReceiptPaper({
               <div className="flex items-center justify-between text-xs font-bold text-slate-600 px-1 py-0.5">
                 <span className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-lg shadow-2xs">
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-900"></span>
-                  แผ่นที่ {pageIdx + 1} จาก {totalPages} ({pageItems.length} รายการ)
+                  แผ่นที่ {pageIdx + 1} จาก {totalPages} ({pageItems.length} รายการ · {pageQtyTotal.toLocaleString('th-TH')} ชิ้น)
                   {pageIdx === 0 && ' • มียอดและจำนวนรายการยกไป'}
                   {pageIdx > 0 && !isLastPage && ' • ยอดยกมา / ยอดยกไป'}
                   {isLastPage && ' • ยอดรวมสุทธิและลายเซ็นต์'}
@@ -168,12 +178,14 @@ function ContinuousReceiptPaper({
               } ${
                 isA4
                   ? a4Full
-                    ? 'p-4 sm:p-5'
+                    ? 'p-4'
                     : a4Medium
                     ? 'p-5 sm:p-6'
                     : 'p-6 sm:p-7'
                   : isUltraDense
                   ? 'p-2.5 sm:p-3'
+                  : contFull
+                  ? 'p-3'
                   : isSuperDense
                   ? 'p-3.5 sm:p-4'
                   : isDense
@@ -220,11 +232,13 @@ function ContinuousReceiptPaper({
             <div className={`${effectivePinhole && !isPrintPortal ? 'mx-6' : 'mx-0'} h-full flex flex-col justify-between ${
               isA4
                 ? a4Full
-                  ? 'gap-1'
+                  ? 'gap-0.5'
                   : a4Medium
                   ? 'gap-1.5'
                   : 'gap-2.5'
                 : isUltraDense
+                ? 'gap-0.5'
+                : contFull
                 ? 'gap-0.5'
                 : isSuperDense
                 ? 'gap-1'
@@ -236,12 +250,14 @@ function ContinuousReceiptPaper({
               <div className={`flex justify-between items-start ${
                 isA4
                   ? a4Full
-                    ? 'pb-1.5'
+                    ? 'pb-1'
                     : a4Medium
                     ? 'pb-2'
                     : 'pb-2.5'
                   : isUltraDense
                   ? 'pb-0.5'
+                  : contFull
+                  ? 'pb-1'
                   : isSuperDense
                   ? 'pb-1'
                   : isDense
@@ -252,14 +268,16 @@ function ContinuousReceiptPaper({
                   <h3 className={`font-black text-black ${
                     isA4
                       ? a4Full
-                        ? 'text-[17px]'
+                        ? 'text-[16.5px]'
                         : a4Medium
                         ? 'text-[18px]'
                         : 'text-[19px]'
                       : isUltraDense
-                      ? 'text-[17.5px]'
+                      ? 'text-[16px]'
+                      : contFull
+                      ? 'text-[16.5px]'
                       : isSuperDense
-                      ? 'text-[18.5px]'
+                      ? 'text-[18px]'
                       : isDense
                       ? 'text-[20px]'
                       : 'text-[22px]'
@@ -269,14 +287,16 @@ function ContinuousReceiptPaper({
                   <p className={`${
                     isA4
                       ? a4Full
-                        ? 'text-[11.5px] mt-0.5'
+                        ? 'text-[11px] mt-0.5'
                         : a4Medium
                         ? 'text-[12.5px] mt-0.5'
                         : 'text-[13.5px] mt-1'
                       : isUltraDense
-                      ? 'text-[12px] mt-0.5'
+                      ? 'text-[11px] mt-0.5'
+                      : contFull
+                      ? 'text-[11.5px] mt-0.5'
                       : isSuperDense
-                      ? 'text-[13.5px] mt-0.5'
+                      ? 'text-[13px] mt-0.5'
                       : isDense
                       ? 'text-[15px] mt-0.5'
                       : 'text-[16.5px] mt-1'
@@ -286,14 +306,16 @@ function ContinuousReceiptPaper({
                   <p className={`${
                     isA4
                       ? a4Full
-                        ? 'text-[11.5px] mt-0.5'
+                        ? 'text-[11px] mt-0.5'
                         : a4Medium
                         ? 'text-[12.5px] mt-0.5'
                         : 'text-[13.5px] mt-1'
                       : isUltraDense
-                      ? 'text-[12px] mt-0.5'
+                      ? 'text-[11px] mt-0.5'
+                      : contFull
+                      ? 'text-[11.5px] mt-0.5'
                       : isSuperDense
-                      ? 'text-[13.5px] mt-0.5'
+                      ? 'text-[13px] mt-0.5'
                       : isDense
                       ? 'text-[15px] mt-0.5'
                       : 'text-[16.5px] mt-1'
@@ -307,14 +329,16 @@ function ContinuousReceiptPaper({
                   <div className={`font-black ${
                     isA4
                       ? a4Full
-                        ? 'text-[17px]'
+                        ? 'text-[16.5px]'
                         : a4Medium
                         ? 'text-[18px]'
                         : 'text-[19px]'
                       : isUltraDense
-                      ? 'text-[17.5px]'
+                      ? 'text-[16px]'
+                      : contFull
+                      ? 'text-[16.5px]'
                       : isSuperDense
-                      ? 'text-[18.5px]'
+                      ? 'text-[18px]'
                       : isDense
                       ? 'text-[20px]'
                       : 'text-[22px]'
@@ -324,18 +348,20 @@ function ContinuousReceiptPaper({
                   <div className={`${
                     isA4
                       ? a4Full
-                        ? 'text-[11.5px] gap-0.5'
+                        ? 'text-[11px] gap-0.5'
                         : a4Medium
                         ? 'text-[12.5px] gap-0.5'
                         : 'text-[13.5px] gap-0.5'
                       : isUltraDense
-                      ? 'text-[12.5px] gap-0.5'
+                      ? 'text-[11px] gap-0.5'
+                      : contFull
+                      ? 'text-[11.5px] gap-0.5'
                       : isSuperDense
-                      ? 'text-[13.5px] gap-0.5'
+                      ? 'text-[13px] gap-0.5'
                       : isDense
                       ? 'text-[15px] gap-0.5'
                       : 'text-[16.5px] gap-1'
-                  } text-black mt-0.5 flex flex-col items-end font-bold font-mono`}>
+                  } text-black mt-0.5 flex flex-col items-end font-bold font-mono leading-tight`}>
                     <div>
                       เลขที่บิล / Invoice No : <span className="text-black font-black">{invoiceNumber}</span>
                     </div>
@@ -353,14 +379,16 @@ function ContinuousReceiptPaper({
               <div className={`${
                 isA4
                   ? a4Full
-                    ? 'py-1 gap-0.5 text-[11.5px]'
+                    ? 'py-0.5 gap-0.5 text-[11px]'
                     : a4Medium
                     ? 'py-1.5 gap-1 text-[12.5px]'
                     : 'py-2 gap-1.5 text-[13.5px]'
                   : isUltraDense
-                  ? 'py-0.5 gap-0.5 text-[12.5px]'
+                  ? 'py-0.5 gap-0.5 text-[11px]'
+                  : contFull
+                  ? 'py-0.5 gap-0.5 text-[11.5px]'
                   : isSuperDense
-                  ? 'py-1 gap-1 text-[13.5px]'
+                  ? 'py-1 gap-1 text-[13px]'
                   : isDense
                   ? 'py-1.5 gap-1.5 text-[14.5px]'
                   : 'py-2 gap-2 text-[16px]'
@@ -390,7 +418,7 @@ function ContinuousReceiptPaper({
                 {/* Row 2: Customer Address (Full width for complete information without overflowing into other rows) */}
                 <div className="flex items-start gap-1.5 w-full min-w-0">
                   <span className="text-black font-bold shrink-0 whitespace-nowrap">ที่อยู่ :</span>
-                  <span className={`text-black font-bold break-words flex-1 ${isUltraDense ? 'text-[11.5px]' : ''} leading-snug`} title={custAddress || ''}>
+                  <span className={`text-black font-bold break-words flex-1 ${isUltraDense || contFull || a4Full ? 'leading-tight' : 'leading-snug'}`} title={custAddress || ''}>
                     {custAddress || '-'}
                   </span>
                 </div>
@@ -403,14 +431,16 @@ function ContinuousReceiptPaper({
                     <tr className={`text-black font-black text-left bg-transparent border-y-2 border-black ${
                       isA4
                         ? a4Full
-                          ? 'text-[12px]'
+                          ? 'text-[11.5px]'
                           : a4Medium
                           ? 'text-[13px]'
                           : 'text-[14px]'
                         : isUltraDense
-                        ? 'text-[12.5px]'
+                        ? 'text-[11.5px]'
+                        : contFull
+                        ? 'text-[11.5px]'
                         : isSuperDense
-                        ? 'text-[13.5px]'
+                        ? 'text-[13px]'
                         : isDense
                         ? 'text-[15px]'
                         : 'text-[16.5px]'
@@ -418,12 +448,14 @@ function ContinuousReceiptPaper({
                       <th className={`${
                         isA4
                           ? a4Full
-                            ? 'py-1 w-[46px]'
+                            ? 'py-[3px] w-[44px]'
                             : a4Medium
                             ? 'py-1.5 w-[48px]'
                             : 'py-2 w-[50px]'
                           : isUltraDense
-                          ? 'py-0.5 w-[54px]'
+                          ? 'py-[2px] w-[48px]'
+                          : contFull
+                          ? 'py-[3px] w-[48px]'
                           : isSuperDense
                           ? 'py-1 w-[54px]'
                           : isDense
@@ -433,12 +465,14 @@ function ContinuousReceiptPaper({
                       <th className={`${
                         isA4
                           ? a4Full
-                            ? 'py-1 px-2'
+                            ? 'py-[3px] px-2'
                             : a4Medium
                             ? 'py-1.5 px-2.5'
                             : 'py-2 px-3'
                           : isUltraDense
-                          ? 'py-0.5 px-2'
+                          ? 'py-[2px] px-2'
+                          : contFull
+                          ? 'py-[3px] px-2'
                           : isSuperDense
                           ? 'py-1 px-2'
                           : isDense
@@ -448,12 +482,14 @@ function ContinuousReceiptPaper({
                       <th className={`${
                         isA4
                           ? a4Full
-                            ? 'py-1 w-[64px]'
+                            ? 'py-[3px] w-[64px]'
                             : a4Medium
                             ? 'py-1.5 w-[68px]'
                             : 'py-2 w-[72px]'
                           : isUltraDense
-                          ? 'py-0.5 w-[76px]'
+                          ? 'py-[2px] w-[68px]'
+                          : contFull
+                          ? 'py-[3px] w-[68px]'
                           : isSuperDense
                           ? 'py-1 w-[76px]'
                           : isDense
@@ -463,12 +499,14 @@ function ContinuousReceiptPaper({
                       <th className={`${
                         isA4
                           ? a4Full
-                            ? 'py-1 w-[100px]'
+                            ? 'py-[3px] w-[98px]'
                             : a4Medium
                             ? 'py-1.5 w-[106px]'
                             : 'py-2 w-[110px]'
                           : isUltraDense
-                          ? 'py-0.5 w-[118px]'
+                          ? 'py-[2px] w-[108px]'
+                          : contFull
+                          ? 'py-[3px] w-[108px]'
                           : isSuperDense
                           ? 'py-1 w-[118px]'
                           : isDense
@@ -478,12 +516,14 @@ function ContinuousReceiptPaper({
                       <th className={`${
                         isA4
                           ? a4Full
-                            ? 'py-1 pr-1.5 w-[126px]'
+                            ? 'py-[3px] pr-1.5 w-[124px]'
                             : a4Medium
                             ? 'py-1.5 pr-2 w-[134px]'
                             : 'py-2 pr-2 w-[140px]'
                           : isUltraDense
-                          ? 'py-0.5 pr-1 w-[152px]'
+                          ? 'py-[2px] pr-1 w-[136px]'
+                          : contFull
+                          ? 'py-[3px] pr-1.5 w-[136px]'
                           : isSuperDense
                           ? 'py-1 pr-1 w-[152px]'
                           : isDense
@@ -506,14 +546,16 @@ function ContinuousReceiptPaper({
                             <td className={`text-center ${
                               isA4
                                 ? a4Full
-                                  ? 'py-[2px] text-[11px]'
+                                  ? 'py-[1px] text-[10.5px] leading-[1.15]'
                                   : a4Medium
                                   ? 'py-0.5 text-[11.5px]'
                                   : 'py-1 text-[12px]'
                                 : isUltraDense
-                                ? 'py-0 text-[12.5px]'
+                                ? 'py-0 text-[10.5px] leading-[1.1]'
+                                : contFull
+                                ? 'py-[1px] text-[10.5px] leading-[1.15]'
                                 : isSuperDense
-                                ? 'py-0.5 text-[12.5px]'
+                                ? 'py-0.5 text-[12px]'
                                 : isDense
                                 ? 'py-1 text-[12.5px]'
                                 : 'py-1.5 text-[12.5px]'
@@ -523,31 +565,35 @@ function ContinuousReceiptPaper({
                             <td className={`px-2 ${
                               isA4
                                 ? a4Full
-                                  ? 'py-[2px] text-[11px]'
+                                  ? 'py-[1px] text-[10.5px] leading-[1.15]'
                                   : a4Medium
                                   ? 'py-0.5 text-[12px]'
                                   : 'py-1 text-[13px]'
                                 : isUltraDense
-                                ? 'py-0 text-[12px]'
+                                ? 'py-0 text-[10.5px] leading-[1.1]'
+                                : contFull
+                                ? 'py-[1px] text-[11px] leading-[1.15]'
                                 : isSuperDense
-                                ? 'py-0.5 text-[13px]'
+                                ? 'py-0.5 text-[12.5px]'
                                 : isDense
                                 ? 'py-1 text-[15px]'
                                 : 'py-1.5 text-[16px]'
                             } font-black text-black whitespace-nowrap`} colSpan={3}>
-                              ยอดยกมาจากหน้าที่ {pageIdx} ({previousItemCount} รายการ)
+                              ยอดยกมาจากหน้าที่ {pageIdx} ({previousItemCount} รายการ / {previousQtyTotal.toLocaleString('th-TH')} ชิ้น)
                             </td>
                             <td className={`text-right ${
                               isA4
                                 ? a4Full
-                                  ? 'py-[2px] pr-1.5 text-[11px]'
+                                  ? 'py-[1px] pr-1.5 text-[10.5px] leading-[1.15]'
                                   : a4Medium
                                   ? 'py-0.5 pr-2 text-[12px]'
                                   : 'py-1 pr-2 text-[13px]'
                                 : isUltraDense
-                                ? 'py-0 pr-1 text-[12px]'
+                                ? 'py-0 pr-1 text-[10.5px] leading-[1.1]'
+                                : contFull
+                                ? 'py-[1px] pr-1.5 text-[11px] leading-[1.15]'
                                 : isSuperDense
-                                ? 'py-0.5 pr-1 text-[13px]'
+                                ? 'py-0.5 pr-1 text-[12.5px]'
                                 : isDense
                                 ? 'py-1 pr-2 text-[15px]'
                                 : 'py-1.5 pr-2 text-[16px]'
@@ -564,12 +610,14 @@ function ContinuousReceiptPaper({
                               className={`align-middle ${
                                 isA4
                                   ? a4Full
-                                    ? 'text-[11.5px] leading-[1.25]'
+                                    ? 'text-[11.5px] leading-[1.16]'
                                     : a4Medium
                                     ? 'text-[12.5px] leading-snug'
                                     : 'text-[13.5px] leading-normal'
                                   : isUltraDense
-                                  ? 'text-[12px] leading-tight'
+                                  ? 'text-[11px] leading-[1.12]'
+                                  : contFull
+                                  ? 'text-[11.5px] leading-[1.15]'
                                   : isSuperDense
                                   ? 'text-[13px] leading-tight'
                                   : isDense
@@ -580,12 +628,14 @@ function ContinuousReceiptPaper({
                               <td className={`text-center ${
                                 isA4
                                   ? a4Full
-                                    ? 'py-[2px]'
+                                    ? 'py-[1px]'
                                     : a4Medium
                                     ? 'py-0.5'
                                     : 'py-1'
                                   : isUltraDense
-                                  ? 'py-0'
+                                  ? 'py-[0.5px]'
+                                  : contFull
+                                  ? 'py-[1px]'
                                   : isSuperDense
                                   ? 'py-0.5'
                                   : isDense
@@ -597,12 +647,14 @@ function ContinuousReceiptPaper({
                               <td className={`px-2 ${
                                 isA4
                                   ? a4Full
-                                    ? 'py-[2px]'
+                                    ? 'py-[1px]'
                                     : a4Medium
                                     ? 'py-0.5'
                                     : 'py-1'
                                   : isUltraDense
-                                  ? 'py-0'
+                                  ? 'py-[0.5px]'
+                                  : contFull
+                                  ? 'py-[1px]'
                                   : isSuperDense
                                   ? 'py-0.5'
                                   : isDense
@@ -614,12 +666,14 @@ function ContinuousReceiptPaper({
                               <td className={`text-right ${
                                 isA4
                                   ? a4Full
-                                    ? 'py-[2px]'
+                                    ? 'py-[1px]'
                                     : a4Medium
                                     ? 'py-0.5'
                                     : 'py-1'
                                   : isUltraDense
-                                  ? 'py-0'
+                                  ? 'py-[0.5px]'
+                                  : contFull
+                                  ? 'py-[1px]'
                                   : isSuperDense
                                   ? 'py-0.5'
                                   : isDense
@@ -631,12 +685,14 @@ function ContinuousReceiptPaper({
                               <td className={`text-right ${
                                 isA4
                                   ? a4Full
-                                    ? 'py-[2px]'
+                                    ? 'py-[1px]'
                                     : a4Medium
                                     ? 'py-0.5'
                                     : 'py-1'
                                   : isUltraDense
-                                  ? 'py-0'
+                                  ? 'py-[0.5px]'
+                                  : contFull
+                                  ? 'py-[1px]'
                                   : isSuperDense
                                   ? 'py-0.5'
                                   : isDense
@@ -648,12 +704,14 @@ function ContinuousReceiptPaper({
                               <td className={`text-right ${
                                 isA4
                                   ? a4Full
-                                    ? 'py-[2px] pr-1.5'
+                                    ? 'py-[1px] pr-1.5'
                                     : a4Medium
                                     ? 'py-0.5 pr-2'
                                     : 'py-1 pr-2'
                                   : isUltraDense
-                                  ? 'py-0 pr-1'
+                                  ? 'py-[0.5px] pr-1'
+                                  : contFull
+                                  ? 'py-[1px] pr-1.5'
                                   : isSuperDense
                                   ? 'py-0.5 pr-1'
                                   : isDense
@@ -675,12 +733,14 @@ function ContinuousReceiptPaper({
                               className={
                                 isA4
                                   ? a4Full
-                                    ? 'h-[18px]'
+                                    ? 'h-[16px]'
                                     : a4Medium
                                     ? 'h-[22px]'
                                     : 'h-[26px]'
                                   : isUltraDense
                                   ? 'h-[14px]'
+                                  : contFull
+                                  ? 'h-[16px]'
                                   : isSuperDense
                                   ? 'h-[18px]'
                                   : isDense
@@ -708,11 +768,13 @@ function ContinuousReceiptPaper({
                   <div className={`grid grid-cols-12 ${
                     isA4
                       ? a4Full
-                        ? 'pt-1.5 pb-1 gap-2'
+                        ? 'pt-1 pb-0.5 gap-2'
                         : a4Medium
                         ? 'pt-2 pb-1.5 gap-3'
                         : 'pt-2.5 pb-2 gap-4'
                       : isUltraDense
+                      ? 'pt-0.5 pb-0.5 gap-2'
+                      : contFull
                       ? 'pt-1 pb-0.5 gap-2'
                       : isSuperDense
                       ? 'pt-1 pb-1 gap-2'
@@ -720,19 +782,21 @@ function ContinuousReceiptPaper({
                       ? 'pt-2 pb-1 gap-3'
                       : 'pt-3 pb-2 gap-4'
                   } border-t-2 border-black`}>
-                    <div className="col-span-7 flex flex-col justify-center">
+                    <div className={`${totalPages > 1 ? 'col-span-5' : 'col-span-6'} flex flex-col justify-center`}>
                       <div className="px-1 py-0.5">
                         <p className={`${
                           isA4
                             ? a4Full
-                              ? 'text-[11.5px]'
+                              ? 'text-[11px]'
                               : a4Medium
                               ? 'text-[12.5px]'
                               : 'text-[13.5px]'
                             : isUltraDense
-                            ? 'text-[12.5px]'
+                            ? 'text-[11px]'
+                            : contFull
+                            ? 'text-[11.5px]'
                             : isSuperDense
-                            ? 'text-[13.5px]'
+                            ? 'text-[13px]'
                             : isDense
                             ? 'text-[15px]'
                             : 'text-[16.5px]'
@@ -742,31 +806,33 @@ function ContinuousReceiptPaper({
                       </div>
                     </div>
 
-                    <div className={`col-span-5 pl-3 py-0.5 flex flex-col justify-center ${
+                    <div className={`${totalPages > 1 ? 'col-span-7' : 'col-span-6'} pl-2 py-0.5 flex flex-col justify-center ${
                       isA4
                         ? a4Full
-                          ? 'gap-0.5 text-[11.5px]'
+                          ? 'gap-0.5 text-[11px] leading-tight'
                           : a4Medium
-                          ? 'gap-1 text-[12.5px]'
-                          : 'gap-1 text-[13.5px]'
+                          ? 'gap-1 text-[12px]'
+                          : 'gap-1 text-[13px]'
                         : isUltraDense
-                        ? 'gap-0.5 text-[12.5px]'
+                        ? 'gap-0.5 text-[11px] leading-tight'
+                        : contFull
+                        ? 'gap-0.5 text-[11px] leading-tight'
                         : isSuperDense
-                        ? 'gap-1 text-[13.5px]'
+                        ? 'gap-1 text-[12.5px]'
                         : isDense
-                        ? 'gap-1 text-[15px]'
-                        : 'gap-1.5 text-[16.5px]'
+                        ? 'gap-1 text-[14.5px]'
+                        : 'gap-1.5 text-[16px]'
                     } font-bold text-black font-mono`}>
                       {totalPages > 1 && pageIdx > 0 && (
                         <>
                           <div className="flex justify-between items-center text-slate-800">
-                            <span className="font-bold whitespace-nowrap">ยอดยกมาจากหน้าก่อน ({previousItemCount} รายการ) :</span>
+                            <span className="font-bold whitespace-nowrap">ยอดยกมาจากหน้าก่อน ({previousItemCount} รายการ / {previousQtyTotal.toLocaleString('th-TH')} ชิ้น) :</span>
                             <span className="font-black whitespace-nowrap">
                               {previousSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                           </div>
                           <div className="flex justify-between items-center text-slate-800">
-                            <span className="font-bold whitespace-nowrap">ยอดสินค้าหน้านี้ ({pageItems.length} รายการ) :</span>
+                            <span className="font-bold whitespace-nowrap">ยอดสินค้าหน้านี้ ({pageItems.length} รายการ / {pageQtyTotal.toLocaleString('th-TH')} ชิ้น) :</span>
                             <span className="font-black whitespace-nowrap">
                               {pageSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
@@ -775,7 +841,7 @@ function ContinuousReceiptPaper({
                       )}
                       <div className={`flex justify-between items-center ${totalPages > 1 && pageIdx > 0 ? 'border-t border-dashed border-stone-400 pt-0.5' : ''}`}>
                         <span className="font-bold whitespace-nowrap">
-                          {totalPages > 1 ? `รวมเงิน (${items.length} รายการ) :` : 'รวมเงิน :'}
+                          รวมเงิน ({items.length} รายการ / {totalQty.toLocaleString('th-TH')} ชิ้น) :
                         </span>
                         <span className="font-black whitespace-nowrap">
                           {total.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -789,19 +855,21 @@ function ContinuousReceiptPaper({
                           </span>
                         </div>
                       )}
-                      <div className={`flex justify-between items-center border-t border-black pt-1 ${
+                      <div className={`flex justify-between items-center border-t border-black pt-0.5 ${
                         isA4
                           ? a4Full
-                            ? 'text-[14px]'
+                            ? 'text-[13.5px]'
                             : a4Medium
                             ? 'text-[15.5px]'
                             : 'text-[17px]'
                           : isUltraDense
-                          ? 'text-[14.5px]'
+                          ? 'text-[13px]'
+                          : contFull
+                          ? 'text-[13.5px]'
                           : isSuperDense
-                          ? 'text-[15.5px]'
+                          ? 'text-[15px]'
                           : isDense
-                          ? 'text-[17.5px]'
+                          ? 'text-[17px]'
                           : 'text-[19px]'
                       } font-black text-black`}>
                         <span className="whitespace-nowrap">ยอดสุทธิ :</span>
@@ -816,28 +884,32 @@ function ContinuousReceiptPaper({
                   <div className={`grid grid-cols-2 ${
                     isA4
                       ? a4Full
-                        ? 'gap-8 mt-1.5 pt-1 text-[11.5px]'
+                        ? 'gap-8 mt-1 pt-0.5 text-[11px]'
                         : a4Medium
                         ? 'gap-10 mt-2 pt-1.5 text-[12.5px]'
                         : 'gap-12 mt-3 pt-2 text-[13.5px]'
                       : isUltraDense
-                      ? 'gap-6 mt-0.5 pt-0.5 text-[12px]'
+                      ? 'gap-6 mt-0.5 pt-0.5 text-[11px]'
+                      : contFull
+                      ? 'gap-8 mt-1 pt-0.5 text-[11px]'
                       : isSuperDense
-                      ? 'gap-8 mt-1 pt-1 text-[13px]'
+                      ? 'gap-8 mt-1 pt-1 text-[12.5px]'
                       : isDense
                       ? 'gap-10 mt-1.5 pt-1 text-[14px]'
                       : 'gap-12 mt-3 pt-2 text-[15.5px]'
-                  } text-black font-bold border-t border-dashed border-stone-300`}>
+                  } text-black font-bold border-t border-dashed border-stone-300 leading-tight`}>
                     <div className="flex flex-col items-center justify-center w-full px-2">
                       <div className={
                         isA4
                           ? a4Full
-                            ? 'h-2.5'
+                            ? 'h-2'
                             : a4Medium
                             ? 'h-3.5'
                             : 'h-5'
                           : isUltraDense
                           ? 'h-1.5'
+                          : contFull
+                          ? 'h-2'
                           : isSuperDense
                           ? 'h-2.5'
                           : isDense
@@ -851,7 +923,7 @@ function ContinuousReceiptPaper({
                         </span>
                         <span className="shrink-0 whitespace-nowrap">ผู้รับสินค้า</span>
                       </div>
-                      <p className={`${isUltraDense || a4Full ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap text-center`}>
+                      <p className={`${isUltraDense || contFull || a4Full ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap text-center`}>
                         วันที่ ......../......../........
                       </p>
                     </div>
@@ -860,12 +932,14 @@ function ContinuousReceiptPaper({
                       <div className={
                         isA4
                           ? a4Full
-                            ? 'h-2.5'
+                            ? 'h-2'
                             : a4Medium
                             ? 'h-3.5'
                             : 'h-5'
                           : isUltraDense
                           ? 'h-1.5'
+                          : contFull
+                          ? 'h-2'
                           : isSuperDense
                           ? 'h-2.5'
                           : isDense
@@ -879,7 +953,7 @@ function ContinuousReceiptPaper({
                         </span>
                         <span className="shrink-0 whitespace-nowrap">ผู้รับเงิน</span>
                       </div>
-                      <p className={`${isUltraDense || a4Full ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap text-center`}>
+                      <p className={`${isUltraDense || contFull || a4Full ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap text-center`}>
                         วันที่ ......../......../........
                       </p>
                     </div>
@@ -891,11 +965,13 @@ function ContinuousReceiptPaper({
                   <div className={`grid grid-cols-12 ${
                     isA4
                       ? a4Full
-                        ? 'pt-1.5 pb-1 gap-2'
+                        ? 'pt-1 pb-0.5 gap-2'
                         : a4Medium
                         ? 'pt-2 pb-1 gap-3'
                         : 'pt-2.5 pb-1.5 gap-4'
                       : isUltraDense
+                      ? 'pt-0.5 pb-0.5 gap-2'
+                      : contFull
                       ? 'pt-1 pb-0.5 gap-2'
                       : isSuperDense
                       ? 'pt-1.5 pb-1 gap-2'
@@ -903,59 +979,63 @@ function ContinuousReceiptPaper({
                       ? 'pt-2 pb-1 gap-3'
                       : 'pt-3 pb-2 gap-4'
                   } border-t-2 border-black`}>
-                    <div className="col-span-6 flex flex-col justify-center">
+                    <div className="col-span-5 flex flex-col justify-center">
                       <div className="px-1 py-0.5">
                         <p className={`${
                           isA4
                             ? a4Full
-                              ? 'text-[11.5px]'
+                              ? 'text-[11px]'
                               : a4Medium
                               ? 'text-[12.5px]'
                               : 'text-[13.5px]'
                             : isUltraDense
-                            ? 'text-[12.5px]'
+                            ? 'text-[11px]'
+                            : contFull
+                            ? 'text-[11.5px]'
                             : isSuperDense
-                            ? 'text-[13.5px]'
+                            ? 'text-[13px]'
                             : isDense
                             ? 'text-[15px]'
                             : 'text-[16.5px]'
                         } text-black font-black leading-tight italic`}>
-                          *** มีต่อหน้าที่ {pageIdx + 2} (ยกยอดสะสม {runningItemCount} รายการ) ***
+                          *** มีต่อหน้าที่ {pageIdx + 2} (สะสม {runningItemCount} รายการ / {runningQtyTotal.toLocaleString('th-TH')} ชิ้น) ***
                         </p>
                       </div>
                     </div>
 
-                    <div className={`col-span-6 pl-3 py-0.5 flex flex-col justify-center ${
+                    <div className={`col-span-7 pl-2 py-0.5 flex flex-col justify-center ${
                       isA4
                         ? a4Full
-                          ? 'gap-0.5 text-[11.5px]'
+                          ? 'gap-0.5 text-[11px] leading-tight'
                           : a4Medium
-                          ? 'gap-1 text-[12.5px]'
-                          : 'gap-1 text-[13.5px]'
+                          ? 'gap-1 text-[12px]'
+                          : 'gap-1 text-[13px]'
                         : isUltraDense
-                        ? 'gap-0.5 text-[12.5px]'
+                        ? 'gap-0.5 text-[11px] leading-tight'
+                        : contFull
+                        ? 'gap-0.5 text-[11px] leading-tight'
                         : isSuperDense
-                        ? 'gap-1 text-[13.5px]'
+                        ? 'gap-1 text-[12.5px]'
                         : isDense
-                        ? 'gap-1 text-[15px]'
-                        : 'gap-1.5 text-[16.5px]'
+                        ? 'gap-1 text-[14.5px]'
+                        : 'gap-1.5 text-[16px]'
                     } font-bold text-black font-mono`}>
                       {pageIdx > 0 && (
                         <div className="flex justify-between items-center text-slate-800">
-                          <span className="font-bold whitespace-nowrap">ยอดยกมาจากหน้าก่อน ({previousItemCount} รายการ) :</span>
+                          <span className="font-bold whitespace-nowrap">ยอดยกมาจากหน้าก่อน ({previousItemCount} รายการ / {previousQtyTotal.toLocaleString('th-TH')} ชิ้น) :</span>
                           <span className="font-black whitespace-nowrap">
                             {previousSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       )}
                       <div className="flex justify-between items-center text-slate-800">
-                        <span className="font-bold whitespace-nowrap">ยอดรวมหน้านี้ ({pageItems.length} รายการ) :</span>
+                        <span className="font-bold whitespace-nowrap">ยอดรวมหน้านี้ ({pageItems.length} รายการ / {pageQtyTotal.toLocaleString('th-TH')} ชิ้น) :</span>
                         <span className="font-black whitespace-nowrap">
                           {pageSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
                       <div className="flex justify-between items-center border-t border-black pt-0.5">
-                        <span className="font-bold whitespace-nowrap">ยอดยกไป ({runningItemCount} รายการ) :</span>
+                        <span className="font-bold whitespace-nowrap">ยอดยกไป ({runningItemCount} รายการ / {runningQtyTotal.toLocaleString('th-TH')} ชิ้น) :</span>
                         <span className="font-black whitespace-nowrap">
                           {runningSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
@@ -967,18 +1047,20 @@ function ContinuousReceiptPaper({
                   <div className={`flex justify-between items-center ${
                     isA4
                       ? a4Full
-                        ? 'mt-1 pt-1 text-[11px]'
+                        ? 'mt-0.5 pt-0.5 text-[10.5px]'
                         : a4Medium
                         ? 'mt-1.5 pt-1 text-[12px]'
                         : 'mt-2 pt-1.5 text-[12.5px]'
                       : isUltraDense
-                      ? 'mt-0.5 pt-0.5 text-[12px]'
+                      ? 'mt-0.5 pt-0.5 text-[10.5px]'
+                      : contFull
+                      ? 'mt-0.5 pt-0.5 text-[10.5px]'
                       : isSuperDense
-                      ? 'mt-1 pt-1 text-[12.5px]'
+                      ? 'mt-1 pt-1 text-[12px]'
                       : isDense
                       ? 'mt-2 pt-1 text-[13.5px]'
                       : 'mt-3 pt-2 text-[14.5px]'
-                  } text-slate-800 font-bold border-t border-dashed border-stone-300 px-1`}>
+                  } text-slate-800 font-bold border-t border-dashed border-stone-300 px-1 leading-tight`}>
                     <span>{isA4 ? 'ใบเสร็จรับเงินขนาด A4' : 'ใบเสร็จรับเงินต่อเนื่อง'} (หน้าที่ {pageIdx + 1} จาก {totalPages} หน้า)</span>
                     <span className="font-black text-black">โปรดดูยอดรวมสุทธิและลายเซ็นต์ที่หน้า {totalPages}</span>
                   </div>
@@ -1054,9 +1136,9 @@ export default function ReceiptView({
   const [activePrintMode, setActivePrintMode] = useState<'continuous' | 'a4' | null>(null);
   const printPinhole = paperMode === 'continuous';
   const paperSize = paperMode === 'a4' ? ('a4' as const) : ('9.5x11' as const);
-  const effectiveLinesPerPage = paperMode === 'a4' ? 35 : 20;
+  const effectiveLinesPerPage = 35;
   const printPaperSize = printPaperMode === 'a4' ? ('a4' as const) : ('9.5x11' as const);
-  const printLinesPerPage = printPaperMode === 'a4' ? 35 : 20;
+  const printLinesPerPage = 35;
   const previewTargetWidth = paperMode === 'a4' ? 794 : 912;
   const previewTargetHeight = paperMode === 'a4' ? 1123 : 1056;
   
@@ -1501,8 +1583,9 @@ export default function ReceiptView({
     setItems((prev) => prev.filter((i) => i.product.id !== productId));
   };
 
-  // Calculations (satang-accurate integer summation)
+  // Calculations (satang-accurate integer summation + complete order & unit quantity totals)
   const total = sumItemsSatang(items) / 100;
+  const totalQty = sumItemsQuantity(items);
   const netTotal = Math.max(0, Math.round((total - discount) * 100) / 100);
   const totalPages = Math.max(1, Math.ceil(items.length / effectiveLinesPerPage));
 
@@ -1516,16 +1599,23 @@ export default function ReceiptView({
     return Array.from({ length: totalPages }).map((_, idx) => {
       const startIdx = idx * effectiveLinesPerPage;
       const endIdx = Math.min(items.length, (idx + 1) * effectiveLinesPerPage);
+      const prevSlice = items.slice(0, startIdx);
       const slice = items.slice(startIdx, endIdx);
-      const carryInSatang = sumItemsSatang(items.slice(0, startIdx));
+      const carryInSatang = sumItemsSatang(prevSlice);
       const pageSatang = sumItemsSatang(slice);
       const carryOutSatang = carryInSatang + pageSatang;
+      const carryInQty = sumItemsQuantity(prevSlice);
+      const pageQty = sumItemsQuantity(slice);
+      const carryOutQty = carryInQty + pageQty;
       return {
         pageNumber: idx + 1,
         pageIndex: idx,
         startItem: startIdx + 1,
         endItem: endIdx,
         itemCount: slice.length,
+        carryInQty,
+        pageQty,
+        carryOutQty,
         carryIn: carryInSatang / 100,
         pageTotal: pageSatang / 100,
         carryOut: carryOutSatang / 100,
@@ -2227,7 +2317,7 @@ export default function ReceiptView({
                     </h4>
                   </div>
                   <span className="text-xs sm:text-sm font-bold text-slate-700 tabular-nums">
-                    ครบทั้ง {items.length} รายการ · {totalPages} แผ่น
+                    ครบทั้ง {items.length} รายการ · {totalQty.toLocaleString('th-TH')} ชิ้น · {totalPages} แผ่น
                   </span>
                 </div>
 
@@ -2235,12 +2325,13 @@ export default function ReceiptView({
                   <table className="w-full text-left border-collapse text-xs sm:text-sm">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
-                        <th className="py-2 px-3 whitespace-nowrap">แผ่นที่</th>
-                        <th className="py-2 px-3 whitespace-nowrap">รายการ</th>
-                        <th className="py-2 px-3 text-right whitespace-nowrap">ยอดยกมา</th>
-                        <th className="py-2 px-3 text-right whitespace-nowrap">ยอดแผ่นนี้</th>
-                        <th className="py-2 px-3 text-right whitespace-nowrap">ยอดสะสม / ยอดยกไป</th>
-                        <th className="py-2 px-3 text-center whitespace-nowrap">ดูตัวอย่าง</th>
+                        <th className="py-2 px-2.5 whitespace-nowrap">แผ่นที่</th>
+                        <th className="py-2 px-2.5 whitespace-nowrap">รายการ (ออเดอร์)</th>
+                        <th className="py-2 px-2.5 text-right whitespace-nowrap">จำนวนชิ้น</th>
+                        <th className="py-2 px-2.5 text-right whitespace-nowrap">ยอดยกมา</th>
+                        <th className="py-2 px-2.5 text-right whitespace-nowrap">ยอดแผ่นนี้</th>
+                        <th className="py-2 px-2.5 text-right whitespace-nowrap">ยอดสะสม / ยอดยกไป</th>
+                        <th className="py-2 px-2.5 text-center whitespace-nowrap">ดูตัวอย่าง</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -2254,22 +2345,25 @@ export default function ReceiptView({
                               isSelected ? 'bg-slate-100/90' : 'hover:bg-slate-50'
                             }`}
                           >
-                            <td className="py-2 px-3 font-bold text-slate-900 whitespace-nowrap tabular-nums">
+                            <td className="py-2 px-2.5 font-bold text-slate-900 whitespace-nowrap tabular-nums">
                               แผ่นที่ {p.pageNumber}
                             </td>
-                            <td className="py-2 px-3 text-slate-700 whitespace-nowrap tabular-nums">
+                            <td className="py-2 px-2.5 text-slate-700 whitespace-nowrap tabular-nums">
                               #{p.startItem}–{p.endItem} ({p.itemCount})
                             </td>
-                            <td className="py-2 px-3 text-right font-mono tabular-nums text-slate-600 whitespace-nowrap">
+                            <td className="py-2 px-2.5 text-right font-mono tabular-nums text-slate-800 whitespace-nowrap">
+                              {p.pageQty.toLocaleString('th-TH')} (สะสม {p.carryOutQty.toLocaleString('th-TH')})
+                            </td>
+                            <td className="py-2 px-2.5 text-right font-mono tabular-nums text-slate-600 whitespace-nowrap">
                               {p.pageIndex === 0 ? '-' : `฿${p.carryIn.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                             </td>
-                            <td className="py-2 px-3 text-right font-mono font-bold tabular-nums text-slate-900 whitespace-nowrap">
+                            <td className="py-2 px-2.5 text-right font-mono font-bold tabular-nums text-slate-900 whitespace-nowrap">
                               ฿{p.pageTotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-                            <td className="py-2 px-3 text-right font-mono font-bold tabular-nums text-slate-950 whitespace-nowrap">
+                            <td className="py-2 px-2.5 text-right font-mono font-bold tabular-nums text-slate-950 whitespace-nowrap">
                               ฿{p.carryOut.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-                            <td className="py-2 px-3 text-center whitespace-nowrap">
+                            <td className="py-2 px-2.5 text-center whitespace-nowrap">
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -2294,7 +2388,7 @@ export default function ReceiptView({
 
                 <div className="flex items-center justify-between flex-wrap gap-2 pt-1 text-xs sm:text-sm font-bold text-slate-800">
                   <span>
-                    รวมครบทุกแผ่น ({items.length} รายการ)
+                    รวมครบทุกแผ่น ({items.length} รายการ · {totalQty.toLocaleString('th-TH')} ชิ้น)
                     {discount > 0 && ` · หักส่วนลด ฿${discount.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                   </span>
                   <span className="font-mono tabular-nums text-slate-950 text-sm sm:text-base font-black">
@@ -2316,7 +2410,7 @@ export default function ReceiptView({
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    กระดาษต่อเนื่อง 9.5"×11" (20/แผ่น)
+                    กระดาษต่อเนื่อง 9.5"×11" (35/แผ่น)
                   </button>
                   <button
                     type="button"
@@ -2477,7 +2571,7 @@ export default function ReceiptView({
                       <span>
                         {effectiveInvoiceId
                           ? `พิมพ์ซ้ำต่อเนื่อง (#${effectiveInvoiceId})`
-                          : 'สั่งพิมพ์กระดาษต่อเนื่อง (9.5"×11")'}
+                          : 'สั่งพิมพ์กระดาษต่อเนื่อง (35/แผ่น)'}
                       </span>
                     </>
                   )}
@@ -2577,7 +2671,7 @@ export default function ReceiptView({
                 height: ${printPaperMode === 'a4' ? '297mm' : '11in'} !important;
                 max-height: ${printPaperMode === 'a4' ? '297mm' : '11in'} !important;
                 margin: 0 !important;
-                padding: ${printPaperMode === 'a4' ? '7mm 10mm' : '4.5mm 8mm'} !important;
+                padding: ${printPaperMode === 'a4' ? '5mm 8mm' : '3.5mm 7mm'} !important;
                 box-sizing: border-box !important;
                 overflow: hidden !important;
                 page-break-inside: avoid !important;
@@ -2628,7 +2722,7 @@ export default function ReceiptView({
                 <p className="text-xs text-slate-300">
                   {paperMode === 'a4'
                     ? 'ขนาดกระดาษ A4 แนวตั้ง (210mm x 297mm) • สูงสุด 35 รายการต่อหน้า'
-                    : 'ขนาดกระดาษ 9.5" x 11" • สูงสุด 20 รายการต่อแผ่น'}
+                    : 'ขนาดกระดาษ 9.5" x 11" • สูงสุด 35 รายการต่อแผ่น'}
                 </p>
               </div>
             </div>
