@@ -2372,8 +2372,138 @@ export default function ReceiptView({
             </div>
           </div>
 
-          {/* Right Column: Receipt Preview & Actions (Span 7/12 for spacious, legible paper view) */}
+          {/* Right Column: Paper Format Controls, Summary, Receipt Preview & Actions (Span 7/12) */}
           <div className="lg:col-span-7 xl:col-span-7 flex flex-col gap-5">
+
+            {/* Prominent Top Control Card: Paper Format, Page Selector & Zoom */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-slate-700 shrink-0" />
+                  <h4 className="text-sm sm:text-base font-bold text-slate-900">
+                    เลือกรูปแบบกระดาษและมุมมองใบเสร็จ
+                  </h4>
+                </div>
+                <span className="text-xs sm:text-sm font-bold text-slate-700 tabular-nums">
+                  {items.length > 0
+                    ? `${paperMode === 'a4' ? `A4 ทั้งหมด ${totalPages} หน้า` : `ทั้งหมด ${totalPages} แผ่น`} · ${items.length} รายการ`
+                    : 'ยังไม่มีรายการสินค้า'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setPaperMode('continuous')}
+                  className={`px-3.5 py-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                    paperMode === 'continuous'
+                      ? 'bg-slate-950 text-white border-slate-950 shadow-xs'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200'
+                  }`}
+                >
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold whitespace-nowrap">
+                      กระดาษต่อเนื่อง 9.5"×11"
+                    </span>
+                    <span className={`text-xs ${paperMode === 'continuous' ? 'text-slate-300' : 'text-slate-500'}`}>
+                      สูงสุด 35 รายการ/แผ่น
+                    </span>
+                  </div>
+                  <span className={`text-xs font-bold whitespace-nowrap shrink-0 ${paperMode === 'continuous' ? 'text-emerald-300' : 'text-slate-400'}`}>
+                    {paperMode === 'continuous' ? 'กำลังเลือก' : 'เลือกใช้'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPaperMode('a4')}
+                  className={`px-3.5 py-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                    paperMode === 'a4'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200'
+                  }`}
+                >
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold whitespace-nowrap">
+                      กระดาษ A4 แนวตั้ง
+                    </span>
+                    <span className={`text-xs ${paperMode === 'a4' ? 'text-emerald-100' : 'text-slate-500'}`}>
+                      สูงสุด 35 รายการ/หน้า
+                    </span>
+                  </div>
+                  <span className={`text-xs font-bold whitespace-nowrap shrink-0 ${paperMode === 'a4' ? 'text-white' : 'text-slate-400'}`}>
+                    {paperMode === 'a4' ? 'กำลังเลือก' : 'เลือกใช้'}
+                  </span>
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 flex-wrap pt-2.5 border-t border-slate-100">
+                {totalPages > 1 ? (
+                  <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs sm:text-sm font-bold flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPreviewPage('all')}
+                      className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${
+                        selectedPreviewPage === 'all' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {paperMode === 'a4' ? `ทุกหน้า (${totalPages})` : `ทุกแผ่น (${totalPages})`}
+                    </button>
+                    {pageSummaries.map((p) => (
+                      <button
+                        key={`preview-tab-${p.pageIndex}`}
+                        type="button"
+                        onClick={() => setSelectedPreviewPage(p.pageIndex)}
+                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${
+                          selectedPreviewPage === p.pageIndex ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        {paperMode === 'a4' ? `หน้าที่ ${p.pageNumber}` : `แผ่นที่ ${p.pageNumber}`}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-xs sm:text-sm font-medium text-slate-600 tabular-nums">
+                    แสดงตัวอย่าง {paperMode === 'a4' ? 'หน้าที่ 1 / 1' : 'แผ่นที่ 1 / 1'}
+                  </span>
+                )}
+
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs sm:text-sm font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewZoom('fit')}
+                      className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${
+                        previewZoom === 'fit' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      พอดีจอ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewZoom('100')}
+                      className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${
+                        previewZoom === '100' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      ขนาดจริง 100%
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewModalIntent('preview');
+                      setShowFullPreviewModal(true);
+                    }}
+                    title="ตรวจสอบข้อมูลและตัวอย่างเต็มจอ 100% ก่อนพิมพ์"
+                    className="px-2.5 py-1.5 text-slate-700 hover:text-slate-950 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer border border-slate-200 bg-white shadow-2xs flex items-center gap-1.5 text-xs font-bold whitespace-nowrap"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">เต็มจอ</span>
+                  </button>
+                </div>
+              </div>
+            </div>
             
             {items.length > 0 && (
               <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col gap-3">
@@ -2628,98 +2758,6 @@ export default function ReceiptView({
                 </div>
               </div>
             )}
-
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setPaperMode('continuous')}
-                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                      paperMode === 'continuous'
-                        ? 'bg-white text-slate-950 shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    กระดาษต่อเนื่อง 9.5"×11" (35/แผ่น)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaperMode('a4')}
-                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                      paperMode === 'a4'
-                        ? 'bg-white text-slate-950 shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    กระดาษ A4 แนวตั้ง (35/หน้า)
-                  </button>
-                </div>
-                {items.length > 0 && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-bold tabular-nums">
-                    {paperMode === 'a4' ? `A4 ทั้งหมด ${totalPages} หน้า` : `ทั้งหมด ${totalPages} แผ่น`}
-                  </span>
-                )}
-                {totalPages > 1 && (
-                  <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs sm:text-sm font-bold flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPreviewPage('all')}
-                      className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${
-                        selectedPreviewPage === 'all' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      {paperMode === 'a4' ? `ทุกหน้า (${totalPages})` : `ทุกแผ่น (${totalPages})`}
-                    </button>
-                    {pageSummaries.map((p) => (
-                      <button
-                        key={`preview-tab-${p.pageIndex}`}
-                        type="button"
-                        onClick={() => setSelectedPreviewPage(p.pageIndex)}
-                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${
-                          selectedPreviewPage === p.pageIndex ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        {paperMode === 'a4' ? `หน้าที่ ${p.pageNumber}` : `แผ่นที่ ${p.pageNumber}`}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs sm:text-sm font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewZoom('fit')}
-                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${
-                      previewZoom === 'fit' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    พอดีจอ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewZoom('100')}
-                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${
-                      previewZoom === '100' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    ขนาดจริง 100%
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPreviewModalIntent('preview');
-                    setShowFullPreviewModal(true);
-                  }}
-                  title="ตรวจสอบข้อมูลและตัวอย่างเต็มจอ 100% ก่อนพิมพ์"
-                  className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer border border-slate-200 bg-white shadow-xs"
-                >
-                  <Maximize2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
 
             {/* Paper Bill Lookalike Preview */}
             {previewZoom === 'fit' ? (
