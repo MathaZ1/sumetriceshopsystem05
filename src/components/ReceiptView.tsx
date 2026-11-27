@@ -79,7 +79,7 @@ function sumItemsSatang(list: CartItem[]): number {
 }
 
 interface ContinuousReceiptPaperProps {
-  paperSize: '9.5x11' | '9.5x5.5';
+  paperSize: '9.5x11' | '9.5x5.5' | 'a4';
   printPinhole: boolean;
   invoiceNumber: string;
   todayStr: string;
@@ -113,11 +113,14 @@ function ContinuousReceiptPaper({
   linesPerPage = 20,
   visiblePageIndex = null,
 }: ContinuousReceiptPaperProps) {
-  // Default lines per page: 20 for 9.5x11 (comfortably fits 20 rows with large, clear text without compression)
-  // Default 10 for half-page 9.5x5.5
-  const defaultPageLimit = paperSize === '9.5x11' ? 20 : 10;
+  const isA4 = paperSize === 'a4';
+  const effectivePinhole = isA4 ? false : printPinhole;
+  // Default lines per page: 35 for A4 portrait, 20 for 9.5x11 continuous, 10 for half-page
+  const defaultPageLimit = isA4 ? 35 : paperSize === '9.5x11' ? 20 : 10;
   const itemsPerPage = linesPerPage && linesPerPage > 0 ? linesPerPage : defaultPageLimit;
   const totalPages = Math.max(1, Math.ceil(items.length / itemsPerPage));
+  const paperWidthPx = isA4 ? 794 : 912;
+  const paperHeightPx = isA4 ? 1123 : paperSize === '9.5x11' ? 1056 : 620;
 
   return (
     <div className={isPrintPortal ? 'receipt-pages-wrapper' : 'flex flex-col gap-6 w-full'}>
@@ -128,10 +131,14 @@ function ContinuousReceiptPaper({
         const pageItems = items.slice(pageIdx * itemsPerPage, (pageIdx + 1) * itemsPerPage);
         const isLastPage = pageIdx === totalPages - 1;
         const count = pageItems.length;
-        const isUltraDense = count > 35; // 36 - 50 items (only if forced onto 1 page)
-        const isSuperDense = count > 22 && count <= 35; // 23 - 35 items
-        const isDense = count > 12 && count <= 22; // 13 - 22 items (20 lines per page will be in this crisp, clear zone)
-        const previousSubtotalSatang = sumItemsSatang(items.slice(0, pageIdx * itemsPerPage));
+        const isUltraDense = !isA4 && count > 35; // 36 - 50 items (only if forced onto 1 page)
+        const isSuperDense = !isA4 && count > 22 && count <= 35; // 23 - 35 items
+        const isDense = !isA4 && count > 12 && count <= 22; // 13 - 22 items (20 lines per page will be in this crisp, clear zone)
+        const a4Full = isA4 && count > 26; // 27 - 35 items on A4
+        const a4Medium = isA4 && count > 16 && count <= 26; // 17 - 26 items on A4
+        const previousItemCount = pageIdx * itemsPerPage;
+        const runningItemCount = previousItemCount + pageItems.length;
+        const previousSubtotalSatang = sumItemsSatang(items.slice(0, previousItemCount));
         const pageSubtotalSatang = sumItemsSatang(pageItems);
         const runningSubtotalSatang = previousSubtotalSatang + pageSubtotalSatang;
         const previousSubtotal = previousSubtotalSatang / 100;
@@ -145,21 +152,27 @@ function ContinuousReceiptPaper({
                 <span className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-lg shadow-2xs">
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-900"></span>
                   แผ่นที่ {pageIdx + 1} จาก {totalPages} ({pageItems.length} รายการ)
-                  {pageIdx === 0 && ' • มียอดยกไป'}
+                  {pageIdx === 0 && ' • มียอดและจำนวนรายการยกไป'}
                   {pageIdx > 0 && !isLastPage && ' • ยอดยกมา / ยอดยกไป'}
                   {isLastPage && ' • ยอดรวมสุทธิและลายเซ็นต์'}
                 </span>
                 <span className="text-[11px] text-slate-400 font-mono">
-                  รายการที่ {pageIdx * itemsPerPage + 1} - {pageIdx * itemsPerPage + pageItems.length}
+                  รายการที่ {previousItemCount + 1} - {runningItemCount}
                 </span>
               </div>
             )}
             <div
               key={`receipt-page-${pageIdx}`}
-              className={`dot-matrix-print-target print-receipt-card bg-[#ffffff] border border-stone-300 ${
+              className={`dot-matrix-print-target ${isA4 ? 'a4-print-target' : ''} print-receipt-card bg-[#ffffff] border border-stone-300 ${
                 isPrintPortal ? '' : 'rounded-xl shadow-lg'
               } ${
-                isUltraDense
+                isA4
+                  ? a4Full
+                    ? 'p-4 sm:p-5'
+                    : a4Medium
+                    ? 'p-5 sm:p-6'
+                    : 'p-6 sm:p-7'
+                  : isUltraDense
                   ? 'p-2.5 sm:p-3'
                   : isSuperDense
                   ? 'p-3.5 sm:p-4'
@@ -167,20 +180,20 @@ function ContinuousReceiptPaper({
                   ? 'p-4'
                   : 'p-6 sm:p-7'
               } font-mono text-black select-all flex flex-col justify-between overflow-hidden relative ${
-                printPinhole ? 'print-pinholes-visible' : ''
+                effectivePinhole ? 'print-pinholes-visible' : ''
               } ${!isLastPage ? 'page-break' : 'last-page'}`}
               style={{
-                width: '912px',
-                minHeight: paperSize === '9.5x11' ? '1056px' : '620px',
-                maxHeight: paperSize === '9.5x11' ? '1056px' : '620px',
-                height: paperSize === '9.5x11' ? '1056px' : '620px',
+                width: `${paperWidthPx}px`,
+                minHeight: `${paperHeightPx}px`,
+                maxHeight: `${paperHeightPx}px`,
+                height: `${paperHeightPx}px`,
                 boxSizing: 'border-box',
                 pageBreakAfter: isLastPage ? 'auto' : 'always',
                 breakAfter: isLastPage ? 'auto' : 'page',
               }}
             >
             {/* Continuous Form Pinhole Margins (Left Strip) */}
-            {printPinhole && (
+            {effectivePinhole && (
               <div className="print-pinholes absolute left-0 top-0 bottom-0 w-8 border-r border-dashed border-stone-300 bg-stone-100/40 flex flex-col justify-around items-center py-4 z-10">
                 {[...Array(paperSize === '9.5x11' ? 14 : 7)].map((_, idx) => (
                   <div
@@ -192,7 +205,7 @@ function ContinuousReceiptPaper({
             )}
 
             {/* Continuous Form Pinhole Margins (Right Strip) */}
-            {printPinhole && (
+            {effectivePinhole && (
               <div className="print-pinholes absolute right-0 top-0 bottom-0 w-8 border-l border-dashed border-stone-300 bg-stone-100/40 flex flex-col justify-around items-center py-4 z-10">
                 {[...Array(paperSize === '9.5x11' ? 14 : 7)].map((_, idx) => (
                   <div
@@ -204,26 +217,86 @@ function ContinuousReceiptPaper({
             )}
 
             {/* Main Content */}
-            <div className={`${printPinhole && !isPrintPortal ? 'mx-6' : 'mx-0'} h-full flex flex-col justify-between ${
-              isUltraDense ? 'gap-0.5' : isSuperDense ? 'gap-1' : isDense ? 'gap-2' : 'gap-3'
+            <div className={`${effectivePinhole && !isPrintPortal ? 'mx-6' : 'mx-0'} h-full flex flex-col justify-between ${
+              isA4
+                ? a4Full
+                  ? 'gap-1'
+                  : a4Medium
+                  ? 'gap-1.5'
+                  : 'gap-2.5'
+                : isUltraDense
+                ? 'gap-0.5'
+                : isSuperDense
+                ? 'gap-1'
+                : isDense
+                ? 'gap-2'
+                : 'gap-3'
             } w-full overflow-hidden`}>
               {/* Top Header Block */}
               <div className={`flex justify-between items-start ${
-                isUltraDense ? 'pb-0.5' : isSuperDense ? 'pb-1' : isDense ? 'pb-2' : 'pb-3'
+                isA4
+                  ? a4Full
+                    ? 'pb-1.5'
+                    : a4Medium
+                    ? 'pb-2'
+                    : 'pb-2.5'
+                  : isUltraDense
+                  ? 'pb-0.5'
+                  : isSuperDense
+                  ? 'pb-1'
+                  : isDense
+                  ? 'pb-2'
+                  : 'pb-3'
               } border-b border-black/15`}>
                 <div>
                   <h3 className={`font-black text-black ${
-                    isUltraDense ? 'text-[17.5px]' : isSuperDense ? 'text-[18.5px]' : isDense ? 'text-[20px]' : 'text-[22px]'
+                    isA4
+                      ? a4Full
+                        ? 'text-[17px]'
+                        : a4Medium
+                        ? 'text-[18px]'
+                        : 'text-[19px]'
+                      : isUltraDense
+                      ? 'text-[17.5px]'
+                      : isSuperDense
+                      ? 'text-[18.5px]'
+                      : isDense
+                      ? 'text-[20px]'
+                      : 'text-[22px]'
                   } tracking-wide leading-tight`}>
                     ร้านสุเมธค้าข้าว
                   </h3>
                   <p className={`${
-                    isUltraDense ? 'text-[12px] mt-0.5' : isSuperDense ? 'text-[13.5px] mt-0.5' : isDense ? 'text-[15px] mt-0.5' : 'text-[16.5px] mt-1'
+                    isA4
+                      ? a4Full
+                        ? 'text-[11.5px] mt-0.5'
+                        : a4Medium
+                        ? 'text-[12.5px] mt-0.5'
+                        : 'text-[13.5px] mt-1'
+                      : isUltraDense
+                      ? 'text-[12px] mt-0.5'
+                      : isSuperDense
+                      ? 'text-[13.5px] mt-0.5'
+                      : isDense
+                      ? 'text-[15px] mt-0.5'
+                      : 'text-[16.5px] mt-1'
                   } font-bold text-black leading-tight`}>
                     ถ.จุลจอมเกล้า ต.ท่าข้าม อ.พุนพิน จ.สุราษฎร์ธานี 84130
                   </p>
                   <p className={`${
-                    isUltraDense ? 'text-[12px] mt-0.5' : isSuperDense ? 'text-[13.5px] mt-0.5' : isDense ? 'text-[15px] mt-0.5' : 'text-[16.5px] mt-1'
+                    isA4
+                      ? a4Full
+                        ? 'text-[11.5px] mt-0.5'
+                        : a4Medium
+                        ? 'text-[12.5px] mt-0.5'
+                        : 'text-[13.5px] mt-1'
+                      : isUltraDense
+                      ? 'text-[12px] mt-0.5'
+                      : isSuperDense
+                      ? 'text-[13.5px] mt-0.5'
+                      : isDense
+                      ? 'text-[15px] mt-0.5'
+                      : 'text-[16.5px] mt-1'
                   } font-bold text-black leading-tight`}>
                     สาขาโค้งวัดดอนกระถิน โทร : <span className="font-black text-black">077-441628</span> / สาขาดอนเนียง โทร :{' '}
                     <span className="font-black text-black">098-6785002</span>
@@ -232,12 +305,36 @@ function ContinuousReceiptPaper({
 
                 <div className="text-right flex flex-col items-end gap-0.5">
                   <div className={`font-black ${
-                    isUltraDense ? 'text-[17.5px]' : isSuperDense ? 'text-[18.5px]' : isDense ? 'text-[20px]' : 'text-[22px]'
+                    isA4
+                      ? a4Full
+                        ? 'text-[17px]'
+                        : a4Medium
+                        ? 'text-[18px]'
+                        : 'text-[19px]'
+                      : isUltraDense
+                      ? 'text-[17.5px]'
+                      : isSuperDense
+                      ? 'text-[18.5px]'
+                      : isDense
+                      ? 'text-[20px]'
+                      : 'text-[22px]'
                   } text-black tracking-wider leading-tight`}>
                     ใบเสร็จรับเงิน / RECEIPT
                   </div>
                   <div className={`${
-                    isUltraDense ? 'text-[12.5px] gap-0.5' : isSuperDense ? 'text-[13.5px] gap-0.5' : isDense ? 'text-[15px] gap-0.5' : 'text-[16.5px] gap-1'
+                    isA4
+                      ? a4Full
+                        ? 'text-[11.5px] gap-0.5'
+                        : a4Medium
+                        ? 'text-[12.5px] gap-0.5'
+                        : 'text-[13.5px] gap-0.5'
+                      : isUltraDense
+                      ? 'text-[12.5px] gap-0.5'
+                      : isSuperDense
+                      ? 'text-[13.5px] gap-0.5'
+                      : isDense
+                      ? 'text-[15px] gap-0.5'
+                      : 'text-[16.5px] gap-1'
                   } text-black mt-0.5 flex flex-col items-end font-bold font-mono`}>
                     <div>
                       เลขที่บิล / Invoice No : <span className="text-black font-black">{invoiceNumber}</span>
@@ -254,7 +351,13 @@ function ContinuousReceiptPaper({
 
               {/* Customer Information Block */}
               <div className={`${
-                isUltraDense
+                isA4
+                  ? a4Full
+                    ? 'py-1 gap-0.5 text-[11.5px]'
+                    : a4Medium
+                    ? 'py-1.5 gap-1 text-[12.5px]'
+                    : 'py-2 gap-1.5 text-[13.5px]'
+                  : isUltraDense
                   ? 'py-0.5 gap-0.5 text-[12.5px]'
                   : isSuperDense
                   ? 'py-1 gap-1 text-[13.5px]'
@@ -298,29 +401,101 @@ function ContinuousReceiptPaper({
                 <table className="w-full font-mono border-collapse table-fixed">
                   <thead>
                     <tr className={`text-black font-black text-left bg-transparent border-y-2 border-black ${
-                      isUltraDense ? 'text-[12.5px]' : isSuperDense ? 'text-[13.5px]' : isDense ? 'text-[15px]' : 'text-[16.5px]'
+                      isA4
+                        ? a4Full
+                          ? 'text-[12px]'
+                          : a4Medium
+                          ? 'text-[13px]'
+                          : 'text-[14px]'
+                        : isUltraDense
+                        ? 'text-[12.5px]'
+                        : isSuperDense
+                        ? 'text-[13.5px]'
+                        : isDense
+                        ? 'text-[15px]'
+                        : 'text-[16.5px]'
                     }`}>
                       <th className={`${
-                        isUltraDense ? 'py-0.5' : isSuperDense ? 'py-1' : isDense ? 'py-1.5' : 'py-2'
-                      } text-center w-[54px] font-black whitespace-nowrap`}>ลำดับ</th>
+                        isA4
+                          ? a4Full
+                            ? 'py-1 w-[46px]'
+                            : a4Medium
+                            ? 'py-1.5 w-[48px]'
+                            : 'py-2 w-[50px]'
+                          : isUltraDense
+                          ? 'py-0.5 w-[54px]'
+                          : isSuperDense
+                          ? 'py-1 w-[54px]'
+                          : isDense
+                          ? 'py-1.5 w-[54px]'
+                          : 'py-2 w-[54px]'
+                      } text-center font-black whitespace-nowrap`}>ลำดับ</th>
                       <th className={`${
-                        isUltraDense ? 'py-0.5 px-2' : isSuperDense ? 'py-1 px-2' : isDense ? 'py-1.5 px-3' : 'py-2 px-3'
+                        isA4
+                          ? a4Full
+                            ? 'py-1 px-2'
+                            : a4Medium
+                            ? 'py-1.5 px-2.5'
+                            : 'py-2 px-3'
+                          : isUltraDense
+                          ? 'py-0.5 px-2'
+                          : isSuperDense
+                          ? 'py-1 px-2'
+                          : isDense
+                          ? 'py-1.5 px-3'
+                          : 'py-2 px-3'
                       } font-black whitespace-nowrap`}>รายการสินค้า</th>
                       <th className={`${
-                        isUltraDense ? 'py-0.5' : isSuperDense ? 'py-1' : isDense ? 'py-1.5' : 'py-2'
-                      } text-right w-[76px] font-black whitespace-nowrap`}>จำนวน</th>
+                        isA4
+                          ? a4Full
+                            ? 'py-1 w-[64px]'
+                            : a4Medium
+                            ? 'py-1.5 w-[68px]'
+                            : 'py-2 w-[72px]'
+                          : isUltraDense
+                          ? 'py-0.5 w-[76px]'
+                          : isSuperDense
+                          ? 'py-1 w-[76px]'
+                          : isDense
+                          ? 'py-1.5 w-[76px]'
+                          : 'py-2 w-[76px]'
+                      } text-right font-black whitespace-nowrap`}>จำนวน</th>
                       <th className={`${
-                        isUltraDense ? 'py-0.5' : isSuperDense ? 'py-1' : isDense ? 'py-1.5' : 'py-2'
-                      } text-right w-[118px] font-black whitespace-nowrap`}>หน่วยละ</th>
+                        isA4
+                          ? a4Full
+                            ? 'py-1 w-[100px]'
+                            : a4Medium
+                            ? 'py-1.5 w-[106px]'
+                            : 'py-2 w-[110px]'
+                          : isUltraDense
+                          ? 'py-0.5 w-[118px]'
+                          : isSuperDense
+                          ? 'py-1 w-[118px]'
+                          : isDense
+                          ? 'py-1.5 w-[118px]'
+                          : 'py-2 w-[118px]'
+                      } text-right font-black whitespace-nowrap`}>หน่วยละ</th>
                       <th className={`${
-                        isUltraDense ? 'py-0.5 pr-1' : isSuperDense ? 'py-1 pr-1' : isDense ? 'py-1.5 pr-2' : 'py-2 pr-2'
-                      } text-right w-[152px] font-black whitespace-nowrap`}>จำนวนเงิน (บาท)</th>
+                        isA4
+                          ? a4Full
+                            ? 'py-1 pr-1.5 w-[126px]'
+                            : a4Medium
+                            ? 'py-1.5 pr-2 w-[134px]'
+                            : 'py-2 pr-2 w-[140px]'
+                          : isUltraDense
+                          ? 'py-0.5 pr-1 w-[152px]'
+                          : isSuperDense
+                          ? 'py-1 pr-1 w-[152px]'
+                          : isDense
+                          ? 'py-1.5 pr-2 w-[152px]'
+                          : 'py-2 pr-2 w-[152px]'
+                      } text-right font-black whitespace-nowrap`}>จำนวนเงิน (บาท)</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pageItems.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="text-center py-10 text-black font-black text-[16.5px] italic">
+                        <td colSpan={5} className={`text-center py-10 text-black font-black ${isA4 ? 'text-[14.5px]' : 'text-[16.5px]'} italic`}>
                           ไม่มีรายการในใบเสร็จ
                         </td>
                       </tr>
@@ -329,29 +504,71 @@ function ContinuousReceiptPaper({
                         {pageIdx > 0 && (
                           <tr className="bg-stone-50 border-b border-black font-bold">
                             <td className={`text-center ${
-                              isUltraDense ? 'py-0' : isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'
-                            } text-stone-500 font-mono text-[12.5px]`}>
+                              isA4
+                                ? a4Full
+                                  ? 'py-[2px] text-[11px]'
+                                  : a4Medium
+                                  ? 'py-0.5 text-[11.5px]'
+                                  : 'py-1 text-[12px]'
+                                : isUltraDense
+                                ? 'py-0 text-[12.5px]'
+                                : isSuperDense
+                                ? 'py-0.5 text-[12.5px]'
+                                : isDense
+                                ? 'py-1 text-[12.5px]'
+                                : 'py-1.5 text-[12.5px]'
+                            } text-stone-500 font-mono`}>
                               -
                             </td>
                             <td className={`px-2 ${
-                              isUltraDense ? 'py-0 text-[12px]' : isSuperDense ? 'py-0.5 text-[13px]' : isDense ? 'py-1 text-[15px]' : 'py-1.5 text-[16px]'
+                              isA4
+                                ? a4Full
+                                  ? 'py-[2px] text-[11px]'
+                                  : a4Medium
+                                  ? 'py-0.5 text-[12px]'
+                                  : 'py-1 text-[13px]'
+                                : isUltraDense
+                                ? 'py-0 text-[12px]'
+                                : isSuperDense
+                                ? 'py-0.5 text-[13px]'
+                                : isDense
+                                ? 'py-1 text-[15px]'
+                                : 'py-1.5 text-[16px]'
                             } font-black text-black whitespace-nowrap`} colSpan={3}>
-                              ยอดยกมาจากหน้าที่ {pageIdx}
+                              ยอดยกมาจากหน้าที่ {pageIdx} ({previousItemCount} รายการ)
                             </td>
                             <td className={`text-right ${
-                              isUltraDense ? 'py-0 pr-1 text-[12px]' : isSuperDense ? 'py-0.5 pr-1 text-[13px]' : isDense ? 'py-1 pr-2 text-[15px]' : 'py-1.5 pr-2 text-[16px]'
+                              isA4
+                                ? a4Full
+                                  ? 'py-[2px] pr-1.5 text-[11px]'
+                                  : a4Medium
+                                  ? 'py-0.5 pr-2 text-[12px]'
+                                  : 'py-1 pr-2 text-[13px]'
+                                : isUltraDense
+                                ? 'py-0 pr-1 text-[12px]'
+                                : isSuperDense
+                                ? 'py-0.5 pr-1 text-[13px]'
+                                : isDense
+                                ? 'py-1 pr-2 text-[15px]'
+                                : 'py-1.5 pr-2 text-[16px]'
                             } font-black text-black whitespace-nowrap font-mono`}>
                               {previousSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
                           </tr>
                         )}
                         {pageItems.map((i, index) => {
-                          const globalSeq = pageIdx * itemsPerPage + index + 1;
+                          const globalSeq = previousItemCount + index + 1;
                           return (
                             <tr
                               key={i.product.id || `${pageIdx}-${index}`}
                               className={`align-middle ${
-                                isUltraDense
+                                isA4
+                                  ? a4Full
+                                    ? 'text-[11.5px] leading-[1.25]'
+                                    : a4Medium
+                                    ? 'text-[12.5px] leading-snug'
+                                    : 'text-[13.5px] leading-normal'
+                                  : isUltraDense
                                   ? 'text-[12px] leading-tight'
                                   : isSuperDense
                                   ? 'text-[13px] leading-tight'
@@ -361,27 +578,87 @@ function ContinuousReceiptPaper({
                               }`}
                             >
                               <td className={`text-center ${
-                                isUltraDense ? 'py-0' : isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'
+                                isA4
+                                  ? a4Full
+                                    ? 'py-[2px]'
+                                    : a4Medium
+                                    ? 'py-0.5'
+                                    : 'py-1'
+                                  : isUltraDense
+                                  ? 'py-0'
+                                  : isSuperDense
+                                  ? 'py-0.5'
+                                  : isDense
+                                  ? 'py-1'
+                                  : 'py-1.5'
                               } text-black font-bold whitespace-nowrap`}>
                                 {globalSeq}
                               </td>
                               <td className={`px-2 ${
-                                isUltraDense ? 'py-0' : isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'
+                                isA4
+                                  ? a4Full
+                                    ? 'py-[2px]'
+                                    : a4Medium
+                                    ? 'py-0.5'
+                                    : 'py-1'
+                                  : isUltraDense
+                                  ? 'py-0'
+                                  : isSuperDense
+                                  ? 'py-0.5'
+                                  : isDense
+                                  ? 'py-1'
+                                  : 'py-1.5'
                               } font-bold text-black whitespace-nowrap overflow-hidden text-ellipsis`} title={i.product.name}>
                                 {i.product.name}
                               </td>
                               <td className={`text-right ${
-                                isUltraDense ? 'py-0' : isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'
+                                isA4
+                                  ? a4Full
+                                    ? 'py-[2px]'
+                                    : a4Medium
+                                    ? 'py-0.5'
+                                    : 'py-1'
+                                  : isUltraDense
+                                  ? 'py-0'
+                                  : isSuperDense
+                                  ? 'py-0.5'
+                                  : isDense
+                                  ? 'py-1'
+                                  : 'py-1.5'
                               } font-bold text-black whitespace-nowrap font-mono`}>
                                 {i.quantity}
                               </td>
                               <td className={`text-right ${
-                                isUltraDense ? 'py-0' : isSuperDense ? 'py-0.5' : isDense ? 'py-1' : 'py-1.5'
+                                isA4
+                                  ? a4Full
+                                    ? 'py-[2px]'
+                                    : a4Medium
+                                    ? 'py-0.5'
+                                    : 'py-1'
+                                  : isUltraDense
+                                  ? 'py-0'
+                                  : isSuperDense
+                                  ? 'py-0.5'
+                                  : isDense
+                                  ? 'py-1'
+                                  : 'py-1.5'
                               } font-bold text-black whitespace-nowrap font-mono`}>
                                 {i.product.price.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
                               <td className={`text-right ${
-                                isUltraDense ? 'py-0 pr-1' : isSuperDense ? 'py-0.5 pr-1' : isDense ? 'py-1 pr-2' : 'py-2 pr-2'
+                                isA4
+                                  ? a4Full
+                                    ? 'py-[2px] pr-1.5'
+                                    : a4Medium
+                                    ? 'py-0.5 pr-2'
+                                    : 'py-1 pr-2'
+                                  : isUltraDense
+                                  ? 'py-0 pr-1'
+                                  : isSuperDense
+                                  ? 'py-0.5 pr-1'
+                                  : isDense
+                                  ? 'py-1 pr-2'
+                                  : 'py-2 pr-2'
                               } font-black text-black whitespace-nowrap font-mono`}>
                                 {(itemLineSatang(i) / 100).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
@@ -395,7 +672,21 @@ function ContinuousReceiptPaper({
                           }).map((_, idx) => (
                             <tr
                               key={`empty-row-${pageIdx}-${idx}`}
-                              className={isUltraDense ? 'h-[14px]' : isSuperDense ? 'h-[18px]' : isDense ? 'h-[22px]' : 'h-[28px]'}
+                              className={
+                                isA4
+                                  ? a4Full
+                                    ? 'h-[18px]'
+                                    : a4Medium
+                                    ? 'h-[22px]'
+                                    : 'h-[26px]'
+                                  : isUltraDense
+                                  ? 'h-[14px]'
+                                  : isSuperDense
+                                  ? 'h-[18px]'
+                                  : isDense
+                                  ? 'h-[22px]'
+                                  : 'h-[28px]'
+                              }
                             >
                               <td className="text-center py-0.5 whitespace-nowrap">&nbsp;</td>
                               <td className="px-2 py-0.5 whitespace-nowrap">&nbsp;</td>
@@ -415,12 +706,36 @@ function ContinuousReceiptPaper({
                 <div className="mt-auto shrink-0 flex flex-col">
                   {/* Calculations & Baht Text Block */}
                   <div className={`grid grid-cols-12 ${
-                    isUltraDense ? 'pt-1 pb-0.5 gap-2' : isSuperDense ? 'pt-1 pb-1 gap-2' : isDense ? 'pt-2 pb-1 gap-3' : 'pt-3 pb-2 gap-4'
+                    isA4
+                      ? a4Full
+                        ? 'pt-1.5 pb-1 gap-2'
+                        : a4Medium
+                        ? 'pt-2 pb-1.5 gap-3'
+                        : 'pt-2.5 pb-2 gap-4'
+                      : isUltraDense
+                      ? 'pt-1 pb-0.5 gap-2'
+                      : isSuperDense
+                      ? 'pt-1 pb-1 gap-2'
+                      : isDense
+                      ? 'pt-2 pb-1 gap-3'
+                      : 'pt-3 pb-2 gap-4'
                   } border-t-2 border-black`}>
                     <div className="col-span-7 flex flex-col justify-center">
                       <div className="px-1 py-0.5">
                         <p className={`${
-                          isUltraDense ? 'text-[12.5px]' : isSuperDense ? 'text-[13.5px]' : isDense ? 'text-[15px]' : 'text-[16.5px]'
+                          isA4
+                            ? a4Full
+                              ? 'text-[11.5px]'
+                              : a4Medium
+                              ? 'text-[12.5px]'
+                              : 'text-[13.5px]'
+                            : isUltraDense
+                            ? 'text-[12.5px]'
+                            : isSuperDense
+                            ? 'text-[13.5px]'
+                            : isDense
+                            ? 'text-[15px]'
+                            : 'text-[16.5px]'
                         } text-black font-bold leading-tight`}>
                           จำนวนเงินตัวอักษร : <span className="text-black font-black">( {thaiBaht(netTotal)} )</span>
                         </p>
@@ -428,18 +743,30 @@ function ContinuousReceiptPaper({
                     </div>
 
                     <div className={`col-span-5 pl-3 py-0.5 flex flex-col justify-center ${
-                      isUltraDense ? 'gap-0.5 text-[12.5px]' : isSuperDense ? 'gap-1 text-[13.5px]' : isDense ? 'gap-1 text-[15px]' : 'gap-1.5 text-[16.5px]'
+                      isA4
+                        ? a4Full
+                          ? 'gap-0.5 text-[11.5px]'
+                          : a4Medium
+                          ? 'gap-1 text-[12.5px]'
+                          : 'gap-1 text-[13.5px]'
+                        : isUltraDense
+                        ? 'gap-0.5 text-[12.5px]'
+                        : isSuperDense
+                        ? 'gap-1 text-[13.5px]'
+                        : isDense
+                        ? 'gap-1 text-[15px]'
+                        : 'gap-1.5 text-[16.5px]'
                     } font-bold text-black font-mono`}>
                       {totalPages > 1 && pageIdx > 0 && (
                         <>
                           <div className="flex justify-between items-center text-slate-800">
-                            <span className="font-bold whitespace-nowrap">ยอดยกมาจากหน้าก่อน :</span>
+                            <span className="font-bold whitespace-nowrap">ยอดยกมาจากหน้าก่อน ({previousItemCount} รายการ) :</span>
                             <span className="font-black whitespace-nowrap">
                               {previousSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                           </div>
                           <div className="flex justify-between items-center text-slate-800">
-                            <span className="font-bold whitespace-nowrap">ยอดสินค้าหน้านี้ :</span>
+                            <span className="font-bold whitespace-nowrap">ยอดสินค้าหน้านี้ ({pageItems.length} รายการ) :</span>
                             <span className="font-black whitespace-nowrap">
                               {pageSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
@@ -447,7 +774,9 @@ function ContinuousReceiptPaper({
                         </>
                       )}
                       <div className={`flex justify-between items-center ${totalPages > 1 && pageIdx > 0 ? 'border-t border-dashed border-stone-400 pt-0.5' : ''}`}>
-                        <span className="font-bold whitespace-nowrap">รวมเงิน :</span>
+                        <span className="font-bold whitespace-nowrap">
+                          {totalPages > 1 ? `รวมเงิน (${items.length} รายการ) :` : 'รวมเงิน :'}
+                        </span>
                         <span className="font-black whitespace-nowrap">
                           {total.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
@@ -461,7 +790,19 @@ function ContinuousReceiptPaper({
                         </div>
                       )}
                       <div className={`flex justify-between items-center border-t border-black pt-1 ${
-                        isUltraDense ? 'text-[14.5px]' : isSuperDense ? 'text-[15.5px]' : isDense ? 'text-[17.5px]' : 'text-[19px]'
+                        isA4
+                          ? a4Full
+                            ? 'text-[14px]'
+                            : a4Medium
+                            ? 'text-[15.5px]'
+                            : 'text-[17px]'
+                          : isUltraDense
+                          ? 'text-[14.5px]'
+                          : isSuperDense
+                          ? 'text-[15.5px]'
+                          : isDense
+                          ? 'text-[17.5px]'
+                          : 'text-[19px]'
                       } font-black text-black`}>
                         <span className="whitespace-nowrap">ยอดสุทธิ :</span>
                         <span className="text-black font-black whitespace-nowrap">
@@ -473,7 +814,13 @@ function ContinuousReceiptPaper({
 
                   {/* Signature fields strip */}
                   <div className={`grid grid-cols-2 ${
-                    isUltraDense
+                    isA4
+                      ? a4Full
+                        ? 'gap-8 mt-1.5 pt-1 text-[11.5px]'
+                        : a4Medium
+                        ? 'gap-10 mt-2 pt-1.5 text-[12.5px]'
+                        : 'gap-12 mt-3 pt-2 text-[13.5px]'
+                      : isUltraDense
                       ? 'gap-6 mt-0.5 pt-0.5 text-[12px]'
                       : isSuperDense
                       ? 'gap-8 mt-1 pt-1 text-[13px]'
@@ -482,7 +829,21 @@ function ContinuousReceiptPaper({
                       : 'gap-12 mt-3 pt-2 text-[15.5px]'
                   } text-black font-bold border-t border-dashed border-stone-300`}>
                     <div className="flex flex-col items-center justify-center w-full px-2">
-                      <div className={isUltraDense ? 'h-1.5' : isSuperDense ? 'h-2.5' : isDense ? 'h-3' : 'h-5'}></div>
+                      <div className={
+                        isA4
+                          ? a4Full
+                            ? 'h-2.5'
+                            : a4Medium
+                            ? 'h-3.5'
+                            : 'h-5'
+                          : isUltraDense
+                          ? 'h-1.5'
+                          : isSuperDense
+                          ? 'h-2.5'
+                          : isDense
+                          ? 'h-3'
+                          : 'h-5'
+                      }></div>
                       <div className="w-full max-w-[290px] flex items-baseline justify-center gap-1 leading-tight">
                         <span className="shrink-0 whitespace-nowrap">ลงชื่อ</span>
                         <span className="flex-1 overflow-hidden whitespace-nowrap text-center tracking-wider font-mono select-none">
@@ -490,13 +851,27 @@ function ContinuousReceiptPaper({
                         </span>
                         <span className="shrink-0 whitespace-nowrap">ผู้รับสินค้า</span>
                       </div>
-                      <p className={`${isUltraDense ? 'mt-0' : isSuperDense ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap text-center`}>
+                      <p className={`${isUltraDense || a4Full ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap text-center`}>
                         วันที่ ......../......../........
                       </p>
                     </div>
 
                     <div className="flex flex-col items-center justify-center w-full px-2">
-                      <div className={isUltraDense ? 'h-1.5' : isSuperDense ? 'h-2.5' : isDense ? 'h-3' : 'h-5'}></div>
+                      <div className={
+                        isA4
+                          ? a4Full
+                            ? 'h-2.5'
+                            : a4Medium
+                            ? 'h-3.5'
+                            : 'h-5'
+                          : isUltraDense
+                          ? 'h-1.5'
+                          : isSuperDense
+                          ? 'h-2.5'
+                          : isDense
+                          ? 'h-3'
+                          : 'h-5'
+                      }></div>
                       <div className="w-full max-w-[290px] flex items-baseline justify-center gap-1 leading-tight">
                         <span className="shrink-0 whitespace-nowrap">ลงชื่อ</span>
                         <span className="flex-1 overflow-hidden whitespace-nowrap text-center tracking-wider font-mono select-none">
@@ -504,7 +879,7 @@ function ContinuousReceiptPaper({
                         </span>
                         <span className="shrink-0 whitespace-nowrap">ผู้รับเงิน</span>
                       </div>
-                      <p className={`${isUltraDense ? 'mt-0' : isSuperDense ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap text-center`}>
+                      <p className={`${isUltraDense || a4Full ? 'mt-0.5' : 'mt-1'} text-black font-bold whitespace-nowrap text-center`}>
                         วันที่ ......../......../........
                       </p>
                     </div>
@@ -514,37 +889,73 @@ function ContinuousReceiptPaper({
                 <div className="mt-auto shrink-0 flex flex-col">
                   {/* Intermediate Page Carry Forward Block */}
                   <div className={`grid grid-cols-12 ${
-                    isUltraDense ? 'pt-1 pb-0.5 gap-2' : isSuperDense ? 'pt-1.5 pb-1 gap-2' : isDense ? 'pt-2 pb-1 gap-3' : 'pt-3 pb-2 gap-4'
+                    isA4
+                      ? a4Full
+                        ? 'pt-1.5 pb-1 gap-2'
+                        : a4Medium
+                        ? 'pt-2 pb-1 gap-3'
+                        : 'pt-2.5 pb-1.5 gap-4'
+                      : isUltraDense
+                      ? 'pt-1 pb-0.5 gap-2'
+                      : isSuperDense
+                      ? 'pt-1.5 pb-1 gap-2'
+                      : isDense
+                      ? 'pt-2 pb-1 gap-3'
+                      : 'pt-3 pb-2 gap-4'
                   } border-t-2 border-black`}>
-                    <div className="col-span-7 flex flex-col justify-center">
+                    <div className="col-span-6 flex flex-col justify-center">
                       <div className="px-1 py-0.5">
                         <p className={`${
-                          isUltraDense ? 'text-[12.5px]' : isSuperDense ? 'text-[13.5px]' : isDense ? 'text-[15px]' : 'text-[16.5px]'
+                          isA4
+                            ? a4Full
+                              ? 'text-[11.5px]'
+                              : a4Medium
+                              ? 'text-[12.5px]'
+                              : 'text-[13.5px]'
+                            : isUltraDense
+                            ? 'text-[12.5px]'
+                            : isSuperDense
+                            ? 'text-[13.5px]'
+                            : isDense
+                            ? 'text-[15px]'
+                            : 'text-[16.5px]'
                         } text-black font-black leading-tight italic`}>
-                          *** มีต่อหน้าที่ {pageIdx + 2} ***
+                          *** มีต่อหน้าที่ {pageIdx + 2} (ยกยอดสะสม {runningItemCount} รายการ) ***
                         </p>
                       </div>
                     </div>
 
-                    <div className={`col-span-5 pl-3 py-0.5 flex flex-col justify-center ${
-                      isUltraDense ? 'gap-0.5 text-[12.5px]' : isSuperDense ? 'gap-1 text-[13.5px]' : isDense ? 'gap-1 text-[15px]' : 'gap-1.5 text-[16.5px]'
+                    <div className={`col-span-6 pl-3 py-0.5 flex flex-col justify-center ${
+                      isA4
+                        ? a4Full
+                          ? 'gap-0.5 text-[11.5px]'
+                          : a4Medium
+                          ? 'gap-1 text-[12.5px]'
+                          : 'gap-1 text-[13.5px]'
+                        : isUltraDense
+                        ? 'gap-0.5 text-[12.5px]'
+                        : isSuperDense
+                        ? 'gap-1 text-[13.5px]'
+                        : isDense
+                        ? 'gap-1 text-[15px]'
+                        : 'gap-1.5 text-[16.5px]'
                     } font-bold text-black font-mono`}>
                       {pageIdx > 0 && (
                         <div className="flex justify-between items-center text-slate-800">
-                          <span className="font-bold whitespace-nowrap">ยอดยกมาจากหน้าก่อน :</span>
+                          <span className="font-bold whitespace-nowrap">ยอดยกมาจากหน้าก่อน ({previousItemCount} รายการ) :</span>
                           <span className="font-black whitespace-nowrap">
                             {previousSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       )}
                       <div className="flex justify-between items-center text-slate-800">
-                        <span className="font-bold whitespace-nowrap">ยอดรวมหน้านี้ :</span>
+                        <span className="font-bold whitespace-nowrap">ยอดรวมหน้านี้ ({pageItems.length} รายการ) :</span>
                         <span className="font-black whitespace-nowrap">
                           {pageSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
                       <div className="flex justify-between items-center border-t border-black pt-0.5">
-                        <span className="font-bold whitespace-nowrap">ยอดยกไป :</span>
+                        <span className="font-bold whitespace-nowrap">ยอดยกไป ({runningItemCount} รายการ) :</span>
                         <span className="font-black whitespace-nowrap">
                           {runningSubtotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
@@ -554,9 +965,21 @@ function ContinuousReceiptPaper({
 
                   {/* Note for intermediate page */}
                   <div className={`flex justify-between items-center ${
-                    isUltraDense ? 'mt-0.5 pt-0.5 text-[12px]' : isSuperDense ? 'mt-1 pt-1 text-[12.5px]' : isDense ? 'mt-2 pt-1 text-[13.5px]' : 'mt-3 pt-2 text-[14.5px]'
+                    isA4
+                      ? a4Full
+                        ? 'mt-1 pt-1 text-[11px]'
+                        : a4Medium
+                        ? 'mt-1.5 pt-1 text-[12px]'
+                        : 'mt-2 pt-1.5 text-[12.5px]'
+                      : isUltraDense
+                      ? 'mt-0.5 pt-0.5 text-[12px]'
+                      : isSuperDense
+                      ? 'mt-1 pt-1 text-[12.5px]'
+                      : isDense
+                      ? 'mt-2 pt-1 text-[13.5px]'
+                      : 'mt-3 pt-2 text-[14.5px]'
                   } text-slate-800 font-bold border-t border-dashed border-stone-300 px-1`}>
-                    <span>ใบเสร็จรับเงินต่อเนื่อง (หน้าที่ {pageIdx + 1} จาก {totalPages} หน้า)</span>
+                    <span>{isA4 ? 'ใบเสร็จรับเงินขนาด A4' : 'ใบเสร็จรับเงินต่อเนื่อง'} (หน้าที่ {pageIdx + 1} จาก {totalPages} หน้า)</span>
                     <span className="font-black text-black">โปรดดูยอดรวมสุทธิและลายเซ็นต์ที่หน้า {totalPages}</span>
                   </div>
                 </div>
@@ -626,9 +1049,16 @@ export default function ReceiptView({
   
   // Inner Sub-tab navigation
   const [subTab, setSubTab] = useState<'create' | 'manage'>('create');
-  const printPinhole = true;
-  const paperSize = '9.5x11' as const;
-  const effectiveLinesPerPage = 20;
+  const [paperMode, setPaperMode] = useState<'continuous' | 'a4'>('continuous');
+  const [printPaperMode, setPrintPaperMode] = useState<'continuous' | 'a4'>('continuous');
+  const [activePrintMode, setActivePrintMode] = useState<'continuous' | 'a4' | null>(null);
+  const printPinhole = paperMode === 'continuous';
+  const paperSize = paperMode === 'a4' ? ('a4' as const) : ('9.5x11' as const);
+  const effectiveLinesPerPage = paperMode === 'a4' ? 35 : 20;
+  const printPaperSize = printPaperMode === 'a4' ? ('a4' as const) : ('9.5x11' as const);
+  const printLinesPerPage = printPaperMode === 'a4' ? 35 : 20;
+  const previewTargetWidth = paperMode === 'a4' ? 794 : 912;
+  const previewTargetHeight = paperMode === 'a4' ? 1123 : 1056;
   
   // Outer container ref and scale state to automatically fit the receipt preview to the width
   const previewContainerRef = React.useRef<HTMLDivElement>(null);
@@ -641,21 +1071,22 @@ export default function ReceiptView({
 
   useEffect(() => {
     if (!previewContainerRef.current) return;
+    const updateScale = (containerWidth: number) => {
+      if (containerWidth < previewTargetWidth) {
+        setPreviewScale(containerWidth / previewTargetWidth);
+      } else {
+        setPreviewScale(1);
+      }
+    };
+    updateScale(previewContainerRef.current.clientWidth || previewTargetWidth);
     const resizeObserver = new ResizeObserver((entries) => {
       for (let entry of entries) {
-        const containerWidth = entry.contentRect.width;
-        // Standard width for 9.5 inches continuous form paper at 96 dpi is 912px
-        const targetWidth = 912;
-        if (containerWidth < targetWidth) {
-          setPreviewScale(containerWidth / targetWidth);
-        } else {
-          setPreviewScale(1);
-        }
+        updateScale(entry.contentRect.width);
       }
     });
     resizeObserver.observe(previewContainerRef.current);
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [previewTargetWidth]);
 
   // Sales list states
   const [allSales, setAllSales] = useState<Sale[]>([]);
@@ -712,7 +1143,7 @@ export default function ReceiptView({
       observer.disconnect();
       clearTimeout(timer);
     };
-  }, [items, previewZoom, selectedPreviewPage, custName, custAddress, custPhone, custTaxId, discount]);
+  }, [items, previewZoom, selectedPreviewPage, paperMode, custName, custAddress, custPhone, custTaxId, discount]);
 
   const [isPrinted, setIsPrinted] = useState<boolean>(false);
 
@@ -1237,12 +1668,19 @@ export default function ReceiptView({
     }
   };
 
-  const handlePrint = async () => {
+  const handlePrint = async (targetMode: 'continuous' | 'a4' = 'continuous') => {
     if (isPrinted || isSavingSale) return;
+    setPaperMode(targetMode);
+    setPrintPaperMode(targetMode);
+    setActivePrintMode(targetMode);
     setIsPrinted(true);
     try {
       const invoiceNum = await saveSaleToFirestore({ keepAfterSave: true });
       if (invoiceNum) {
+        // Wait two frames so the print portal DOM and @page rules match the chosen paper size before printing
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        });
         try {
           window.focus();
           window.print();
@@ -1252,6 +1690,7 @@ export default function ReceiptView({
       }
     } finally {
       setIsPrinted(false);
+      setActivePrintMode(null);
     }
   };
 
@@ -1867,9 +2306,30 @@ export default function ReceiptView({
 
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-bold text-slate-800 whitespace-nowrap">
-                  ภาพตัวอย่างใบเสร็จต่อเนื่อง (9.5" x 11")
-                </span>
+                <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setPaperMode('continuous')}
+                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                      paperMode === 'continuous'
+                        ? 'bg-white text-slate-950 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    กระดาษต่อเนื่อง 9.5"×11" (20/แผ่น)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaperMode('a4')}
+                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                      paperMode === 'a4'
+                        ? 'bg-white text-slate-950 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    กระดาษ A4 แนวตั้ง (35/แผ่น)
+                  </button>
+                </div>
                 {totalPages > 1 && (
                   <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs sm:text-sm font-bold flex-wrap">
                     <button
@@ -1928,7 +2388,7 @@ export default function ReceiptView({
               </div>
             </div>
 
-            {/* Paper Bill Lookalike Preview in Continuous Form layout */}
+            {/* Paper Bill Lookalike Preview */}
             {previewZoom === 'fit' ? (
               <div
                 ref={previewContainerRef}
@@ -1941,13 +2401,13 @@ export default function ReceiptView({
                 <div
                   ref={receiptCardRef}
                   style={{
-                    width: '912px',
-                    minHeight: '1056px',
+                    width: `${previewTargetWidth}px`,
+                    minHeight: `${previewTargetHeight}px`,
                     transform: `scale(${previewScale})`,
                     transformOrigin: 'top center',
                     position: 'absolute',
                     left: '50%',
-                    marginLeft: '-456px',
+                    marginLeft: `-${previewTargetWidth / 2}px`,
                     top: 0,
                   }}
                 >
@@ -1994,33 +2454,63 @@ export default function ReceiptView({
 
             {/* Print and Save buttons */}
             <div className="flex flex-col gap-2.5">
-              <button
-                onClick={handlePrint}
-                disabled={items.length === 0 || isSavingSale || isPrinted}
-                className={`w-full py-4 rounded-xl font-bold text-base text-white shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all ${
-                  items.length === 0
-                    ? 'bg-slate-300 cursor-not-allowed shadow-none'
-                    : isPrinted || isSavingSale
-                    ? 'bg-slate-800 cursor-wait'
-                    : 'bg-slate-950 hover:bg-slate-850 active:scale-[0.98]'
-                }`}
-              >
-                {isPrinted || isSavingSale ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    <span>{isSavingSale ? 'กำลังบันทึกข้อมูลบิล...' : 'กำลังสั่งพิมพ์...'}</span>
-                  </>
-                ) : (
-                  <>
-                    <Printer className="w-5 h-5" />
-                    <span>
-                      {effectiveInvoiceId
-                        ? `พิมพ์ใบเสร็จซ้ำ (#${effectiveInvoiceId})`
-                        : 'สั่งพิมพ์ใบเสร็จ (กระดาษต่อเนื่อง)'}
-                    </span>
-                  </>
-                )}
-              </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  onClick={() => handlePrint('continuous')}
+                  disabled={items.length === 0 || isSavingSale || isPrinted}
+                  className={`w-full py-3.5 px-3 rounded-xl font-bold text-sm sm:text-base text-white shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                    items.length === 0
+                      ? 'bg-slate-300 cursor-not-allowed shadow-none'
+                      : isPrinted || isSavingSale
+                      ? 'bg-slate-800 cursor-wait'
+                      : 'bg-slate-950 hover:bg-slate-850 active:scale-[0.98]'
+                  }`}
+                >
+                  {(isPrinted || isSavingSale) && activePrintMode === 'continuous' ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>{isSavingSale ? 'กำลังบันทึกข้อมูลบิล...' : 'กำลังสั่งพิมพ์...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Printer className="w-4 h-4 shrink-0" />
+                      <span>
+                        {effectiveInvoiceId
+                          ? `พิมพ์ซ้ำต่อเนื่อง (#${effectiveInvoiceId})`
+                          : 'สั่งพิมพ์กระดาษต่อเนื่อง (9.5"×11")'}
+                      </span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => handlePrint('a4')}
+                  disabled={items.length === 0 || isSavingSale || isPrinted}
+                  className={`w-full py-3.5 px-3 rounded-xl font-bold text-sm sm:text-base shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all border ${
+                    items.length === 0
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed shadow-none'
+                      : isPrinted || isSavingSale
+                      ? 'bg-emerald-700 text-white border-emerald-700 cursor-wait'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 active:scale-[0.98]'
+                  }`}
+                >
+                  {(isPrinted || isSavingSale) && activePrintMode === 'a4' ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>{isSavingSale ? 'กำลังบันทึกข้อมูลบิล...' : 'กำลังสั่งพิมพ์ A4...'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="w-4 h-4 shrink-0" />
+                      <span>
+                        {effectiveInvoiceId
+                          ? `พิมพ์ซ้ำกระดาษ A4 (#${effectiveInvoiceId})`
+                          : 'สั่งพิมพ์กระดาษ A4 (35/หน้า)'}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
 
               <div className="flex gap-2.5">
                 <button
@@ -2059,7 +2549,7 @@ export default function ReceiptView({
           <style>{`
             @media print {
               @page {
-                size: 9.5in 11in portrait !important;
+                size: ${printPaperMode === 'a4' ? 'A4 portrait' : '9.5in 11in portrait'} !important;
                 margin: 0 !important;
               }
               html, body {
@@ -2084,10 +2574,10 @@ export default function ReceiptView({
               .dot-matrix-print-target {
                 width: 100% !important;
                 max-width: 100% !important;
-                height: 11in !important;
-                max-height: 11in !important;
+                height: ${printPaperMode === 'a4' ? '297mm' : '11in'} !important;
+                max-height: ${printPaperMode === 'a4' ? '297mm' : '11in'} !important;
                 margin: 0 !important;
-                padding: 4.5mm 8mm !important;
+                padding: ${printPaperMode === 'a4' ? '7mm 10mm' : '4.5mm 8mm'} !important;
                 box-sizing: border-box !important;
                 overflow: hidden !important;
                 page-break-inside: avoid !important;
@@ -2104,8 +2594,8 @@ export default function ReceiptView({
             }
           `}</style>
           <ContinuousReceiptPaper
-            paperSize={paperSize}
-            printPinhole={printPinhole}
+            paperSize={printPaperSize}
+            printPinhole={printPaperMode === 'continuous'}
             invoiceNumber={invoiceNumber}
             todayStr={todayStr}
             custName={custName}
@@ -2117,7 +2607,7 @@ export default function ReceiptView({
             discount={discount}
             netTotal={netTotal}
             isPrintPortal={true}
-            linesPerPage={effectiveLinesPerPage}
+            linesPerPage={printLinesPerPage}
           />
         </div>,
         document.body
@@ -2130,13 +2620,39 @@ export default function ReceiptView({
             <div className="flex items-center gap-3">
               <Receipt className="w-6 h-6 text-emerald-400" />
               <div>
-                <h3 className="font-bold text-base sm:text-lg">ภาพตัวอย่างใบเสร็จต่อเนื่อง 100% (ตรงตามการพิมพ์จริง 1:1)</h3>
+                <h3 className="font-bold text-base sm:text-lg">
+                  {paperMode === 'a4'
+                    ? 'ภาพตัวอย่างใบเสร็จกระดาษ A4 100% (ตรงตามการพิมพ์จริง 1:1)'
+                    : 'ภาพตัวอย่างใบเสร็จต่อเนื่อง 100% (ตรงตามการพิมพ์จริง 1:1)'}
+                </h3>
                 <p className="text-xs text-slate-300">
-                  ขนาดกระดาษ 9.5" x 11" • ขนาดตัวหนังสือ ความเข้ม และตำแหน่งตรงตามที่สั่งพิมพ์
+                  {paperMode === 'a4'
+                    ? 'ขนาดกระดาษ A4 แนวตั้ง (210mm x 297mm) • สูงสุด 35 รายการต่อหน้า'
+                    : 'ขนาดกระดาษ 9.5" x 11" • สูงสุด 20 รายการต่อแผ่น'}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl text-xs sm:text-sm font-bold">
+                <button
+                  type="button"
+                  onClick={() => setPaperMode('continuous')}
+                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+                    paperMode === 'continuous' ? 'bg-white text-slate-950' : 'text-white/80 hover:text-white'
+                  }`}
+                >
+                  ต่อเนื่อง 9.5"×11"
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaperMode('a4')}
+                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+                    paperMode === 'a4' ? 'bg-white text-slate-950' : 'text-white/80 hover:text-white'
+                  }`}
+                >
+                  กระดาษ A4
+                </button>
+              </div>
               {totalPages > 1 && (
                 <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl text-xs sm:text-sm font-bold">
                   <button
